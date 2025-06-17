@@ -35,11 +35,11 @@ const Dashboard = () => {
     if (activeSection === 'dashboard') {
       switch (profile?.role) {
         case 'mentor':
-          return <MentorDashboard />;
+          return <MentorDashboard setActiveSection={setActiveSection} />;
         case 'admin':
-          return <AdminDashboard />;
+          return <AdminDashboard setActiveSection={setActiveSection} />;
         default:
-          return <LearnerDashboard />;
+          return <LearnerDashboard setActiveSection={setActiveSection} />;
       }
     }
 
