@@ -9,16 +9,259 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      achievements: {
+        Row: {
+          badge_name: string
+          badge_type: string
+          description: string | null
+          earned_at: string | null
+          id: string
+          learner_id: string
+          points_awarded: number | null
+        }
+        Insert: {
+          badge_name: string
+          badge_type: string
+          description?: string | null
+          earned_at?: string | null
+          id?: string
+          learner_id: string
+          points_awarded?: number | null
+        }
+        Update: {
+          badge_name?: string
+          badge_type?: string
+          description?: string | null
+          earned_at?: string | null
+          id?: string
+          learner_id?: string
+          points_awarded?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "achievements_learner_id_fkey"
+            columns: ["learner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documents: {
+        Row: {
+          document_type: Database["public"]["Enums"]["document_type"]
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+          learner_id: string
+          submission_id: string | null
+          uploaded_at: string | null
+        }
+        Insert: {
+          document_type: Database["public"]["Enums"]["document_type"]
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          learner_id: string
+          submission_id?: string | null
+          uploaded_at?: string | null
+        }
+        Update: {
+          document_type?: Database["public"]["Enums"]["document_type"]
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          learner_id?: string
+          submission_id?: string | null
+          uploaded_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_learner_id_fkey"
+            columns: ["learner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "feedback_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feedback_submissions: {
+        Row: {
+          created_at: string | null
+          due_date: string
+          id: string
+          learner_id: string
+          mentor_feedback: string | null
+          mentor_rating: number | null
+          month: number
+          status: Database["public"]["Enums"]["compliance_status"] | null
+          submission_data: Json | null
+          submitted_at: string | null
+          year: number
+        }
+        Insert: {
+          created_at?: string | null
+          due_date: string
+          id?: string
+          learner_id: string
+          mentor_feedback?: string | null
+          mentor_rating?: number | null
+          month: number
+          status?: Database["public"]["Enums"]["compliance_status"] | null
+          submission_data?: Json | null
+          submitted_at?: string | null
+          year: number
+        }
+        Update: {
+          created_at?: string | null
+          due_date?: string
+          id?: string
+          learner_id?: string
+          mentor_feedback?: string | null
+          mentor_rating?: number | null
+          month?: number
+          status?: Database["public"]["Enums"]["compliance_status"] | null
+          submission_data?: Json | null
+          submitted_at?: string | null
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_submissions_learner_id_fkey"
+            columns: ["learner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          message: string
+          read_at: string | null
+          title: string
+          type: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message: string
+          read_at?: string | null
+          title: string
+          type?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message?: string
+          read_at?: string | null
+          title?: string
+          type?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          compliance_score: number | null
+          created_at: string | null
+          email: string
+          employer_name: string | null
+          full_name: string
+          id: string
+          id_number: string | null
+          learnership_program: string | null
+          mentor_id: string | null
+          points: number | null
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          compliance_score?: number | null
+          created_at?: string | null
+          email: string
+          employer_name?: string | null
+          full_name: string
+          id: string
+          id_number?: string | null
+          learnership_program?: string | null
+          mentor_id?: string | null
+          points?: number | null
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          compliance_score?: number | null
+          created_at?: string | null
+          email?: string
+          employer_name?: string | null
+          full_name?: string
+          id?: string
+          id_number?: string | null
+          learnership_program?: string | null
+          mentor_id?: string | null
+          points?: number | null
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      update_compliance_score: {
+        Args: { user_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
-      [_ in never]: never
+      compliance_status:
+        | "pending"
+        | "submitted"
+        | "overdue"
+        | "approved"
+        | "rejected"
+      document_type:
+        | "attendance_proof"
+        | "logbook_page"
+        | "assessment"
+        | "other"
+      user_role: "learner" | "mentor" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -133,6 +376,21 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      compliance_status: [
+        "pending",
+        "submitted",
+        "overdue",
+        "approved",
+        "rejected",
+      ],
+      document_type: [
+        "attendance_proof",
+        "logbook_page",
+        "assessment",
+        "other",
+      ],
+      user_role: ["learner", "mentor", "admin"],
+    },
   },
 } as const
