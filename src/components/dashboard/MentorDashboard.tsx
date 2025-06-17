@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,7 +10,11 @@ import { Tables } from '@/integrations/supabase/types';
 type Profile = Tables<'profiles'>;
 type FeedbackSubmission = Tables<'feedback_submissions'>;
 
-const MentorDashboard = () => {
+interface MentorDashboardProps {
+  setActiveSection?: (section: string) => void;
+}
+
+const MentorDashboard: React.FC<MentorDashboardProps> = ({ setActiveSection }) => {
   const { profile } = useAuth();
   const [learners, setLearners] = useState<Profile[]>([]);
   const [submissions, setSubmissions] = useState<FeedbackSubmission[]>([]);
@@ -70,7 +73,6 @@ const MentorDashboard = () => {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Total Learners */}
         <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -85,7 +87,6 @@ const MentorDashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Pending Reviews */}
         <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -100,7 +101,6 @@ const MentorDashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Average Compliance */}
         <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -115,7 +115,6 @@ const MentorDashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Overdue Items */}
         <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -132,7 +131,6 @@ const MentorDashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Learners Overview */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
@@ -167,7 +165,6 @@ const MentorDashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Recent Submissions */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
