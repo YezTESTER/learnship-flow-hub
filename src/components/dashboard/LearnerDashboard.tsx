@@ -1,45 +1,80 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Trophy, FileText, AlertTriangle, CheckCircle } from 'lucide-react';
-import { Tables } from '@/integrations/supabase/types';
-
-type FeedbackSubmission = Tables<'feedback_submissions'>;
-type Achievement = Tables<'achievements'>;
+import { Progress } from '@/components/ui/progress';
+import { supabase } from '@/integrations/supabase/client';
+import { 
+  Calendar, 
+  FileText, 
+  Upload, 
+  Award, 
+  TrendingUp, 
+  Clock,
+  CheckCircle,
+  AlertTriangle,
+  Target
+} from 'lucide-react';
 
 const LearnerDashboard = () => {
-  const { profile } = useAuth();
-  const [submissions, setSubmissions] = useState<FeedbackSubmission[]>([]);
-  const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const { user, profile } = useAuth();
+  const [stats, setStats] = useState({
+    totalSubmissions: 0,
+    pendingSubmissions: 0,
+    totalDocuments: 0,
+    totalAchievements: 0,
+    complianceScore: 0
+  });
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (profile?.id) {
+    if (user) {
       fetchDashboardData();
     }
-  }, [profile]);
+  }, [user]);
 
   const fetchDashboardData = async () => {
-    try {
-      const [submissionsData, achievementsData] = await Promise.all([
-        supabase
-          .from('feedback_submissions')
-          .select('*')
-          .eq('learner_id', profile!.id)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('achievements')
-          .select('*')
-          .eq('learner_id', profile!.id)
-          .order('earned_at', { ascending: false })
-      ]);
+    if (!user) return;
 
-      if (submissionsData.data) setSubmissions(submissionsData.data);
-      if (achievementsData.data) setAchievements(achievementsData.data);
+    try {
+      // Fetch submission stats
+      const { data: submissions, error: submissionError } = await supabase
+        .from('feedback_submissions')
+        .select('*')
+        .eq('learner_id', user.id);
+
+      if (submissionError) throw submissionError;
+
+      // Fetch document count
+      const { data: documents, error: documentError } = await supabase
+        .from('documents')
+        .select('id')
+        .eq('learner_id', user.id);
+
+      if (documentError) throw documentError;
+
+      // Fetch achievement count
+      const { data: achievements, error: achievementError } = await supabase
+        .from('achievements')
+        .select('*')
+        .eq('learner_id', user.id)
+        .order('earned_at', { ascending: false })
+        .limit(5);
+
+      if (achievementError) throw achievementError;
+
+      setStats({
+        totalSubmissions: submissions?.length || 0,
+        pendingSubmissions: submissions?.filter(s => s.status === 'pending').length || 0,
+        totalDocuments: documents?.length || 0,
+        totalAchievements: achievements?.length || 0,
+        complianceScore: profile?.compliance_score || 0
+      });
+
+      setRecentActivity(achievements || []);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -47,160 +82,238 @@ const LearnerDashboard = () => {
     }
   };
 
-  const getComplianceScore = () => {
-    return profile?.compliance_score || 0;
-  };
-
-  const getPendingSubmissions = () => {
-    return submissions.filter(s => s.status === 'pending').length;
-  };
-
-  const getOverdueSubmissions = () => {
-    return submissions.filter(s => s.status === 'overdue').length;
-  };
-
-  const getRecentAchievements = () => {
-    return achievements.slice(0, 3);
-  };
+  const currentMonth = new Date().toLocaleString('default', { month: 'long' });
+  const daysUntilDeadline = Math.ceil((new Date(new Date().getFullYear(), new Date().getMonth() + 1, 5).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 
   if (loading) {
-    return <div className="flex items-center justify-center h-64">Loading...</div>;
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="h-32 bg-gray-200 rounded-xl"></div>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="h-64 bg-gray-200 rounded-xl"></div>
+          <div className="h-64 bg-gray-200 rounded-xl"></div>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
+      {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Compliance Score */}
-        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+        <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-green-600 text-sm font-medium">Compliance Score</p>
-                <p className="text-3xl font-bold text-green-700">{getComplianceScore().toFixed(0)}%</p>
+                <p className="text-blue-100 text-sm font-medium">Points</p>
+                <p className="text-3xl font-bold">{profile?.points || 0}</p>
               </div>
-              <div className="h-12 w-12 bg-green-500 rounded-full flex items-center justify-center">
-                <CheckCircle className="h-6 w-6 text-white" />
-              </div>
-            </div>
-            <Progress value={getComplianceScore()} className="mt-3" />
-          </CardContent>
-        </Card>
-
-        {/* Total Points */}
-        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-orange-600 text-sm font-medium">Total Points</p>
-                <p className="text-3xl font-bold text-orange-700">{profile?.points || 0}</p>
-              </div>
-              <div className="h-12 w-12 bg-[#e16623] rounded-full flex items-center justify-center">
-                <Trophy className="h-6 w-6 text-white" />
-              </div>
+              <Award className="h-8 w-8 text-blue-200" />
             </div>
           </CardContent>
         </Card>
 
-        {/* Pending Tasks */}
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+        <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-blue-600 text-sm font-medium">Pending Tasks</p>
-                <p className="text-3xl font-bold text-blue-700">{getPendingSubmissions()}</p>
+                <p className="text-green-100 text-sm font-medium">Compliance</p>
+                <p className="text-3xl font-bold">{stats.complianceScore}%</p>
               </div>
-              <div className="h-12 w-12 bg-[#122ec0] rounded-full flex items-center justify-center">
-                <FileText className="h-6 w-6 text-white" />
-              </div>
+              <TrendingUp className="h-8 w-8 text-green-200" />
             </div>
           </CardContent>
         </Card>
 
-        {/* Overdue Items */}
-        <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
+        <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-red-600 text-sm font-medium">Overdue</p>
-                <p className="text-3xl font-bold text-red-700">{getOverdueSubmissions()}</p>
+                <p className="text-purple-100 text-sm font-medium">Documents</p>
+                <p className="text-3xl font-bold">{stats.totalDocuments}</p>
               </div>
-              <div className="h-12 w-12 bg-red-500 rounded-full flex items-center justify-center">
-                <AlertTriangle className="h-6 w-6 text-white" />
+              <Upload className="h-8 w-8 text-purple-200" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-orange-100 text-sm font-medium">Submissions</p>
+                <p className="text-3xl font-bold">{stats.totalSubmissions}</p>
               </div>
+              <FileText className="h-8 w-8 text-orange-200" />
             </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* Monthly Report Reminder */}
+      <Card className="bg-gradient-to-r from-[#122ec0] to-blue-600 text-white border-0 shadow-lg">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-white/20 rounded-full">
+                <Calendar className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold">{currentMonth} Monthly Report</h3>
+                <p className="text-blue-100">
+                  {daysUntilDeadline > 0 
+                    ? `Due in ${daysUntilDeadline} days (5th of the month)`
+                    : 'Overdue - Submit immediately'}
+                </p>
+              </div>
+            </div>
+            <Button 
+              className="bg-white text-[#122ec0] hover:bg-gray-100 rounded-xl font-semibold"
+              onClick={() => window.location.hash = '#feedback'}
+            >
+              {daysUntilDeadline > 0 ? 'Submit Report' : 'Submit Now'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Submissions */}
-        <Card>
+        {/* Progress Overview */}
+        <Card className="border-0 shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
-              <Calendar className="h-5 w-5" />
-              <span>Recent Submissions</span>
+              <Target className="h-5 w-5 text-[#122ec0]" />
+              <span>Progress Overview</span>
             </CardTitle>
+            <CardDescription>Your learnership journey so far</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {submissions.slice(0, 5).map((submission) => (
-                <div key={submission.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="font-medium">
-                      {new Date(submission.created_at!).toLocaleDateString('en-ZA', { 
-                        month: 'long', 
-                        year: 'numeric' 
-                      })}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      Due: {new Date(submission.due_date).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <Badge variant={
-                    submission.status === 'submitted' ? 'default' :
-                    submission.status === 'approved' ? 'secondary' :
-                    submission.status === 'overdue' ? 'destructive' : 'outline'
-                  }>
-                    {submission.status}
-                  </Badge>
-                </div>
-              ))}
-              {submissions.length === 0 && (
-                <p className="text-gray-500 text-center py-4">No submissions yet</p>
-              )}
+          <CardContent className="space-y-4">
+            <div>
+              <div className="flex justify-between text-sm mb-2">
+                <span>Compliance Score</span>
+                <span>{stats.complianceScore}%</span>
+              </div>
+              <Progress value={stats.complianceScore} className="h-2" />
+            </div>
+            
+            <div>
+              <div className="flex justify-between text-sm mb-2">
+                <span>Monthly Reports</span>
+                <span>{stats.totalSubmissions}/12</span>
+              </div>
+              <Progress value={(stats.totalSubmissions / 12) * 100} className="h-2" />
+            </div>
+
+            <div>
+              <div className="flex justify-between text-sm mb-2">
+                <span>Documents Uploaded</span>
+                <span>{stats.totalDocuments}</span>
+              </div>
+              <Progress value={Math.min(stats.totalDocuments * 10, 100)} className="h-2" />
             </div>
           </CardContent>
         </Card>
 
         {/* Recent Achievements */}
-        <Card>
+        <Card className="border-0 shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
-              <Trophy className="h-5 w-5" />
+              <Award className="h-5 w-5 text-[#122ec0]" />
               <span>Recent Achievements</span>
             </CardTitle>
+            <CardDescription>Your latest milestones and badges</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {getRecentAchievements().map((achievement) => (
-                <div key={achievement.id} className="flex items-center space-x-3 p-3 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg">
-                  <div className="h-10 w-10 bg-[#e16623] rounded-full flex items-center justify-center">
-                    <Trophy className="h-5 w-5 text-white" />
+            {recentActivity.length === 0 ? (
+              <div className="text-center py-6">
+                <Award className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500">No achievements yet</p>
+                <p className="text-sm text-gray-400">Complete tasks to earn your first badge!</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {recentActivity.map((achievement) => (
+                  <div key={achievement.id} className="flex items-center space-x-3 p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl">
+                    <div className="p-2 bg-yellow-100 rounded-full">
+                      <Award className="h-4 w-4 text-yellow-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-800 text-sm">
+                        {achievement.badge_name}
+                      </p>
+                      <p className="text-xs text-gray-600">
+                        +{achievement.points_awarded} points
+                      </p>
+                    </div>
+                    <Badge className="bg-[#e16623] text-white text-xs">
+                      {new Date(achievement.earned_at).toLocaleDateString()}
+                    </Badge>
                   </div>
-                  <div>
-                    <p className="font-medium">{achievement.badge_name}</p>
-                    <p className="text-sm text-gray-600">{achievement.description}</p>
-                    <p className="text-xs text-[#e16623] font-medium">+{achievement.points_awarded} points</p>
-                  </div>
-                </div>
-              ))}
-              {achievements.length === 0 && (
-                <p className="text-gray-500 text-center py-4">No achievements yet</p>
-              )}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Quick Actions */}
+      <Card className="border-0 shadow-lg">
+        <CardHeader>
+          <CardTitle>Quick Actions</CardTitle>
+          <CardDescription>Common tasks and shortcuts</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Button 
+              variant="outline" 
+              className="h-16 rounded-xl border-2 hover:border-[#122ec0] hover:bg-blue-50 transition-all duration-200"
+              onClick={() => setActiveSection('feedback')}
+            >
+              <div className="text-center">
+                <FileText className="h-6 w-6 mx-auto mb-1 text-[#122ec0]" />
+                <span className="text-sm font-medium">Monthly Report</span>
+              </div>
+            </Button>
+
+            <Button 
+              variant="outline" 
+              className="h-16 rounded-xl border-2 hover:border-green-500 hover:bg-green-50 transition-all duration-200"
+              onClick={() => setActiveSection('documents')}
+            >
+              <div className="text-center">
+                <Upload className="h-6 w-6 mx-auto mb-1 text-green-500" />
+                <span className="text-sm font-medium">Upload Documents</span>
+              </div>
+            </Button>
+
+            <Button 
+              variant="outline" 
+              className="h-16 rounded-xl border-2 hover:border-purple-500 hover:bg-purple-50 transition-all duration-200"
+              onClick={() => setActiveSection('achievements')}
+            >
+              <div className="text-center">
+                <Award className="h-6 w-6 mx-auto mb-1 text-purple-500" />
+                <span className="text-sm font-medium">View Achievements</span>
+              </div>
+            </Button>
+
+            <Button 
+              variant="outline" 
+              className="h-16 rounded-xl border-2 hover:border-orange-500 hover:bg-orange-50 transition-all duration-200"
+              onClick={() => setActiveSection('profile')}
+            >
+              <div className="text-center">
+                <Settings className="h-6 w-6 mx-auto mb-1 text-orange-500" />
+                <span className="text-sm font-medium">Profile Settings</span>
+              </div>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
