@@ -119,6 +119,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         console.log('Profile created successfully:', data);
         setProfile(data);
+        
+        // Create welcome notification for new users
+        if (data.role === 'learner') {
+          await supabase.rpc('create_notification', {
+            target_user_id: user.id,
+            notification_title: 'Welcome to WPS Learnership Portal!',
+            notification_message: 'Complete your profile and start submitting monthly feedback to track your progress.',
+            notification_type: 'success'
+          });
+        }
       }
     } catch (error) {
       console.error('Error in createUserProfile:', error);

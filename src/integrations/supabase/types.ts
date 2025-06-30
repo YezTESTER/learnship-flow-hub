@@ -11,6 +11,8 @@ export type Database = {
     Tables: {
       achievements: {
         Row: {
+          badge_color: string | null
+          badge_icon: string | null
           badge_name: string
           badge_type: string
           description: string | null
@@ -20,6 +22,8 @@ export type Database = {
           points_awarded: number | null
         }
         Insert: {
+          badge_color?: string | null
+          badge_icon?: string | null
           badge_name: string
           badge_type: string
           description?: string | null
@@ -29,6 +33,8 @@ export type Database = {
           points_awarded?: number | null
         }
         Update: {
+          badge_color?: string | null
+          badge_icon?: string | null
           badge_name?: string
           badge_type?: string
           description?: string | null
@@ -101,9 +107,12 @@ export type Database = {
           due_date: string
           id: string
           learner_id: string
+          mentor_approved_at: string | null
+          mentor_comments: string | null
           mentor_feedback: string | null
           mentor_rating: number | null
           month: number
+          needs_mentor_review: boolean | null
           status: Database["public"]["Enums"]["compliance_status"] | null
           submission_data: Json | null
           submitted_at: string | null
@@ -114,9 +123,12 @@ export type Database = {
           due_date: string
           id?: string
           learner_id: string
+          mentor_approved_at?: string | null
+          mentor_comments?: string | null
           mentor_feedback?: string | null
           mentor_rating?: number | null
           month: number
+          needs_mentor_review?: boolean | null
           status?: Database["public"]["Enums"]["compliance_status"] | null
           submission_data?: Json | null
           submitted_at?: string | null
@@ -127,9 +139,12 @@ export type Database = {
           due_date?: string
           id?: string
           learner_id?: string
+          mentor_approved_at?: string | null
+          mentor_comments?: string | null
           mentor_feedback?: string | null
           mentor_rating?: number | null
           month?: number
+          needs_mentor_review?: boolean | null
           status?: Database["public"]["Enums"]["compliance_status"] | null
           submission_data?: Json | null
           submitted_at?: string | null
@@ -185,48 +200,72 @@ export type Database = {
       }
       profiles: {
         Row: {
+          address: string | null
           avatar_url: string | null
           compliance_score: number | null
           created_at: string | null
+          date_of_birth: string | null
           email: string
+          emergency_contact: string | null
+          emergency_phone: string | null
           employer_name: string | null
+          end_date: string | null
           full_name: string
           id: string
           id_number: string | null
           learnership_program: string | null
           mentor_id: string | null
+          phone_number: string | null
           points: number | null
           role: Database["public"]["Enums"]["user_role"]
+          start_date: string | null
+          status: string | null
           updated_at: string | null
         }
         Insert: {
+          address?: string | null
           avatar_url?: string | null
           compliance_score?: number | null
           created_at?: string | null
+          date_of_birth?: string | null
           email: string
+          emergency_contact?: string | null
+          emergency_phone?: string | null
           employer_name?: string | null
+          end_date?: string | null
           full_name: string
           id: string
           id_number?: string | null
           learnership_program?: string | null
           mentor_id?: string | null
+          phone_number?: string | null
           points?: number | null
           role?: Database["public"]["Enums"]["user_role"]
+          start_date?: string | null
+          status?: string | null
           updated_at?: string | null
         }
         Update: {
+          address?: string | null
           avatar_url?: string | null
           compliance_score?: number | null
           created_at?: string | null
+          date_of_birth?: string | null
           email?: string
+          emergency_contact?: string | null
+          emergency_phone?: string | null
           employer_name?: string | null
+          end_date?: string | null
           full_name?: string
           id?: string
           id_number?: string | null
           learnership_program?: string | null
           mentor_id?: string | null
+          phone_number?: string | null
           points?: number | null
           role?: Database["public"]["Enums"]["user_role"]
+          start_date?: string | null
+          status?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -244,6 +283,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_overdue_submissions: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      create_notification: {
+        Args: {
+          target_user_id: string
+          notification_title: string
+          notification_message: string
+          notification_type?: string
+        }
+        Returns: string
+      }
       update_compliance_score: {
         Args: { user_id: string }
         Returns: undefined
