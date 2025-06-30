@@ -78,8 +78,8 @@ const MonthlyFeedbackForm = () => {
       
       if (data) {
         setExistingSubmission(data);
-        if (data.submission_data) {
-          setFormData(data.submission_data);
+        if (data.submission_data && typeof data.submission_data === 'object') {
+          setFormData(data.submission_data as typeof formData);
         }
       }
     } catch (error: any) {
@@ -99,7 +99,7 @@ const MonthlyFeedbackForm = () => {
         learner_id: user.id,
         month: currentMonth,
         year: currentYear,
-        status: 'submitted',
+        status: 'submitted' as const,
         submission_data: formData,
         submitted_at: new Date().toISOString(),
         due_date: dueDate.toISOString()
@@ -114,7 +114,7 @@ const MonthlyFeedbackForm = () => {
       } else {
         result = await supabase
           .from('feedback_submissions')
-          .insert([submissionData]);
+          .insert(submissionData);
       }
 
       if (result.error) throw result.error;
@@ -122,7 +122,7 @@ const MonthlyFeedbackForm = () => {
       // Award points for submission
       await supabase
         .from('achievements')
-        .insert([{
+        .insert({
           learner_id: user.id,
           badge_type: 'monthly_submission',
           badge_name: 'Monthly Report Submitted',
@@ -130,7 +130,7 @@ const MonthlyFeedbackForm = () => {
           points_awarded: 10,
           badge_color: '#10B981',
           badge_icon: 'file-text'
-        }]);
+        });
 
       toast.success('Monthly feedback submitted successfully!');
       fetchSubmissions();

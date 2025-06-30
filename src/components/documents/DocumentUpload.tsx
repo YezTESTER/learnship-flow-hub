@@ -93,31 +93,27 @@ const DocumentUpload = () => {
       // Upload file to storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('documents')
-        .upload(fileName, selectedFile, {
-          onUploadProgress: (progress) => {
-            setUploadProgress((progress.loaded / progress.total) * 100);
-          }
-        });
+        .upload(fileName, selectedFile);
 
       if (uploadError) throw uploadError;
 
       // Save document record to database
       const { error: dbError } = await supabase
         .from('documents')
-        .insert([{
+        .insert({
           learner_id: user.id,
-          document_type: documentType,
+          document_type: documentType as 'attendance_proof' | 'logbook_page' | 'assessment' | 'other',
           file_name: selectedFile.name,
           file_path: uploadData.path,
           file_size: selectedFile.size
-        }]);
+        });
 
       if (dbError) throw dbError;
 
       // Award points for document upload
       await supabase
         .from('achievements')
-        .insert([{
+        .insert({
           learner_id: user.id,
           badge_type: 'document_upload',
           badge_name: 'Document Uploaded',
@@ -125,7 +121,7 @@ const DocumentUpload = () => {
           points_awarded: 5,
           badge_color: '#8B5CF6',
           badge_icon: 'file'
-        }]);
+        });
 
       toast.success('Document uploaded successfully!');
       setSelectedFile(null);
@@ -134,7 +130,7 @@ const DocumentUpload = () => {
       fetchDocuments();
       
       // Reset file input
-      const fileInput = document.getElementById('file-upload') as HTMLInputElement;
+      const fileInput = window.document.getElementById('file-upload') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
       
     } catch (error: any) {
@@ -145,36 +141,36 @@ const DocumentUpload = () => {
     }
   };
 
-  const handleDownload = async (document: Document) => {
+  const handleDownload = async (doc: Document) => {
     try {
       const { data, error } = await supabase.storage
         .from('documents')
-        .download(document.file_path);
+        .download(doc.file_path);
 
       if (error) throw error;
 
       // Create download link
       const url = URL.createObjectURL(data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = document.file_name;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      const anchor = window.document.createElement('a');
+      anchor.href = url;
+      anchor.download = doc.file_name;
+      window.document.body.appendChild(anchor);
+      anchor.click();
+      window.document.body.removeChild(anchor);
       URL.revokeObjectURL(url);
     } catch (error: any) {
       toast.error('Failed to download document');
     }
   };
 
-  const handleDelete = async (document: Document) => {
+  const handleDelete = async (doc: Document) => {
     if (!confirm('Are you sure you want to delete this document?')) return;
 
     try {
       // Delete from storage
       const { error: storageError } = await supabase.storage
         .from('documents')
-        .remove([document.file_path]);
+        .remove([doc.file_path]);
 
       if (storageError) throw storageError;
 
@@ -182,7 +178,7 @@ const DocumentUpload = () => {
       const { error: dbError } = await supabase
         .from('documents')
         .delete()
-        .eq('id', document.id);
+        .eq('id', doc.id);
 
       if (dbError) throw dbError;
 
