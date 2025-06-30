@@ -1,24 +1,20 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
-import { 
-  ArrowRight, 
-  Users, 
-  FileText, 
-  Award, 
-  Shield, 
-  Smartphone,
-  BarChart3,
-  Clock,
-  CheckCircle,
-  Star
-} from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 const Index = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, signIn, signUp } = useAuth();
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [role, setRole] = useState('learner');
+  const [isLoading, setIsLoading] = useState(false);
 
   if (loading) {
     return (
@@ -32,172 +28,152 @@ const Index = () => {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const features = [
-    {
-      icon: <FileText className="h-8 w-8" />,
-      title: "Smart Feedback Engine",
-      description: "Monthly questionnaires with auto-reminders and compliance tracking",
-      color: "from-blue-500 to-blue-600"
-    },
-    {
-      icon: <Users className="h-8 w-8" />,
-      title: "Role-Based Access",
-      description: "Learners, mentors, and administrators each get tailored experiences",
-      color: "from-purple-500 to-purple-600"
-    },
-    {
-      icon: <Award className="h-8 w-8" />,
-      title: "Gamification System",
-      description: "Earn points and badges for completing tasks and staying compliant",
-      color: "from-yellow-500 to-orange-500"
-    },
-    {
-      icon: <BarChart3 className="h-8 w-8" />,
-      title: "Advanced Reporting",
-      description: "Generate compliance reports that meet SETA requirements",
-      color: "from-green-500 to-green-600"
-    },
-    {
-      icon: <Shield className="h-8 w-8" />,
-      title: "Secure Platform",
-      description: "Enterprise-grade security with role-based permissions",
-      color: "from-red-500 to-red-600"
-    },
-    {
-      icon: <Smartphone className="h-8 w-8" />,
-      title: "Mobile Optimized",
-      description: "Access your learnership portal from any device, anywhere",
-      color: "from-indigo-500 to-indigo-600"
-    }
-  ];
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
 
-  const benefits = [
-    { icon: <Clock className="h-5 w-5" />, text: "Automated deadline tracking" },
-    { icon: <CheckCircle className="h-5 w-5" />, text: "Real-time compliance monitoring" },
-    { icon: <Star className="h-5 w-5" />, text: "Gamified engagement system" },
-    { icon: <FileText className="h-5 w-5" />, text: "Streamlined document management" }
-  ];
+    try {
+      if (isSignUp) {
+        const { error } = await signUp(email, password, {
+          full_name: fullName,
+          role: role
+        });
+        
+        if (error) {
+          toast.error(error.message);
+        } else {
+          toast.success('Account created successfully!');
+        }
+      } else {
+        const { error } = await signIn(email, password);
+        
+        if (error) {
+          toast.error(error.message);
+        } else {
+          toast.success('Welcome back!');
+        }
+      }
+    } catch (error: any) {
+      toast.error('An unexpected error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <div className="min-h-screen">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-[#122ec0] via-blue-400 to-white min-h-screen flex items-center">
-        <div className="absolute inset-0 bg-black/10"></div>
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="max-w-4xl mx-auto text-center">
-            <Badge className="mb-6 bg-white/20 text-white border-white/30 backdrop-blur-sm">
-              ✨ Modern Learnership Management Platform
-            </Badge>
-            
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-white to-orange-200 bg-clip-text text-transparent">
-              Learnership Portal
-            </h1>
-            
-            <p className="text-xl md:text-2xl text-blue-100 mb-8 max-w-3xl mx-auto leading-relaxed">
-              Streamline compliance tracking, automate feedback collection, and enhance learnership outcomes with our comprehensive management platform
-            </p>
-            
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#122ec0] via-blue-400 to-white p-4">
+      <div className="w-full max-w-md">
+        {/* Company Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-white mb-2">
+            WPS Learnership Portal
+          </h1>
+          <p className="text-blue-100 text-lg">
+            White Paper Systems - Internal Platform
+          </p>
+        </div>
+
+        <Card className="shadow-2xl border-0 bg-white/95 backdrop-blur">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl font-bold bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
+              {isSignUp ? 'Student Registration' : 'Portal Access'}
+            </CardTitle>
+            <CardDescription className="text-gray-600">
+              {isSignUp 
+                ? 'Register as a new learner or admin' 
+                : 'Sign in to access your dashboard'
+              }
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {isSignUp && (
+                <>
+                  <div>
+                    <Input
+                      type="text"
+                      placeholder="Full Name"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      required
+                      className="rounded-xl border-gray-200"
+                    />
+                  </div>
+                  <div>
+                    <select
+                      value={role}
+                      onChange={(e) => setRole(e.target.value)}
+                      className="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#122ec0] bg-white"
+                      required
+                    >
+                      <option value="learner">Learner / Student</option>
+                      <option value="mentor">Mentor / Supervisor</option>
+                      <option value="admin">WPS Administrator</option>
+                    </select>
+                  </div>
+                </>
+              )}
+              <div>
+                <Input
+                  type="email"
+                  placeholder="Email Address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="rounded-xl border-gray-200"
+                />
+              </div>
+              <div>
+                <Input
+                  type="password"
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="rounded-xl border-gray-200"
+                />
+              </div>
               <Button 
-                size="lg"
-                className="bg-gradient-to-r from-[#e16623] to-orange-600 hover:from-orange-600 hover:to-[#e16623] text-white rounded-xl px-8 py-4 text-lg font-semibold shadow-2xl transform hover:scale-105 transition-all duration-300"
-                onClick={() => window.location.href = '/auth'}
+                type="submit" 
+                disabled={isLoading}
+                className="w-full bg-gradient-to-r from-[#122ec0] to-[#e16623] hover:from-[#0f2499] hover:to-[#d55a1f] text-white rounded-xl py-3 transition-all duration-300 transform hover:scale-105"
               >
-                Get Started Today
-                <ArrowRight className="ml-2 h-5 w-5" />
+                {isLoading ? 'Processing...' : (isSignUp ? 'Create Account' : 'Sign In')}
               </Button>
-              
-              <Button 
-                size="lg" 
-                variant="outline"
-                className="border-2 border-white/30 text-white hover:bg-white/10 rounded-xl px-8 py-4 text-lg font-semibold backdrop-blur-sm"
+            </form>
+            
+            <div className="mt-6 text-center">
+              <button
+                onClick={() => setIsSignUp(!isSignUp)}
+                className="text-[#122ec0] hover:text-[#e16623] transition-colors font-medium"
               >
-                Learn More
-              </Button>
+                {isSignUp ? 'Already have an account? Sign in' : 'Need to register? Create account'}
+              </button>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-2xl mx-auto">
-              {benefits.map((benefit, index) => (
-                <div key={index} className="flex items-center space-x-2 bg-white/10 backdrop-blur-sm rounded-xl p-3">
-                  <div className="text-orange-300">
-                    {benefit.icon}
-                  </div>
-                  <span className="text-white text-sm font-medium">{benefit.text}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
+            {isSignUp && (
+              <div className="mt-4 p-4 bg-blue-50 rounded-xl">
+                <p className="text-sm text-blue-700">
+                  <strong>For Learners:</strong> Select "Learner / Student" to access your learning dashboard.
+                </p>
+                <p className="text-sm text-blue-700 mt-1">
+                  <strong>For WPS Staff:</strong> Select "WPS Administrator" for full management access.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-      {/* Features Section */}
-      <section className="py-20 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
-              Powerful Features
-            </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Everything you need to manage learnership programs effectively and ensure SETA compliance
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {features.map((feature, index) => (
-              <Card key={index} className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 overflow-hidden">
-                <CardHeader className="pb-4">
-                  <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${feature.color} flex items-center justify-center text-white mb-4 shadow-lg`}>
-                    {feature.icon}
-                  </div>
-                  <CardTitle className="text-xl font-bold text-gray-800">
-                    {feature.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription className="text-gray-600 leading-relaxed">
-                    {feature.description}
-                  </CardDescription>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-[#122ec0] to-blue-600">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-            Ready to Transform Your Learnership Program?
-          </h2>
-          <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-            Join forward-thinking organizations using our platform to streamline compliance and enhance learner outcomes
+        {/* Footer */}
+        <div className="text-center mt-8">
+          <p className="text-blue-100 text-sm">
+            © 2024 White Paper Systems (Pty) Ltd
           </p>
-          <Button 
-            size="lg"
-            className="bg-gradient-to-r from-[#e16623] to-orange-600 hover:from-orange-600 hover:to-[#e16623] text-white rounded-xl px-12 py-4 text-xl font-semibold shadow-2xl transform hover:scale-105 transition-all duration-300"
-            onClick={() => window.location.href = '/auth'}
-          >
-            Start Your Free Trial
-            <ArrowRight className="ml-2 h-6 w-6" />
-          </Button>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
-        <div className="container mx-auto px-4 text-center">
-          <h3 className="text-2xl font-bold mb-4 bg-gradient-to-r from-white to-orange-200 bg-clip-text text-transparent">
-            Learnership Portal
-          </h3>
-          <p className="text-gray-400 mb-6">
-            Empowering learnership excellence through technology
-          </p>
-          <p className="text-sm text-gray-500">
-            © 2024 White Paper Systems. All rights reserved.
+          <p className="text-blue-200 text-xs mt-1">
+            Learnership Management & Compliance Platform
           </p>
         </div>
-      </footer>
+      </div>
     </div>
   );
 };
