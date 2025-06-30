@@ -28,7 +28,13 @@ const Dashboard = () => {
   }
 
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/" replace />;
+  }
+
+  // Redirect non-admin users away from admin sections
+  const adminOnlySections = ['reports', 'settings', 'learners'];
+  if (profile?.role !== 'admin' && adminOnlySections.includes(activeSection)) {
+    setActiveSection('dashboard');
   }
 
   const renderContent = () => {
@@ -54,6 +60,46 @@ const Dashboard = () => {
         return <NotificationCenter />;
       case 'profile':
         return <ProfileManager />;
+      case 'learners':
+        if (profile?.role === 'admin' || profile?.role === 'mentor') {
+          return (
+            <div className="text-center py-12">
+              <h2 className="text-2xl font-bold text-gray-700 mb-4">Learner Management</h2>
+              <p className="text-gray-500">View and manage all learners in the system</p>
+            </div>
+          );
+        }
+        return <Navigate to="/dashboard" replace />;
+      case 'reports':
+        if (profile?.role === 'admin') {
+          return (
+            <div className="text-center py-12">
+              <h2 className="text-2xl font-bold text-gray-700 mb-4">Compliance Reports</h2>
+              <p className="text-gray-500">Generate and view compliance reports</p>
+            </div>
+          );
+        }
+        return <Navigate to="/dashboard" replace />;
+      case 'feedback-review':
+        if (profile?.role === 'admin' || profile?.role === 'mentor') {
+          return (
+            <div className="text-center py-12">
+              <h2 className="text-2xl font-bold text-gray-700 mb-4">Feedback Review</h2>
+              <p className="text-gray-500">Review and approve learner feedback submissions</p>
+            </div>
+          );
+        }
+        return <Navigate to="/dashboard" replace />;
+      case 'settings':
+        if (profile?.role === 'admin') {
+          return (
+            <div className="text-center py-12">
+              <h2 className="text-2xl font-bold text-gray-700 mb-4">System Settings</h2>
+              <p className="text-gray-500">Configure system settings and preferences</p>
+            </div>
+          );
+        }
+        return <Navigate to="/dashboard" replace />;
       default:
         return (
           <div className="flex items-center justify-center h-64">
@@ -71,7 +117,7 @@ const Dashboard = () => {
   const getSectionTitle = () => {
     switch (activeSection) {
       case 'dashboard':
-        return 'Dashboard';
+        return `${profile?.role?.charAt(0).toUpperCase()}${profile?.role?.slice(1)} Dashboard`;
       case 'feedback':
         return 'Monthly Feedback';
       case 'documents':
@@ -82,6 +128,14 @@ const Dashboard = () => {
         return 'Notifications';
       case 'profile':
         return 'Profile Settings';
+      case 'learners':
+        return 'Learner Management';
+      case 'reports':
+        return 'Compliance Reports';
+      case 'feedback-review':
+        return 'Feedback Review';
+      case 'settings':
+        return 'System Settings';
       default:
         return activeSection.charAt(0).toUpperCase() + activeSection.slice(1);
     }
@@ -98,7 +152,7 @@ const Dashboard = () => {
               {getSectionTitle()}
             </h1>
             <p className="text-gray-600 mt-2">
-              Welcome back, {profile?.full_name}! Here's your overview.
+              Welcome back, {profile?.full_name}! Here's your {profile?.role} overview.
             </p>
           </div>
           

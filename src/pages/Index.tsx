@@ -28,12 +28,26 @@ const Index = () => {
     return <Navigate to="/dashboard" replace />;
   }
 
+  const validateAdminEmail = (email: string, role: string) => {
+    if (role === 'admin' && !email.endsWith('@whitepaperconcepts.co.za')) {
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
       if (isSignUp) {
+        // Validate admin email domain
+        if (!validateAdminEmail(email, role)) {
+          toast.error('WPS Administrator accounts can only be created with @whitepaperconcepts.co.za email addresses');
+          setIsLoading(false);
+          return;
+        }
+
         const { error } = await signUp(email, password, {
           full_name: fullName,
           role: role
@@ -76,11 +90,11 @@ const Index = () => {
         <Card className="shadow-2xl border-0 bg-white/95 backdrop-blur">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
-              {isSignUp ? 'Student Registration' : 'Portal Access'}
+              {isSignUp ? 'Account Registration' : 'Portal Access'}
             </CardTitle>
             <CardDescription className="text-gray-600">
               {isSignUp 
-                ? 'Register as a new learner or admin' 
+                ? 'Create your account to access the learnership portal' 
                 : 'Sign in to access your dashboard'
               }
             </CardDescription>
@@ -153,12 +167,17 @@ const Index = () => {
 
             {isSignUp && (
               <div className="mt-4 p-4 bg-blue-50 rounded-xl">
-                <p className="text-sm text-blue-700">
-                  <strong>For Learners:</strong> Select "Learner / Student" to access your learning dashboard.
-                </p>
-                <p className="text-sm text-blue-700 mt-1">
-                  <strong>For WPS Staff:</strong> Select "WPS Administrator" for full management access.
-                </p>
+                <div className="space-y-2 text-sm">
+                  <p className="text-blue-700">
+                    <strong>For Learners:</strong> Select "Learner / Student" to access your learning dashboard and submit monthly feedback.
+                  </p>
+                  <p className="text-blue-700">
+                    <strong>For Mentors:</strong> Select "Mentor / Supervisor" to review and approve learner submissions.
+                  </p>
+                  <p className="text-blue-700">
+                    <strong>For WPS Staff:</strong> Administrator accounts require a @whitepaperconcepts.co.za email address.
+                  </p>
+                </div>
               </div>
             )}
           </CardContent>

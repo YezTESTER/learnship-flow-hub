@@ -42,7 +42,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Use setTimeout to prevent deadlock in auth state change
           setTimeout(async () => {
             try {
               console.log('Fetching profile for user:', session.user.id);
@@ -50,11 +49,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 .from('profiles')
                 .select('*')
                 .eq('id', session.user.id)
-                .maybeSingle(); // Use maybeSingle instead of single to handle case where profile doesn't exist
+                .maybeSingle();
               
               if (error) {
                 console.error('Error fetching profile:', error);
-                // If profile doesn't exist, try to create it
                 if (error.code === 'PGRST116') {
                   console.log('Profile not found, attempting to create...');
                   await createUserProfile(session.user);
@@ -77,7 +75,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       console.log('Initial session check:', session?.user?.email);
       setSession(session);
@@ -92,15 +89,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const createUserProfile = async (user: User) => {
     try {
-      console.log('Creating profile for user:', user.id);
+      console.log('Creating profile for user:', user.id, 'with metadata:', user.user_metadata);
+      
+      const userData = user.user_metadata || {};
+      const role = userData.role || 'learner';
+      
+      // Additional server-side validation for admin accounts
+      if (role === 'admin' && !user.email?.endsWith('@whitepaperconcepts.co.za')) {
+        console.error('Admin account creation blocked: invalid email domain');
+        throw new Error('Admin accounts can only be created with @whitepaperconcepts.co.za email addresses');
+      }
+      
       const { data, error } = await supabase
         .from('profiles')
         .insert([
           {
             id: user.id,
-            full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'New User',
+            full_name: userData.full_name || user.email?.split('@')[0] || 'New User',
             email: user.email || '',
-            role: (user.user_metadata?.role as 'learner' | 'mentor' | 'admin') || 'learner'
+            role: role as 'learner' | 'mentor' | 'admin'
           }
         ])
         .select()
@@ -108,17 +115,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) {
         console.error('Error creating profile:', error);
+        throw error;
       } else {
         console.log('Profile created successfully:', data);
         setProfile(data);
       }
     } catch (error) {
       console.error('Error in createUserProfile:', error);
+      throw error;
     }
   };
 
   const signUp = async (email: string, password: string, userData?: any) => {
     console.log('Attempting signup for:', email, 'with userData:', userData);
+    
+    // Client-side validation for admin accounts
+    if (userData?.role === 'admin' && !email.endsWith('@whitepaperconcepts.co.za')) {
+      return { 
+        error: { 
+          message: 'WPS Administrator accounts can only be created with @whitepaperconcepts.co.za email addresses' 
+        } 
+      };
+    }
+    
     setLoading(true);
     
     try {
@@ -137,10 +156,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Signup error:', error);
       } else {
         console.log('Signup successful:', data);
-        // If email confirmation is disabled, the user will be automatically signed in
-        if (data.user && data.session) {
-          console.log('User signed in immediately after signup');
-        }
       }
       
       return { error };
