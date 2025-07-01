@@ -108,11 +108,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return <div className="w-64 bg-gradient-to-b from-[#122ec0] to-blue-600 text-white h-screen flex flex-col">
-      <div className="p-4">
-        <h1 className="text-xl font-bold bg-gradient-to-r from-white to-orange-200 bg-clip-text text-transparent">
+      <div className="p-3 sm:p-4">
+        <h1 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-white to-orange-200 bg-clip-text text-transparent">
           Learnership Portal
         </h1>
-        <p className="text-blue-200 text-sm mt-1">
+        <p className="text-blue-200 text-xs sm:text-sm mt-1">
           Welcome, {profile?.full_name}
         </p>
         <div className="text-xs text-blue-300 bg-blue-500/20 px-2 py-1 rounded-full inline-block mt-1">
@@ -120,19 +120,19 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      <nav className="flex-1 px-3 overflow-y-auto">
+      <nav className="flex-1 px-2 sm:px-3 overflow-y-auto">
         {getMenuItems().map(item => {
         const Icon = item.icon;
-        return <button key={item.id} onClick={() => setActiveSection(item.id)} className={`w-full flex items-center space-x-3 px-3 py-2 rounded-xl mb-1 transition-all duration-200 transform hover:scale-105 text-sm ${activeSection === item.id ? 'bg-white/20 text-white shadow-lg' : 'text-blue-100 hover:bg-white/10 hover:text-white'}`}>
-              <Icon size={18} />
-              <span className="font-medium">{item.label}</span>
+        return <button key={item.id} onClick={() => setActiveSection(item.id)} className={`w-full flex items-center space-x-2 sm:space-x-3 px-2 sm:px-3 py-2 rounded-xl mb-1 transition-all duration-200 transform hover:scale-105 text-xs sm:text-sm ${activeSection === item.id ? 'bg-white/20 text-white shadow-lg' : 'text-blue-100 hover:bg-white/10 hover:text-white'}`}>
+              <Icon size={16} className="sm:w-[18px] sm:h-[18px]" />
+              <span className="font-medium truncate">{item.label}</span>
             </button>;
       })}
       </nav>
 
-      <div className="p-3">
-        <Button onClick={signOut} variant="outline" className="w-full border-white/30 rounded-xl bg-white/10 text-white hover:bg-white/20 hover:text-white hover:border-white/50">
-          <LogOut size={16} className="mr-2" />
+      <div className="p-2 sm:p-3">
+        <Button onClick={signOut} variant="outline" className="w-full border-white/30 rounded-xl bg-white/10 text-white hover:bg-white/20 hover:text-white hover:border-white/50 text-xs sm:text-sm py-2">
+          <LogOut size={14} className="mr-1 sm:mr-2 sm:w-4 sm:h-4" />
           Sign Out
         </Button>
       </div>

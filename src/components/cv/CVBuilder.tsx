@@ -35,8 +35,14 @@ interface CVData {
     id: string;
     position: string;
     company: string;
-    duration: string;
-    responsibilities: string[];
+    start_date: string;
+    end_date: string;
+    is_current: boolean;
+    responsibilities: {
+      id: string;
+      heading: string;
+      description: string;
+    }[];
   }[];
   skills: string[];
   references: {
@@ -221,12 +227,37 @@ const CVBuilder = () => {
       id: Date.now().toString(),
       position: '',
       company: '',
-      duration: '',
-      responsibilities: ['']
+      start_date: '',
+      end_date: '',
+      is_current: false,
+      responsibilities: []
     };
     setCurrentCV({
       ...currentCV,
       experience: [...currentCV.experience, newExp]
+    });
+  };
+
+  const addResponsibility = (expIndex: number) => {
+    if (!currentCV) return;
+    const newResponsibility = {
+      id: Date.now().toString(),
+      heading: '',
+      description: ''
+    };
+    const updatedExperience = [...currentCV.experience];
+    updatedExperience[expIndex].responsibilities.push(newResponsibility);
+    setCurrentCV({
+      ...currentCV,
+      experience: updatedExperience
+    });
+  };
+
+  const addSkill = () => {
+    if (!currentCV) return;
+    setCurrentCV({
+      ...currentCV,
+      skills: [...currentCV.skills, '']
     });
   };
 
@@ -246,19 +277,19 @@ const CVBuilder = () => {
   };
 
   const CVPreview = ({ cv }: { cv: CVData }) => (
-    <div className="bg-white p-8 max-w-4xl mx-auto" style={{ minHeight: '297mm', width: '210mm' }}>
+    <div className="bg-white p-4 sm:p-8 max-w-4xl mx-auto" style={{ minHeight: '297mm', width: '210mm' }}>
       {/* Header with photo and contact info */}
-      <div className="flex items-start space-x-6 mb-6 border-b pb-4">
-        <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+      <div className="flex flex-col sm:flex-row items-start space-y-4 sm:space-y-0 sm:space-x-6 mb-6 border-b pb-4">
+        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0 mx-auto sm:mx-0">
           {cv.personal_info.avatar_url ? (
             <img src={cv.personal_info.avatar_url} alt="Profile" className="w-full h-full object-cover" />
           ) : (
-            <User className="h-12 w-12 text-gray-400" />
+            <User className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400" />
           )}
         </div>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">{cv.personal_info.full_name}</h1>
-          <div className="text-gray-600 space-y-1">
+        <div className="flex-1 text-center sm:text-left">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">{cv.personal_info.full_name}</h1>
+          <div className="text-gray-600 space-y-1 text-sm sm:text-base">
             <p>{cv.personal_info.email} | {cv.personal_info.phone}</p>
             <p>{cv.personal_info.address}</p>
             <p>ID: {cv.personal_info.id_number} | DOB: {cv.personal_info.date_of_birth}</p>
@@ -270,11 +301,11 @@ const CVBuilder = () => {
       {/* Education */}
       {cv.education.length > 0 && (
         <div className="mb-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-3 border-b border-gray-300 pb-1">Education</h2>
+          <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 border-b border-gray-300 pb-1">Education</h2>
           {cv.education.map((edu, index) => (
             <div key={index} className="mb-3">
-              <h3 className="font-semibold">{edu.qualification}</h3>
-              <p className="text-gray-600">{edu.institution} - {edu.year}</p>
+              <h3 className="font-semibold text-sm sm:text-base">{edu.qualification}</h3>
+              <p className="text-gray-600 text-sm">{edu.institution} - {edu.year}</p>
             </div>
           ))}
         </div>
@@ -283,16 +314,23 @@ const CVBuilder = () => {
       {/* Experience */}
       {cv.experience.length > 0 && (
         <div className="mb-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-3 border-b border-gray-300 pb-1">Experience</h2>
+          <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 border-b border-gray-300 pb-1">Experience</h2>
           {cv.experience.map((exp, index) => (
             <div key={index} className="mb-4">
-              <h3 className="font-semibold">{exp.position}</h3>
-              <p className="text-gray-600 mb-2">{exp.company} - {exp.duration}</p>
-              <ul className="list-disc list-inside text-sm text-gray-700">
-                {exp.responsibilities.map((resp, i) => (
-                  <li key={i}>{resp}</li>
-                ))}
-              </ul>
+              <h3 className="font-semibold text-sm sm:text-base">{exp.position}</h3>
+              <p className="text-gray-600 mb-2 text-sm">{exp.company} - {exp.start_date} to {exp.is_current ? 'Present' : exp.end_date}</p>
+              {exp.responsibilities.length > 0 && (
+                <div>
+                  <h4 className="font-medium text-sm mb-1">Key Responsibilities:</h4>
+                  <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                    {exp.responsibilities.map((resp, i) => (
+                      <li key={i}>
+                        <strong>{resp.heading}:</strong> {resp.description}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -301,10 +339,10 @@ const CVBuilder = () => {
       {/* Skills */}
       {cv.skills.length > 0 && (
         <div className="mb-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-3 border-b border-gray-300 pb-1">Skills</h2>
+          <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 border-b border-gray-300 pb-1">Skills</h2>
           <div className="flex flex-wrap gap-2">
-            {cv.skills.map((skill, index) => (
-              <span key={index} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
+            {cv.skills.filter(skill => skill.trim()).map((skill, index) => (
+              <span key={index} className="bg-blue-100 text-blue-800 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
                 {skill}
               </span>
             ))}
@@ -315,10 +353,10 @@ const CVBuilder = () => {
       {/* References */}
       {cv.references.length > 0 && (
         <div className="mb-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-3 border-b border-gray-300 pb-1">References</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 border-b border-gray-300 pb-1">References</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {cv.references.map((ref, index) => (
-              <div key={index} className="text-sm">
+              <div key={index} className="text-xs sm:text-sm">
                 <h3 className="font-semibold">{ref.name}</h3>
                 <p className="text-gray-600">{ref.position} at {ref.company}</p>
                 <p className="text-gray-600">{ref.phone} | {ref.email}</p>
@@ -332,92 +370,92 @@ const CVBuilder = () => {
 
   if (showPreview && currentCV) {
     return (
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
+      <div className="max-w-7xl mx-auto space-y-4 px-4 sm:px-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
             CV Preview: {currentCV.title}
           </h1>
-          <div className="space-x-2">
-            <Button onClick={() => toast.info('PDF download coming soon!')} className="bg-green-600 hover:bg-green-700">
+          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
+            <Button onClick={() => toast.info('PDF download coming soon!')} className="bg-green-600 hover:bg-green-700 text-sm">
               <Download className="mr-2 h-4 w-4" />
               Download PDF
             </Button>
-            <Button onClick={() => setShowPreview(false)} variant="outline">
+            <Button onClick={() => setShowPreview(false)} variant="outline" className="text-sm">
               Back to Edit
             </Button>
           </div>
         </div>
-        <CVPreview cv={currentCV} />
+        <div className="overflow-x-auto">
+          <CVPreview cv={currentCV} />
+        </div>
       </div>
     );
   }
 
   if (!isEditing) {
     return (
-      <div className="max-w-6xl mx-auto space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
+      <div className="max-w-6xl mx-auto space-y-4 px-4 sm:px-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
             My CVs
           </h1>
-          <Button onClick={createNewCV} className="bg-gradient-to-r from-[#122ec0] to-[#e16623]">
+          <Button onClick={createNewCV} className="bg-gradient-to-r from-[#122ec0] to-[#e16623] text-sm w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Create New CV
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {cvList.map((cv) => (
             <Card key={cv.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <CardTitle className="text-lg">{cv.title}</CardTitle>
-                <CardDescription>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base sm:text-lg">{cv.title}</CardTitle>
+                <CardDescription className="text-sm">
                   Last updated: {new Date().toLocaleDateString()}
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <Button onClick={() => editCV(cv)} variant="outline" className="w-full">
-                    <Edit className="mr-2 h-4 w-4" />
-                    Edit CV
-                  </Button>
-                  <div className="flex space-x-2">
-                    <Button 
-                      onClick={() => {
-                        setCurrentCV(cv);
-                        setShowPreview(true);
-                      }} 
-                      variant="outline" 
-                      className="flex-1"
-                    >
-                      <Eye className="mr-2 h-4 w-4" />
-                      Preview
-                    </Button>
-                    <Button onClick={() => toast.info('PDF download coming soon!')} variant="outline" className="flex-1">
-                      <Download className="mr-2 h-4 w-4" />
-                      PDF
-                    </Button>
-                  </div>
+              <CardContent className="space-y-2">
+                <Button onClick={() => editCV(cv)} variant="outline" className="w-full text-sm">
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit CV
+                </Button>
+                <div className="flex space-x-2">
                   <Button 
-                    onClick={() => cv.id && deleteCV(cv.id)} 
-                    variant="destructive" 
-                    size="sm"
-                    className="w-full"
+                    onClick={() => {
+                      setCurrentCV(cv);
+                      setShowPreview(true);
+                    }} 
+                    variant="outline" 
+                    className="flex-1 text-sm"
                   >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
+                    <Eye className="mr-2 h-4 w-4" />
+                    Preview
+                  </Button>
+                  <Button onClick={() => toast.info('PDF download coming soon!')} variant="outline" className="flex-1 text-sm">
+                    <Download className="mr-2 h-4 w-4" />
+                    PDF
                   </Button>
                 </div>
+                <Button 
+                  onClick={() => cv.id && deleteCV(cv.id)} 
+                  variant="destructive" 
+                  size="sm"
+                  className="w-full text-sm"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </Button>
               </CardContent>
             </Card>
           ))}
         </div>
 
         {cvList.length === 0 && (
-          <div className="text-center py-12">
-            <FileText className="h-24 w-24 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-700 mb-2">No CVs Created Yet</h2>
-            <p className="text-gray-500 mb-4">Create your first CV to get started</p>
-            <Button onClick={createNewCV} className="bg-gradient-to-r from-[#122ec0] to-[#e16623]">
+          <div className="text-center py-8 sm:py-12">
+            <FileText className="h-16 w-16 sm:h-24 sm:w-24 text-gray-400 mx-auto mb-4" />
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-700 mb-2">No CVs Created Yet</h2>
+            <p className="text-gray-500 mb-4 text-sm sm:text-base">Create your first CV to get started</p>
+            <Button onClick={createNewCV} className="bg-gradient-to-r from-[#122ec0] to-[#e16623] text-sm">
               <Plus className="mr-2 h-4 w-4" />
               Create Your First CV
             </Button>
@@ -428,21 +466,21 @@ const CVBuilder = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
+    <div className="max-w-6xl mx-auto space-y-4 px-4 sm:px-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
           {currentCV?.id ? 'Edit CV' : 'Create New CV'}
         </h1>
-        <div className="space-x-2">
-          <Button onClick={() => currentCV && setShowPreview(true)} variant="outline">
+        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
+          <Button onClick={() => currentCV && setShowPreview(true)} variant="outline" className="text-sm">
             <Eye className="mr-2 h-4 w-4" />
             Preview
           </Button>
-          <Button onClick={saveCV} disabled={loading}>
+          <Button onClick={saveCV} disabled={loading} className="text-sm">
             <Save className="mr-2 h-4 w-4" />
             {loading ? 'Saving...' : 'Save CV'}
           </Button>
-          <Button onClick={() => setIsEditing(false)} variant="outline">
+          <Button onClick={() => setIsEditing(false)} variant="outline" className="text-sm">
             Back to List
           </Button>
         </div>
@@ -450,51 +488,208 @@ const CVBuilder = () => {
 
       {currentCV && (
         <Card className="bg-gradient-to-br from-white to-blue-50 border-0 shadow-lg">
-          <CardHeader>
+          <CardHeader className="pb-4">
             <div className="space-y-2">
-              <Label>CV Title</Label>
+              <Label className="text-sm">CV Title</Label>
               <Input
                 value={currentCV.title}
                 onChange={(e) => setCurrentCV({ ...currentCV, title: e.target.value })}
-                className="rounded-xl border-gray-200"
+                className="rounded-xl border-gray-200 text-sm"
                 placeholder="Enter CV title"
               />
             </div>
           </CardHeader>
-          <CardContent className="space-y-8">
+          <CardContent className="space-y-6 sm:space-y-8">
             {/* Personal Information - Auto-filled */}
-            <div className="bg-white p-6 rounded-xl border border-gray-100">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <User className="h-5 w-5 mr-2" />
+            <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-100">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <User className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                 Personal Information (Auto-filled from Profile)
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm text-gray-600">
                 <p><strong>Name:</strong> {currentCV.personal_info.full_name}</p>
                 <p><strong>Email:</strong> {currentCV.personal_info.email}</p>
                 <p><strong>Phone:</strong> {currentCV.personal_info.phone}</p>
                 <p><strong>ID Number:</strong> {currentCV.personal_info.id_number}</p>
                 <p><strong>Date of Birth:</strong> {currentCV.personal_info.date_of_birth}</p>
-                <p><strong>Address:</strong> {currentCV.personal_info.address}</p>
+                <p className="sm:col-span-2"><strong>Address:</strong> {currentCV.personal_info.address}</p>
               </div>
             </div>
 
-            {/* Education Section */}
-            <div className="bg-white p-6 rounded-xl border border-gray-100">
+            {/* Experience Section */}
+            <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-100">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-800 flex items-center">
-                  <GraduationCap className="h-5 w-5 mr-2" />
+                <h3 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center">
+                  <Briefcase className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                  Experience
+                </h3>
+                <Button onClick={addExperience} variant="outline" size="sm" className="text-sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Experience
+                </Button>
+              </div>
+              {currentCV.experience.map((exp, index) => (
+                <div key={exp.id} className="border border-gray-200 rounded-lg p-4 mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm">Position</Label>
+                      <Input
+                        value={exp.position}
+                        onChange={(e) => {
+                          const newExperience = [...currentCV.experience];
+                          newExperience[index].position = e.target.value;
+                          setCurrentCV({ ...currentCV, experience: newExperience });
+                        }}
+                        className="rounded-xl border-gray-200 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm">Company</Label>
+                      <Input
+                        value={exp.company}
+                        onChange={(e) => {
+                          const newExperience = [...currentCV.experience];
+                          newExperience[index].company = e.target.value;
+                          setCurrentCV({ ...currentCV, experience: newExperience });
+                        }}
+                        className="rounded-xl border-gray-200 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm">Start Date</Label>
+                      <Input
+                        type="date"
+                        value={exp.start_date}
+                        onChange={(e) => {
+                          const newExperience = [...currentCV.experience];
+                          newExperience[index].start_date = e.target.value;
+                          setCurrentCV({ ...currentCV, experience: newExperience });
+                        }}
+                        className="rounded-xl border-gray-200 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm">End Date</Label>
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={exp.is_current}
+                            onChange={(e) => {
+                              const newExperience = [...currentCV.experience];
+                              newExperience[index].is_current = e.target.checked;
+                              if (e.target.checked) {
+                                newExperience[index].end_date = '';
+                              }
+                              setCurrentCV({ ...currentCV, experience: newExperience });
+                            }}
+                            className="rounded"
+                          />
+                          <Label className="text-sm">Currently working here</Label>
+                        </div>
+                        {!exp.is_current && (
+                          <Input
+                            type="date"
+                            value={exp.end_date}
+                            onChange={(e) => {
+                              const newExperience = [...currentCV.experience];
+                              newExperience[index].end_date = e.target.value;
+                              setCurrentCV({ ...currentCV, experience: newExperience });
+                            }}
+                            className="rounded-xl border-gray-200 text-sm"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Key Responsibilities</Label>
+                      <Button
+                        type="button"
+                        onClick={() => addResponsibility(index)}
+                        variant="outline"
+                        size="sm"
+                        className="text-xs"
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Add Responsibility
+                      </Button>
+                    </div>
+                    {exp.responsibilities.map((resp, respIndex) => (
+                      <div key={resp.id} className="border border-gray-100 rounded p-3 space-y-2">
+                        <Input
+                          value={resp.heading}
+                          onChange={(e) => {
+                            const newExperience = [...currentCV.experience];
+                            newExperience[index].responsibilities[respIndex].heading = e.target.value;
+                            setCurrentCV({ ...currentCV, experience: newExperience });
+                          }}
+                          className="rounded-xl border-gray-200 text-sm"
+                          placeholder="Responsibility heading"
+                        />
+                        <Textarea
+                          value={resp.description}
+                          onChange={(e) => {
+                            const newExperience = [...currentCV.experience];
+                            newExperience[index].responsibilities[respIndex].description = e.target.value;
+                            setCurrentCV({ ...currentCV, experience: newExperience });
+                          }}
+                          className="rounded-xl border-gray-200 text-sm"
+                          placeholder="Responsibility description"
+                          rows={2}
+                        />
+                        <Button
+                          onClick={() => {
+                            const newExperience = [...currentCV.experience];
+                            newExperience[index].responsibilities = newExperience[index].responsibilities.filter((_, i) => i !== respIndex);
+                            setCurrentCV({ ...currentCV, experience: newExperience });
+                          }}
+                          variant="destructive"
+                          size="sm"
+                          className="text-xs"
+                        >
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <Button
+                    onClick={() => {
+                      const newExperience = currentCV.experience.filter((_, i) => i !== index);
+                      setCurrentCV({ ...currentCV, experience: newExperience });
+                    }}
+                    variant="destructive"
+                    size="sm"
+                    className="mt-2 text-sm"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Remove Experience
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            {/* Education Section */}
+            <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-100">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center">
+                  <GraduationCap className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                   Education
                 </h3>
-                <Button onClick={addEducation} variant="outline" size="sm">
+                <Button onClick={addEducation} variant="outline" size="sm" className="text-sm">
                   <Plus className="h-4 w-4 mr-2" />
                   Add Education
                 </Button>
               </div>
               {currentCV.education.map((edu, index) => (
                 <div key={edu.id} className="border border-gray-200 rounded-lg p-4 mb-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="space-y-2">
-                      <Label>Institution</Label>
+                      <Label className="text-sm">Institution</Label>
                       <Input
                         value={edu.institution}
                         onChange={(e) => {
@@ -502,11 +697,11 @@ const CVBuilder = () => {
                           newEducation[index].institution = e.target.value;
                           setCurrentCV({ ...currentCV, education: newEducation });
                         }}
-                        className="rounded-xl border-gray-200"
+                        className="rounded-xl border-gray-200 text-sm"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Qualification</Label>
+                      <Label className="text-sm">Qualification</Label>
                       <Input
                         value={edu.qualification}
                         onChange={(e) => {
@@ -514,11 +709,11 @@ const CVBuilder = () => {
                           newEducation[index].qualification = e.target.value;
                           setCurrentCV({ ...currentCV, education: newEducation });
                         }}
-                        className="rounded-xl border-gray-200"
+                        className="rounded-xl border-gray-200 text-sm"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Year</Label>
+                      <Label className="text-sm">Year</Label>
                       <Input
                         value={edu.year}
                         onChange={(e) => {
@@ -526,7 +721,7 @@ const CVBuilder = () => {
                           newEducation[index].year = e.target.value;
                           setCurrentCV({ ...currentCV, education: newEducation });
                         }}
-                        className="rounded-xl border-gray-200"
+                        className="rounded-xl border-gray-200 text-sm"
                       />
                     </div>
                   </div>
@@ -537,89 +732,7 @@ const CVBuilder = () => {
                     }}
                     variant="destructive"
                     size="sm"
-                    className="mt-2"
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Remove
-                  </Button>
-                </div>
-              ))}
-            </div>
-
-            {/* Experience Section */}
-            <div className="bg-white p-6 rounded-xl border border-gray-100">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-800 flex items-center">
-                  <Briefcase className="h-5 w-5 mr-2" />
-                  Experience
-                </h3>
-                <Button onClick={addExperience} variant="outline" size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Experience
-                </Button>
-              </div>
-              {currentCV.experience.map((exp, index) => (
-                <div key={exp.id} className="border border-gray-200 rounded-lg p-4 mb-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <div className="space-y-2">
-                      <Label>Position</Label>
-                      <Input
-                        value={exp.position}
-                        onChange={(e) => {
-                          const newExperience = [...currentCV.experience];
-                          newExperience[index].position = e.target.value;
-                          setCurrentCV({ ...currentCV, experience: newExperience });
-                        }}
-                        className="rounded-xl border-gray-200"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Company</Label>
-                      <Input
-                        value={exp.company}
-                        onChange={(e) => {
-                          const newExperience = [...currentCV.experience];
-                          newExperience[index].company = e.target.value;
-                          setCurrentCV({ ...currentCV, experience: newExperience });
-                        }}
-                        className="rounded-xl border-gray-200"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Duration</Label>
-                      <Input
-                        value={exp.duration}
-                        onChange={(e) => {
-                          const newExperience = [...currentCV.experience];
-                          newExperience[index].duration = e.target.value;
-                          setCurrentCV({ ...currentCV, experience: newExperience });
-                        }}
-                        className="rounded-xl border-gray-200"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Key Responsibilities</Label>
-                    <Textarea
-                      value={exp.responsibilities.join('\n')}
-                      onChange={(e) => {
-                        const newExperience = [...currentCV.experience];
-                        newExperience[index].responsibilities = e.target.value.split('\n').filter(r => r.trim());
-                        setCurrentCV({ ...currentCV, experience: newExperience });
-                      }}
-                      className="rounded-xl border-gray-200"
-                      rows={4}
-                      placeholder="Enter each responsibility on a new line"
-                    />
-                  </div>
-                  <Button
-                    onClick={() => {
-                      const newExperience = currentCV.experience.filter((_, i) => i !== index);
-                      setCurrentCV({ ...currentCV, experience: newExperience });
-                    }}
-                    variant="destructive"
-                    size="sm"
-                    className="mt-2"
+                    className="mt-2 text-sm"
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
                     Remove
@@ -629,37 +742,60 @@ const CVBuilder = () => {
             </div>
 
             {/* Skills Section */}
-            <div className="bg-white p-6 rounded-xl border border-gray-100">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <Award className="h-5 w-5 mr-2" />
-                Skills
-              </h3>
-              <Textarea
-                value={currentCV.skills.join('\n')}
-                onChange={(e) => setCurrentCV({ 
-                  ...currentCV, 
-                  skills: e.target.value.split('\n').filter(s => s.trim()) 
-                })}
-                className="rounded-xl border-gray-200"
-                rows={4}
-                placeholder="Enter each skill on a new line"
-              />
+            <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-100">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center">
+                  <Award className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                  Skills
+                </h3>
+                <Button onClick={addSkill} variant="outline" size="sm" className="text-sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Skill
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {currentCV.skills.map((skill, index) => (
+                  <div key={index} className="flex items-center space-x-2">
+                    <Input
+                      value={skill}
+                      onChange={(e) => {
+                        const newSkills = [...currentCV.skills];
+                        newSkills[index] = e.target.value;
+                        setCurrentCV({ ...currentCV, skills: newSkills });
+                      }}
+                      className="rounded-xl border-gray-200 text-sm"
+                      placeholder="Enter skill"
+                    />
+                    <Button
+                      onClick={() => {
+                        const newSkills = currentCV.skills.filter((_, i) => i !== index);
+                        setCurrentCV({ ...currentCV, skills: newSkills });
+                      }}
+                      variant="destructive"
+                      size="sm"
+                      className="text-sm"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* References Section */}
-            <div className="bg-white p-6 rounded-xl border border-gray-100">
+            <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-100">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-800">References</h3>
-                <Button onClick={addReference} variant="outline" size="sm">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-800">References</h3>
+                <Button onClick={addReference} variant="outline" size="sm" className="text-sm">
                   <Plus className="h-4 w-4 mr-2" />
                   Add Reference
                 </Button>
               </div>
               {currentCV.references.map((ref, index) => (
                 <div key={index} className="border border-gray-200 rounded-lg p-4 mb-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Name</Label>
+                      <Label className="text-sm">Name</Label>
                       <Input
                         value={ref.name}
                         onChange={(e) => {
@@ -667,11 +803,11 @@ const CVBuilder = () => {
                           newReferences[index].name = e.target.value;
                           setCurrentCV({ ...currentCV, references: newReferences });
                         }}
-                        className="rounded-xl border-gray-200"
+                        className="rounded-xl border-gray-200 text-sm"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Position</Label>
+                      <Label className="text-sm">Position</Label>
                       <Input
                         value={ref.position}
                         onChange={(e) => {
@@ -679,11 +815,11 @@ const CVBuilder = () => {
                           newReferences[index].position = e.target.value;
                           setCurrentCV({ ...currentCV, references: newReferences });
                         }}
-                        className="rounded-xl border-gray-200"
+                        className="rounded-xl border-gray-200 text-sm"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Company</Label>
+                      <Label className="text-sm">Company</Label>
                       <Input
                         value={ref.company}
                         onChange={(e) => {
@@ -691,11 +827,11 @@ const CVBuilder = () => {
                           newReferences[index].company = e.target.value;
                           setCurrentCV({ ...currentCV, references: newReferences });
                         }}
-                        className="rounded-xl border-gray-200"
+                        className="rounded-xl border-gray-200 text-sm"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Phone</Label>
+                      <Label className="text-sm">Phone</Label>
                       <Input
                         value={ref.phone}
                         onChange={(e) => {
@@ -703,11 +839,11 @@ const CVBuilder = () => {
                           newReferences[index].phone = e.target.value;
                           setCurrentCV({ ...currentCV, references: newReferences });
                         }}
-                        className="rounded-xl border-gray-200"
+                        className="rounded-xl border-gray-200 text-sm"
                       />
                     </div>
-                    <div className="md:col-span-2 space-y-2">
-                      <Label>Email</Label>
+                    <div className="sm:col-span-2 space-y-2">
+                      <Label className="text-sm">Email</Label>
                       <Input
                         value={ref.email}
                         onChange={(e) => {
@@ -715,7 +851,7 @@ const CVBuilder = () => {
                           newReferences[index].email = e.target.value;
                           setCurrentCV({ ...currentCV, references: newReferences });
                         }}
-                        className="rounded-xl border-gray-200"
+                        className="rounded-xl border-gray-200 text-sm"
                       />
                     </div>
                   </div>
@@ -726,7 +862,7 @@ const CVBuilder = () => {
                     }}
                     variant="destructive"
                     size="sm"
-                    className="mt-2"
+                    className="mt-2 text-sm"
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
                     Remove
