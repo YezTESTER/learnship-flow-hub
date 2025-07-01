@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import Sidebar from '@/components/layout/Sidebar';
@@ -11,10 +11,41 @@ import DocumentUpload from '@/components/documents/DocumentUpload';
 import AchievementsDisplay from '@/components/gamification/AchievementsDisplay';
 import NotificationCenter from '@/components/notifications/NotificationCenter';
 import ProfileManager from '@/components/profile/ProfileManager';
+import OnboardingTour from '@/components/onboarding/OnboardingTour';
 
 const Dashboard = () => {
   const { user, profile, loading } = useAuth();
   const [activeSection, setActiveSection] = useState('dashboard');
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    // Check if user needs onboarding (new user or incomplete profile)
+    if (profile && profile.role === 'learner') {
+      const isNewUser = !profile.learnership_program || !profile.employer_name;
+      const hasLowProfileCompletion = checkProfileCompletion() < 50;
+      
+      if (isNewUser || hasLowProfileCompletion) {
+        setShowOnboarding(true);
+      }
+    }
+  }, [profile]);
+
+  const checkProfileCompletion = () => {
+    if (!profile) return 0;
+    
+    const requiredFields = [
+      'full_name', 'id_number', 'learnership_program', 'employer_name',
+      'phone_number', 'address', 'date_of_birth', 'emergency_contact',
+      'emergency_phone', 'start_date', 'end_date'
+    ];
+    
+    const completedFields = requiredFields.filter(field => {
+      const value = profile[field as keyof typeof profile];
+      return value && value.toString().trim() !== '';
+    }).length;
+    
+    return Math.round((completedFields / requiredFields.length) * 100);
+  };
 
   if (loading) {
     return (
@@ -159,6 +190,13 @@ const Dashboard = () => {
           {renderContent()}
         </div>
       </main>
+
+      {/* Onboarding Tour */}
+      <OnboardingTour
+        isOpen={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+        onComplete={() => setShowOnboarding(false)}
+      />
     </div>
   );
 };

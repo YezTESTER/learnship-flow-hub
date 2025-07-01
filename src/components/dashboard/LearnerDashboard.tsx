@@ -17,7 +17,9 @@ import {
   CheckCircle, 
   Target,
   Star,
-  Upload
+  Upload,
+  AlertCircle,
+  User
 } from 'lucide-react';
 
 interface LearnerDashboardProps {
@@ -30,14 +32,35 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({ setActiveSection })
     totalSubmissions: 0,
     completedSubmissions: 0,
     overdueSubmissions: 0,
-    nextDueDate: null as string | null
+    nextDueDate: null as string | null,
+    uploadedDocuments: 0
   });
   const [recentAchievements, setRecentAchievements] = useState([]);
+  const [profileCompletion, setProfileCompletion] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchDashboardData();
+    calculateProfileCompletion();
   }, [profile]);
+
+  const calculateProfileCompletion = () => {
+    if (!profile) return;
+    
+    const requiredFields = [
+      'full_name', 'id_number', 'learnership_program', 'employer_name',
+      'phone_number', 'address', 'date_of_birth', 'emergency_contact',
+      'emergency_phone', 'start_date', 'end_date'
+    ];
+    
+    const completedFields = requiredFields.filter(field => {
+      const value = profile[field as keyof typeof profile];
+      return value && value.toString().trim() !== '';
+    }).length;
+    
+    const completion = Math.round((completedFields / requiredFields.length) * 100);
+    setProfileCompletion(completion);
+  };
 
   const fetchDashboardData = async () => {
     if (!profile) return;
@@ -47,6 +70,12 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({ setActiveSection })
       const { data: submissions } = await supabase
         .from('feedback_submissions')
         .select('*')
+        .eq('learner_id', profile.id);
+
+      // Fetch documents count
+      const { data: documents } = await supabase
+        .from('documents')
+        .select('id')
         .eq('learner_id', profile.id);
 
       // Fetch recent achievements
@@ -61,11 +90,18 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({ setActiveSection })
         const completed = submissions.filter(s => s.status === 'submitted' || s.status === 'approved').length;
         const overdue = submissions.filter(s => s.status === 'overdue').length;
         
+        // Find next due submission
+        const pendingSubmissions = submissions.filter(s => s.status === 'pending');
+        const nextDue = pendingSubmissions.length > 0 
+          ? pendingSubmissions.sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())[0]
+          : null;
+        
         setStats({
           totalSubmissions: submissions.length,
           completedSubmissions: completed,
           overdueSubmissions: overdue,
-          nextDueDate: submissions.find(s => s.status === 'pending')?.due_date || null
+          nextDueDate: nextDue?.due_date || null,
+          uploadedDocuments: documents?.length || 0
         });
       }
 
@@ -79,9 +115,10 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({ setActiveSection })
     }
   };
 
+  // Fix compliance calculation - should be based on actual performance, not just existence
   const compliancePercentage = stats.totalSubmissions > 0 
     ? Math.round((stats.completedSubmissions / stats.totalSubmissions) * 100)
-    : 100;
+    : 0; // Changed from 100 to 0 when no submissions exist
 
   if (loading) {
     return (
@@ -112,6 +149,31 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({ setActiveSection })
         </div>
       </div>
 
+      {/* Profile Completion Alert */}
+      {profileCompletion < 100 && (
+        <Card className="bg-yellow-50 border-yellow-200">
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-3">
+              <AlertCircle className="h-8 w-8 text-yellow-600" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-yellow-800">Complete Your Profile</h3>
+                <p className="text-yellow-700 text-sm">Your profile is {profileCompletion}% complete. Complete it to unlock all features.</p>
+                <div className="mt-2">
+                  <Progress value={profileCompletion} className="h-2" />
+                </div>
+              </div>
+              <Button 
+                onClick={() => handleNavigateToSection('profile')}
+                size="sm"
+                className="bg-yellow-600 hover:bg-yellow-700"
+              >
+                Complete Profile
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
@@ -120,7 +182,7 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({ setActiveSection })
               <CheckCircle className="h-8 w-8 text-green-600" />
               <div>
                 <p className="text-sm font-medium text-green-800">Compliance Score</p>
-                <p className="text-2xl font-bold text-green-900">{profile?.compliance_score || 0}%</p>
+                <p className="text-2xl font-bold text-green-900">{compliancePercentage}%</p>
               </div>
             </div>
           </CardContent>
@@ -150,18 +212,40 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({ setActiveSection })
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
+        <Card className={`bg-gradient-to-br ${stats.overdueSubmissions > 0 ? 'from-red-50 to-red-100 border-red-200' : 'from-gray-50 to-gray-100 border-gray-200'}`}>
           <CardContent className="p-4">
             <div className="flex items-center space-x-3">
-              <Clock className="h-8 w-8 text-orange-600" />
+              <Clock className={`h-8 w-8 ${stats.overdueSubmissions > 0 ? 'text-red-600' : 'text-gray-600'}`} />
               <div>
-                <p className="text-sm font-medium text-orange-800">Overdue</p>
-                <p className="text-2xl font-bold text-orange-900">{stats.overdueSubmissions}</p>
+                <p className={`text-sm font-medium ${stats.overdueSubmissions > 0 ? 'text-red-800' : 'text-gray-800'}`}>Overdue</p>
+                <p className={`text-2xl font-bold ${stats.overdueSubmissions > 0 ? 'text-red-900' : 'text-gray-900'}`}>{stats.overdueSubmissions}</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Documents Overview */}
+      <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Upload className="h-8 w-8 text-indigo-600" />
+              <div>
+                <p className="text-sm font-medium text-indigo-800">Documents Uploaded</p>
+                <p className="text-2xl font-bold text-indigo-900">{stats.uploadedDocuments}</p>
+              </div>
+            </div>
+            <Button 
+              onClick={() => handleNavigateToSection('documents')}
+              variant="outline"
+              className="border-indigo-300 text-indigo-700 hover:bg-indigo-100"
+            >
+              View Documents
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Progress Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -192,6 +276,13 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({ setActiveSection })
                 <p className="text-sm text-red-800">Overdue</p>
               </div>
             </div>
+
+            {stats.nextDueDate && (
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <p className="text-sm font-medium text-blue-800">Next Due Date</p>
+                <p className="text-blue-700">{new Date(stats.nextDueDate).toLocaleDateString()}</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
