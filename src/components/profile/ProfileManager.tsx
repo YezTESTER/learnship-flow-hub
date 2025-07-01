@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,11 +7,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { User, Building, Award, Mail, Phone, MapPin, Save, Calendar, AlertCircle } from 'lucide-react';
+import { User, Building, Award, Mail, Phone, MapPin, Save, Calendar, AlertCircle, Camera, Upload } from 'lucide-react';
 
 const ProfileManager = () => {
   const { user, profile } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
   const [formData, setFormData] = useState({
     full_name: '',
     email: '',
@@ -25,7 +25,8 @@ const ProfileManager = () => {
     emergency_contact: '',
     emergency_phone: '',
     start_date: '',
-    end_date: ''
+    end_date: '',
+    avatar_url: ''
   });
 
   useEffect(() => {
@@ -42,10 +43,59 @@ const ProfileManager = () => {
         emergency_contact: profile.emergency_contact || '',
         emergency_phone: profile.emergency_phone || '',
         start_date: profile.start_date || '',
-        end_date: profile.end_date || ''
+        end_date: profile.end_date || '',
+        avatar_url: profile.avatar_url || ''
       });
     }
   }, [profile, user]);
+
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    // Check file size (2MB limit)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Photo must be smaller than 2MB');
+      return;
+    }
+
+    // Check file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file');
+      return;
+    }
+
+    setPhotoUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}_avatar.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath);
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: data.publicUrl })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      setFormData(prev => ({ ...prev, avatar_url: data.publicUrl }));
+      toast.success('Profile photo updated successfully!');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to upload photo');
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,6 +147,45 @@ const ProfileManager = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Profile Photo Section */}
+            <div className="bg-white p-6 rounded-xl border border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <Camera className="h-5 w-5 mr-2" />
+                Profile Photo
+              </h3>
+              <div className="flex items-center space-x-4">
+                <div className="relative">
+                  <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                    {formData.avatar_url ? (
+                      <img
+                        src={formData.avatar_url}
+                        alt="Profile"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <User className="h-12 w-12 text-gray-400" />
+                    )}
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor="photo" className="block text-sm font-medium text-gray-700 mb-2">
+                    Upload Photo (Max 2MB)
+                  </Label>
+                  <Input
+                    id="photo"
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                    disabled={photoUploading}
+                    className="rounded-xl border-gray-200"
+                  />
+                  {photoUploading && (
+                    <p className="text-sm text-blue-600 mt-2">Uploading photo...</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
             {/* Personal Information Section */}
             <div className="bg-white p-6 rounded-xl border border-gray-100">
               <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">

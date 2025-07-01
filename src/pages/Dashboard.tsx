@@ -11,6 +11,7 @@ import DocumentUpload from '@/components/documents/DocumentUpload';
 import AchievementsDisplay from '@/components/gamification/AchievementsDisplay';
 import NotificationCenter from '@/components/notifications/NotificationCenter';
 import ProfileManager from '@/components/profile/ProfileManager';
+import CVBuilder from '@/components/cv/CVBuilder';
 import OnboardingTour from '@/components/onboarding/OnboardingTour';
 
 const Dashboard = () => {
@@ -85,6 +86,8 @@ const Dashboard = () => {
         return <MonthlyFeedbackForm />;
       case 'documents':
         return <DocumentUpload />;
+      case 'cv-builder':
+        return <CVBuilder />;
       case 'achievements':
         return <AchievementsDisplay />;
       case 'notifications':
@@ -153,6 +156,8 @@ const Dashboard = () => {
         return 'Monthly Feedback';
       case 'documents':
         return 'Document Upload';
+      case 'cv-builder':
+        return 'My CV Builder';
       case 'achievements':
         return 'Achievements';
       case 'notifications':

@@ -1,11 +1,13 @@
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Home, FileText, Upload, Award, Bell, Settings, Users, BarChart3, LogOut, User } from 'lucide-react';
+import { Home, FileText, Upload, Award, Bell, Settings, Users, BarChart3, LogOut, User, BookOpen } from 'lucide-react';
+
 interface SidebarProps {
   activeSection: string;
   setActiveSection: (section: string) => void;
 }
+
 const Sidebar: React.FC<SidebarProps> = ({
   activeSection,
   setActiveSection
@@ -14,6 +16,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     profile,
     signOut
   } = useAuth();
+
   const learnerMenuItems = [{
     id: 'dashboard',
     label: 'Dashboard',
@@ -27,6 +30,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     label: 'Documents',
     icon: Upload
   }, {
+    id: 'cv-builder',
+    label: 'My CV',
+    icon: BookOpen
+  }, {
     id: 'achievements',
     label: 'Achievements',
     icon: Award
@@ -39,6 +46,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     label: 'Profile',
     icon: User
   }];
+
   const mentorMenuItems = [{
     id: 'dashboard',
     label: 'Dashboard',
@@ -60,6 +68,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     label: 'Profile',
     icon: User
   }];
+
   const adminMenuItems = [{
     id: 'dashboard',
     label: 'Dashboard',
@@ -85,6 +94,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     label: 'Settings',
     icon: Settings
   }];
+
   const getMenuItems = () => {
     switch (profile?.role) {
       case 'mentor':
@@ -95,6 +105,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         return learnerMenuItems;
     }
   };
+
   return <div className="w-64 bg-gradient-to-b from-[#122ec0] to-blue-600 text-white h-screen flex flex-col">
       <div className="p-6">
         <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-orange-200 bg-clip-text text-transparent">
@@ -119,11 +130,12 @@ const Sidebar: React.FC<SidebarProps> = ({
       </nav>
 
       <div className="p-4">
-        <Button onClick={signOut} variant="outline" className="w-full border-white/30 rounded-xl bg-zinc-50 text-black">
+        <Button onClick={signOut} variant="outline" className="w-full border-white/30 rounded-xl bg-white/10 text-white hover:bg-white/20 hover:text-white">
           <LogOut size={16} className="mr-2" />
           Sign Out
         </Button>
       </div>
     </div>;
 };
+
 export default Sidebar;
