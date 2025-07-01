@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -68,14 +69,27 @@ const ProfileManager = () => {
     setPhotoUploading(true);
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}_avatar.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
+      const fileName = `avatar_${user.id}_${Date.now()}.${fileExt}`;
+      const filePath = fileName;
+
+      // First, remove old avatar if it exists
+      if (formData.avatar_url) {
+        const oldPath = formData.avatar_url.split('/').pop();
+        if (oldPath) {
+          await supabase.storage
+            .from('documents')
+            .remove([oldPath]);
+        }
+      }
 
       const { error: uploadError } = await supabase.storage
         .from('documents')
         .upload(filePath, file, { upsert: true });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw uploadError;
+      }
 
       const { data } = supabase.storage
         .from('documents')
@@ -86,11 +100,15 @@ const ProfileManager = () => {
         .update({ avatar_url: data.publicUrl })
         .eq('id', user.id);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('Profile update error:', updateError);
+        throw updateError;
+      }
 
       setFormData(prev => ({ ...prev, avatar_url: data.publicUrl }));
       toast.success('Profile photo updated successfully!');
     } catch (error: any) {
+      console.error('Photo upload error:', error);
       toast.error(error.message || 'Failed to upload photo');
     } finally {
       setPhotoUploading(false);
