@@ -11,11 +11,14 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { User, Building, Award, Mail, Phone, MapPin, Save, Calendar, AlertCircle, Camera, Upload } from 'lucide-react';
+import ImageCropper from './ImageCropper';
 
 const ProfileManager = () => {
   const { user, profile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [showCropper, setShowCropper] = useState(false);
+  const [tempImageSrc, setTempImageSrc] = useState('');
   const [formData, setFormData] = useState({
     full_name: '',
     email: '',
@@ -42,7 +45,8 @@ const ProfileManager = () => {
     has_own_transport: false,
     public_transport_types: [] as string[],
     receives_stipend: false,
-    stipend_amount: 0
+    stipend_amount: 0,
+    is_employed: false // New field for employment status
   });
 
   const southAfricanLanguages = [
@@ -86,7 +90,8 @@ const ProfileManager = () => {
         has_own_transport: profile.has_own_transport || false,
         public_transport_types: profile.public_transport_types || [],
         receives_stipend: profile.receives_stipend || false,
-        stipend_amount: profile.stipend_amount || 0
+        stipend_amount: profile.stipend_amount || 0,
+        is_employed: profile.employer_name ? true : false
       });
     }
   }, [profile, user]);
@@ -107,9 +112,20 @@ const ProfileManager = () => {
       return;
     }
 
+    // Create temporary URL for cropping
+    const tempUrl = URL.createObjectURL(file);
+    setTempImageSrc(tempUrl);
+    setShowCropper(true);
+  };
+
+  const handleCropComplete = async (croppedImageBlob: Blob) => {
+    if (!user) return;
+
     setPhotoUploading(true);
+    setShowCropper(false);
+    
     try {
-      const fileExt = file.name.split('.').pop();
+      const fileExt = 'jpg';
       const fileName = `${user.id}/avatar_${Date.now()}.${fileExt}`;
 
       // First, remove old avatar if it exists
@@ -124,7 +140,7 @@ const ProfileManager = () => {
 
       const { error: uploadError } = await supabase.storage
         .from('documents')
-        .upload(fileName, file, { upsert: true });
+        .upload(fileName, croppedImageBlob, { upsert: true });
 
       if (uploadError) {
         console.error('Upload error:', uploadError);
@@ -152,6 +168,9 @@ const ProfileManager = () => {
       toast.error(error.message || 'Failed to upload photo');
     } finally {
       setPhotoUploading(false);
+      // Clean up temporary URL
+      URL.revokeObjectURL(tempImageSrc);
+      setTempImageSrc('');
     }
   };
 
@@ -194,7 +213,7 @@ const ProfileManager = () => {
           full_name: formData.full_name,
           id_number: formData.id_number,
           learnership_program: formData.learnership_program,
-          employer_name: formData.employer_name,
+          employer_name: formData.is_employed ? formData.employer_name : null,
           phone_number: formData.phone_number,
           address: formData.address,
           date_of_birth: formData.date_of_birth || null,
@@ -267,7 +286,7 @@ const ProfileManager = () => {
                 </div>
                 <div className="flex-1 w-full">
                   <Label htmlFor="photo" className="block text-sm font-medium text-gray-700 mb-2">
-                    Upload Photo (Max 2MB)
+                    Upload Photo (Max 2MB) - Photos will be cropped to 1:1 ratio
                   </Label>
                   <Input
                     id="photo"
@@ -278,7 +297,7 @@ const ProfileManager = () => {
                     className="rounded-xl border-gray-200 text-sm"
                   />
                   {photoUploading && (
-                    <p className="text-sm text-blue-600 mt-2">Uploading photo...</p>
+                    <p className="text-sm text-blue-600 mt-2">Processing photo...</p>
                   )}
                 </div>
               </div>
@@ -526,7 +545,7 @@ const ProfileManager = () => {
               </div>
             </div>
 
-            {/* Learnership Information Section */}
+            {/* Learnership Information Section - Updated with employment status */}
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-100">
               <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <Award className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
@@ -544,16 +563,42 @@ const ProfileManager = () => {
                   />
                 </div>
 
-                <div className="md:col-span-2 space-y-2">
-                  <Label htmlFor="employer_name" className="text-sm">Employer/Host Company</Label>
-                  <Input
-                    id="employer_name"
-                    value={formData.employer_name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, employer_name: e.target.value }))}
-                    className="rounded-xl border-gray-200 text-sm"
-                    placeholder="Enter your employer name"
-                  />
+                <div className="md:col-span-2 space-y-3">
+                  <Label className="text-sm">Are you employed or hosted by a company?</Label>
+                  <RadioGroup
+                    value={formData.is_employed.toString()}
+                    onValueChange={(value) => {
+                      const isEmployed = value === 'true';
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        is_employed: isEmployed,
+                        employer_name: isEmployed ? prev.employer_name : ''
+                      }));
+                    }}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="false" id="not-employed" />
+                      <Label htmlFor="not-employed" className="text-sm">No</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="true" id="is-employed" />
+                      <Label htmlFor="is-employed" className="text-sm">Yes</Label>
+                    </div>
+                  </RadioGroup>
                 </div>
+
+                {formData.is_employed && (
+                  <div className="md:col-span-2 space-y-2">
+                    <Label htmlFor="employer_name" className="text-sm">Employer/Host Company</Label>
+                    <Input
+                      id="employer_name"
+                      value={formData.employer_name}
+                      onChange={(e) => setFormData(prev => ({ ...prev, employer_name: e.target.value }))}
+                      className="rounded-xl border-gray-200 text-sm"
+                      placeholder="Enter your employer name"
+                    />
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="start_date" className="text-sm">Start Date</Label>
@@ -680,6 +725,18 @@ const ProfileManager = () => {
           </form>
         </CardContent>
       </Card>
+
+      {/* Image Cropper Modal */}
+      <ImageCropper
+        isOpen={showCropper}
+        onClose={() => {
+          setShowCropper(false);
+          URL.revokeObjectURL(tempImageSrc);
+          setTempImageSrc('');
+        }}
+        onCropComplete={handleCropComplete}
+        imageSrc={tempImageSrc}
+      />
     </div>
   );
 };
