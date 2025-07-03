@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,11 +7,13 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { FileText, Download, Plus, Trash2, User, Award, Briefcase, GraduationCap, Eye, Edit, Save } from 'lucide-react';
+import { FileText, Download, Plus, Trash2, User, Award, Briefcase, GraduationCap, Eye, Edit, Save, Upload, AlertTriangle } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 interface CVData {
   id?: string;
   title: string;
+  is_published: boolean;
   personal_info: {
     full_name: string;
     email: string;
@@ -22,8 +23,16 @@ interface CVData {
     date_of_birth: string;
     nationality: string;
     gender: string;
+    race: string;
     languages: string[];
     avatar_url: string;
+    area_of_residence: string;
+    has_disability: boolean;
+    disability_description: string;
+    has_drivers_license: boolean;
+    license_codes: string[];
+    has_own_transport: boolean;
+    public_transport_types: string[];
   };
   education: {
     id: string;
@@ -61,9 +70,14 @@ const CVBuilder = () => {
   const [currentCV, setCurrentCV] = useState<CVData | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
 
   const defaultCVData: CVData = {
     title: 'My CV',
+    is_published: false,
     personal_info: {
       full_name: '',
       email: '',
@@ -73,8 +87,16 @@ const CVBuilder = () => {
       date_of_birth: '',
       nationality: 'South African',
       gender: '',
+      race: '',
       languages: ['English'],
-      avatar_url: ''
+      avatar_url: '',
+      area_of_residence: '',
+      has_disability: false,
+      disability_description: '',
+      has_drivers_license: false,
+      license_codes: [],
+      has_own_transport: false,
+      public_transport_types: []
     },
     education: [],
     experience: [],
@@ -91,16 +113,31 @@ const CVBuilder = () => {
         address: profile.address || '',
         id_number: profile.id_number || '',
         date_of_birth: profile.date_of_birth || '',
-        nationality: 'South African',
-        gender: '',
-        languages: ['English'],
-        avatar_url: profile.avatar_url || ''
+        nationality: profile.nationality || 'South African',
+        gender: profile.gender || '',
+        race: profile.race || '',
+        languages: profile.languages || ['English'],
+        avatar_url: profile.avatar_url || '',
+        area_of_residence: profile.area_of_residence || '',
+        has_disability: profile.has_disability || false,
+        disability_description: profile.disability_description || '',
+        has_drivers_license: profile.has_drivers_license || false,
+        license_codes: profile.license_codes || [],
+        has_own_transport: profile.has_own_transport || false,
+        public_transport_types: profile.public_transport_types || []
       };
       
       setCurrentCV(prev => prev ? { ...prev, personal_info: updatedPersonalInfo } : { ...defaultCVData, personal_info: updatedPersonalInfo });
       loadCVs();
     }
   }, [profile, user]);
+
+  // Track changes to show unsaved warning
+  useEffect(() => {
+    if (isEditing && currentCV) {
+      setHasUnsavedChanges(true);
+    }
+  }, [currentCV, isEditing]);
 
   const loadCVs = async () => {
     if (!user) return;
@@ -129,33 +166,73 @@ const CVBuilder = () => {
     }
   };
 
+  const checkDuplicateTitle = (title: string, excludeId?: string) => {
+    return cvList.some(cv => cv.title.toLowerCase() === title.toLowerCase() && cv.id !== excludeId);
+  };
+
+  const handleUnsavedAction = (action: () => void) => {
+    if (hasUnsavedChanges) {
+      setPendingAction(() => action);
+      setShowUnsavedWarning(true);
+    } else {
+      action();
+    }
+  };
+
   const createNewCV = () => {
-    const newCV = { 
-      ...defaultCVData, 
-      id: Date.now().toString(),
-      title: `CV ${cvList.length + 1}`,
-      personal_info: {
-        ...defaultCVData.personal_info,
-        full_name: profile?.full_name || '',
-        email: user?.email || '',
-        phone: profile?.phone_number || '',
-        address: profile?.address || '',
-        id_number: profile?.id_number || '',
-        date_of_birth: profile?.date_of_birth || '',
-        avatar_url: profile?.avatar_url || ''
-      }
+    const action = () => {
+      const newCV = { 
+        ...defaultCVData, 
+        id: Date.now().toString(),
+        title: `CV ${cvList.length + 1}`,
+        personal_info: {
+          ...defaultCVData.personal_info,
+          full_name: profile?.full_name || '',
+          email: user?.email || '',
+          phone: profile?.phone_number || '',
+          address: profile?.address || '',
+          id_number: profile?.id_number || '',
+          date_of_birth: profile?.date_of_birth || '',
+          nationality: profile?.nationality || 'South African',
+          gender: profile?.gender || '',
+          race: profile?.race || '',
+          languages: profile?.languages || ['English'],
+          avatar_url: profile?.avatar_url || '',
+          area_of_residence: profile?.area_of_residence || '',
+          has_disability: profile?.has_disability || false,
+          disability_description: profile?.disability_description || '',
+          has_drivers_license: profile?.has_drivers_license || false,
+          license_codes: profile?.license_codes || [],
+          has_own_transport: profile?.has_own_transport || false,
+          public_transport_types: profile?.public_transport_types || []
+        }
+      };
+      setCurrentCV(newCV);
+      setIsEditing(true);
+      setHasUnsavedChanges(false);
     };
-    setCurrentCV(newCV);
-    setIsEditing(true);
+
+    handleUnsavedAction(action);
   };
 
   const editCV = (cv: CVData) => {
-    setCurrentCV(cv);
-    setIsEditing(true);
+    const action = () => {
+      setCurrentCV(cv);
+      setIsEditing(true);
+      setHasUnsavedChanges(false);
+    };
+
+    handleUnsavedAction(action);
   };
 
   const saveCV = async () => {
     if (!user || !currentCV) return;
+
+    // Check for duplicate title
+    if (checkDuplicateTitle(currentCV.title, currentCV.id)) {
+      setShowDuplicateWarning(true);
+      return;
+    }
     
     setLoading(true);
     try {
@@ -176,11 +253,39 @@ const CVBuilder = () => {
       
       toast.success('CV saved successfully!');
       setIsEditing(false);
+      setHasUnsavedChanges(false);
       loadCVs();
     } catch (error: any) {
       toast.error(error.message || 'Failed to save CV');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const publishCV = async (cvId: string) => {
+    if (!user) return;
+    
+    try {
+      const cv = cvList.find(c => c.id === cvId);
+      if (!cv) return;
+
+      const updatedCV = { ...cv, is_published: !cv.is_published };
+      const fileName = `cv_${cvId}.json`;
+      
+      const { error } = await supabase
+        .from('documents')
+        .update({
+          file_path: JSON.stringify(updatedCV)
+        })
+        .eq('learner_id', user.id)
+        .eq('file_name', fileName);
+
+      if (error) throw error;
+      
+      toast.success(updatedCV.is_published ? 'CV published successfully!' : 'CV unpublished successfully!');
+      loadCVs();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update CV');
     }
   };
 
@@ -201,6 +306,7 @@ const CVBuilder = () => {
       if (currentCV?.id === cvId) {
         setCurrentCV(null);
         setIsEditing(false);
+        setHasUnsavedChanges(false);
       }
     } catch (error: any) {
       toast.error(error.message || 'Failed to delete CV');
@@ -293,12 +399,16 @@ const CVBuilder = () => {
             <p>{cv.personal_info.email} | {cv.personal_info.phone}</p>
             <p>{cv.personal_info.address}</p>
             <p>ID: {cv.personal_info.id_number} | DOB: {cv.personal_info.date_of_birth}</p>
+            <p>Gender: {cv.personal_info.gender} | Race: {cv.personal_info.race}</p>
             <p>Nationality: {cv.personal_info.nationality} | Languages: {cv.personal_info.languages.join(', ')}</p>
+            {cv.personal_info.area_of_residence && <p>Area: {cv.personal_info.area_of_residence}</p>}
+            {cv.personal_info.has_drivers_license && (
+              <p>Driver's License: {cv.personal_info.license_codes.join(', ')}</p>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Education */}
       {cv.education.length > 0 && (
         <div className="mb-6">
           <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 border-b border-gray-300 pb-1">Education</h2>
@@ -311,7 +421,6 @@ const CVBuilder = () => {
         </div>
       )}
 
-      {/* Experience */}
       {cv.experience.length > 0 && (
         <div className="mb-6">
           <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 border-b border-gray-300 pb-1">Experience</h2>
@@ -336,7 +445,6 @@ const CVBuilder = () => {
         </div>
       )}
 
-      {/* Skills */}
       {cv.skills.length > 0 && (
         <div className="mb-6">
           <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 border-b border-gray-300 pb-1">Skills</h2>
@@ -350,7 +458,6 @@ const CVBuilder = () => {
         </div>
       )}
 
-      {/* References */}
       {cv.references.length > 0 && (
         <div className="mb-6">
           <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 border-b border-gray-300 pb-1">References</h2>
@@ -409,7 +516,12 @@ const CVBuilder = () => {
           {cvList.map((cv) => (
             <Card key={cv.id} className="hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base sm:text-lg">{cv.title}</CardTitle>
+                <CardTitle className="text-base sm:text-lg flex items-center justify-between">
+                  {cv.title}
+                  {cv.is_published && (
+                    <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">Published</span>
+                  )}
+                </CardTitle>
                 <CardDescription className="text-sm">
                   Last updated: {new Date().toLocaleDateString()}
                 </CardDescription>
@@ -437,6 +549,14 @@ const CVBuilder = () => {
                   </Button>
                 </div>
                 <Button 
+                  onClick={() => cv.id && publishCV(cv.id)} 
+                  variant={cv.is_published ? "secondary" : "default"}
+                  className="w-full text-sm"
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  {cv.is_published ? 'Unpublish CV' : 'Publish CV'}
+                </Button>
+                <Button 
                   onClick={() => cv.id && deleteCV(cv.id)} 
                   variant="destructive" 
                   size="sm"
@@ -461,6 +581,56 @@ const CVBuilder = () => {
             </Button>
           </div>
         )}
+
+        {/* Unsaved Changes Warning Dialog */}
+        <AlertDialog open={showUnsavedWarning} onOpenChange={setShowUnsavedWarning}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center">
+                <AlertTriangle className="h-5 w-5 mr-2 text-yellow-500" />
+                Unsaved Changes
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                You have unsaved changes. Do you want to continue without saving?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setShowUnsavedWarning(false)}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction onClick={() => {
+                setShowUnsavedWarning(false);
+                setHasUnsavedChanges(false);
+                if (pendingAction) {
+                  pendingAction();
+                  setPendingAction(null);
+                }
+              }}>
+                Continue without saving
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Duplicate Title Warning Dialog */}
+        <AlertDialog open={showDuplicateWarning} onOpenChange={setShowDuplicateWarning}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center">
+                <AlertTriangle className="h-5 w-5 mr-2 text-yellow-500" />
+                Duplicate CV Title
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                A CV with this title already exists. Please choose a different title.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction onClick={() => setShowDuplicateWarning(false)}>
+                OK
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   }
@@ -480,7 +650,7 @@ const CVBuilder = () => {
             <Save className="mr-2 h-4 w-4" />
             {loading ? 'Saving...' : 'Save CV'}
           </Button>
-          <Button onClick={() => setIsEditing(false)} variant="outline" className="text-sm">
+          <Button onClick={() => handleUnsavedAction(() => setIsEditing(false))} variant="outline" className="text-sm">
             Back to List
           </Button>
         </div>
@@ -500,19 +670,114 @@ const CVBuilder = () => {
             </div>
           </CardHeader>
           <CardContent className="space-y-6 sm:space-y-8">
-            {/* Personal Information - Auto-filled */}
+            {/* Personal Information - Editable */}
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-100">
               <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <User className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                Personal Information (Auto-filled from Profile)
+                Personal Information
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm text-gray-600">
-                <p><strong>Name:</strong> {currentCV.personal_info.full_name}</p>
-                <p><strong>Email:</strong> {currentCV.personal_info.email}</p>
-                <p><strong>Phone:</strong> {currentCV.personal_info.phone}</p>
-                <p><strong>ID Number:</strong> {currentCV.personal_info.id_number}</p>
-                <p><strong>Date of Birth:</strong> {currentCV.personal_info.date_of_birth}</p>
-                <p className="sm:col-span-2"><strong>Address:</strong> {currentCV.personal_info.address}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm">Full Name</Label>
+                  <Input
+                    value={currentCV.personal_info.full_name}
+                    onChange={(e) => setCurrentCV({
+                      ...currentCV,
+                      personal_info: { ...currentCV.personal_info, full_name: e.target.value }
+                    })}
+                    className="rounded-xl border-gray-200 text-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm">Email</Label>
+                  <Input
+                    value={currentCV.personal_info.email}
+                    onChange={(e) => setCurrentCV({
+                      ...currentCV,
+                      personal_info: { ...currentCV.personal_info, email: e.target.value }
+                    })}
+                    className="rounded-xl border-gray-200 text-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm">Phone</Label>
+                  <Input
+                    value={currentCV.personal_info.phone}
+                    onChange={(e) => setCurrentCV({
+                      ...currentCV,
+                      personal_info: { ...currentCV.personal_info, phone: e.target.value }
+                    })}
+                    className="rounded-xl border-gray-200 text-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm">ID Number</Label>
+                  <Input
+                    value={currentCV.personal_info.id_number}
+                    onChange={(e) => setCurrentCV({
+                      ...currentCV,
+                      personal_info: { ...currentCV.personal_info, id_number: e.target.value }
+                    })}
+                    className="rounded-xl border-gray-200 text-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm">Date of Birth</Label>
+                  <Input
+                    type="date"
+                    value={currentCV.personal_info.date_of_birth}
+                    onChange={(e) => setCurrentCV({
+                      ...currentCV,
+                      personal_info: { ...currentCV.personal_info, date_of_birth: e.target.value }
+                    })}
+                    className="rounded-xl border-gray-200 text-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm">Gender</Label>
+                  <Input
+                    value={currentCV.personal_info.gender}
+                    onChange={(e) => setCurrentCV({
+                      ...currentCV,
+                      personal_info: { ...currentCV.personal_info, gender: e.target.value }
+                    })}
+                    className="rounded-xl border-gray-200 text-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm">Race</Label>
+                  <Input
+                    value={currentCV.personal_info.race}
+                    onChange={(e) => setCurrentCV({
+                      ...currentCV,
+                      personal_info: { ...currentCV.personal_info, race: e.target.value }
+                    })}
+                    className="rounded-xl border-gray-200 text-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm">Nationality</Label>
+                  <Input
+                    value={currentCV.personal_info.nationality}
+                    onChange={(e) => setCurrentCV({
+                      ...currentCV,
+                      personal_info: { ...currentCV.personal_info, nationality: e.target.value }
+                    })}
+                    className="rounded-xl border-gray-200 text-sm"
+                  />
+                </div>
+                <div className="sm:col-span-2 space-y-2">
+                  <Label className="text-sm">Address</Label>
+                  <Textarea
+                    value={currentCV.personal_info.address}
+                    onChange={(e) => setCurrentCV({
+                      ...currentCV,
+                      personal_info: { ...currentCV.personal_info, address: e.target.value }
+                    })}
+                    className="rounded-xl border-gray-200 text-sm"
+                    rows={2}
+                  />
+                </div>
               </div>
             </div>
 
@@ -873,6 +1138,75 @@ const CVBuilder = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Save Button at Bottom */}
+      {isEditing && (
+        <div className="flex justify-center pb-8">
+          <Button 
+            onClick={saveCV} 
+            disabled={loading}
+            className="bg-gradient-to-r from-[#122ec0] to-[#e16623] hover:from-[#0f2499] hover:to-[#d55a1f] text-white px-8 py-3 text-lg font-semibold rounded-xl"
+          >
+            {loading ? (
+              'Saving...'
+            ) : (
+              <>
+                <Save className="mr-2 h-5 w-5" />
+                Save CV
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+
+      {/* Warning Dialogs */}
+      <AlertDialog open={showUnsavedWarning} onOpenChange={setShowUnsavedWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center">
+              <AlertTriangle className="h-5 w-5 mr-2 text-yellow-500" />
+              Unsaved Changes
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes. Do you want to continue without saving?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowUnsavedWarning(false)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              setShowUnsavedWarning(false);
+              setHasUnsavedChanges(false);
+              if (pendingAction) {
+                pendingAction();
+                setPendingAction(null);
+              }
+            }}>
+              Continue without saving
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDuplicateWarning} onOpenChange={setShowDuplicateWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center">
+              <AlertTriangle className="h-5 w-5 mr-2 text-yellow-500" />
+              Duplicate CV Title
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              A CV with this title already exists. Please choose a different title.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowDuplicateWarning(false)}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

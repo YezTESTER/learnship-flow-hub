@@ -112,20 +112,42 @@ const ImageCropper: React.FC<ImageCropperProps> = ({
                 ref={imageRef}
                 src={imageSrc}
                 alt="Crop preview"
-                className="absolute"
+                className="absolute w-full h-full object-contain"
                 style={{
                   transform: `translate(${position.x}px, ${position.y}px) scale(${zoom[0]})`,
                   transformOrigin: 'center',
-                  maxWidth: 'none',
-                  height: 'auto'
                 }}
                 draggable={false}
               />
             </div>
             
-            {/* Crop overlay */}
+            {/* Perfect 1:1 crop overlay - square instead of oval */}
             <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute inset-8 border-2 border-white rounded-full shadow-lg"></div>
+              <div 
+                className="absolute border-2 border-white shadow-lg"
+                style={{
+                  left: '50%',
+                  top: '50%',
+                  width: '160px',
+                  height: '160px',
+                  transform: 'translate(-50%, -50%)',
+                  borderRadius: '50%'
+                }}
+              ></div>
+              {/* Dark overlay to show crop area */}
+              <div className="absolute inset-0 bg-black bg-opacity-50"></div>
+              <div 
+                className="absolute bg-transparent"
+                style={{
+                  left: '50%',
+                  top: '50%',
+                  width: '160px',
+                  height: '160px',
+                  transform: 'translate(-50%, -50%)',
+                  borderRadius: '50%',
+                  boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)'
+                }}
+              ></div>
             </div>
           </div>
 
