@@ -201,71 +201,110 @@ export type Database = {
       profiles: {
         Row: {
           address: string | null
+          area_of_residence: string | null
           avatar_url: string | null
           compliance_score: number | null
           created_at: string | null
           date_of_birth: string | null
+          disability_description: string | null
           email: string
           emergency_contact: string | null
           emergency_phone: string | null
           employer_name: string | null
           end_date: string | null
           full_name: string
+          gender: string | null
+          has_disability: boolean | null
+          has_drivers_license: boolean | null
+          has_own_transport: boolean | null
           id: string
           id_number: string | null
+          languages: string[] | null
           learnership_program: string | null
+          license_codes: string[] | null
           mentor_id: string | null
+          nationality: string | null
           phone_number: string | null
           points: number | null
+          public_transport_types: string[] | null
+          race: string | null
+          receives_stipend: boolean | null
           role: Database["public"]["Enums"]["user_role"]
           start_date: string | null
           status: string | null
+          stipend_amount: number | null
           updated_at: string | null
         }
         Insert: {
           address?: string | null
+          area_of_residence?: string | null
           avatar_url?: string | null
           compliance_score?: number | null
           created_at?: string | null
           date_of_birth?: string | null
+          disability_description?: string | null
           email: string
           emergency_contact?: string | null
           emergency_phone?: string | null
           employer_name?: string | null
           end_date?: string | null
           full_name: string
+          gender?: string | null
+          has_disability?: boolean | null
+          has_drivers_license?: boolean | null
+          has_own_transport?: boolean | null
           id: string
           id_number?: string | null
+          languages?: string[] | null
           learnership_program?: string | null
+          license_codes?: string[] | null
           mentor_id?: string | null
+          nationality?: string | null
           phone_number?: string | null
           points?: number | null
+          public_transport_types?: string[] | null
+          race?: string | null
+          receives_stipend?: boolean | null
           role?: Database["public"]["Enums"]["user_role"]
           start_date?: string | null
           status?: string | null
+          stipend_amount?: number | null
           updated_at?: string | null
         }
         Update: {
           address?: string | null
+          area_of_residence?: string | null
           avatar_url?: string | null
           compliance_score?: number | null
           created_at?: string | null
           date_of_birth?: string | null
+          disability_description?: string | null
           email?: string
           emergency_contact?: string | null
           emergency_phone?: string | null
           employer_name?: string | null
           end_date?: string | null
           full_name?: string
+          gender?: string | null
+          has_disability?: boolean | null
+          has_drivers_license?: boolean | null
+          has_own_transport?: boolean | null
           id?: string
           id_number?: string | null
+          languages?: string[] | null
           learnership_program?: string | null
+          license_codes?: string[] | null
           mentor_id?: string | null
+          nationality?: string | null
           phone_number?: string | null
           points?: number | null
+          public_transport_types?: string[] | null
+          race?: string | null
+          receives_stipend?: boolean | null
           role?: Database["public"]["Enums"]["user_role"]
           start_date?: string | null
           status?: string | null
+          stipend_amount?: number | null
           updated_at?: string | null
         }
         Relationships: [
@@ -317,6 +356,19 @@ export type Database = {
         | "logbook_page"
         | "assessment"
         | "other"
+        | "qualifications"
+        | "certified_id"
+        | "certified_proof_residence"
+        | "proof_bank_account"
+        | "drivers_license"
+        | "cv_upload"
+        | "work_attendance_log"
+        | "class_attendance_proof"
+        | "induction_form"
+        | "popia_form"
+        | "learner_consent_policy"
+        | "employment_contract"
+        | "learnership_contract"
       user_role: "learner" | "mentor" | "admin"
     }
     CompositeTypes: {
@@ -445,6 +497,19 @@ export const Constants = {
         "logbook_page",
         "assessment",
         "other",
+        "qualifications",
+        "certified_id",
+        "certified_proof_residence",
+        "proof_bank_account",
+        "drivers_license",
+        "cv_upload",
+        "work_attendance_log",
+        "class_attendance_proof",
+        "induction_form",
+        "popia_form",
+        "learner_consent_policy",
+        "employment_contract",
+        "learnership_contract",
       ],
       user_role: ["learner", "mentor", "admin"],
     },
