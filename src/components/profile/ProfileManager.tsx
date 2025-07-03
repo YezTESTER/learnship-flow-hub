@@ -1,208 +1,111 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Calendar } from 'lucide-react';
+import { DatePicker } from '@/components/ui/date-picker';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { User, Building, Award, Mail, Phone, MapPin, Save, Calendar, AlertCircle, Camera, Upload } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import ImageCropper from './ImageCropper';
 
+interface Profile {
+  id: string;
+  full_name: string;
+  email: string;
+  phone_number: string;
+  address: string;
+  date_of_birth: string;
+  id_number: string;
+  learnership_program: string;
+  employer_name: string;
+  start_date: string;
+  end_date: string;
+  emergency_contact: string;
+  emergency_phone: string;
+  gender: string;
+  race: string;
+  nationality: string;
+  languages: string[];
+  avatar_url: string;
+}
+
 const ProfileManager = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, refetchProfile } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [photoUploading, setPhotoUploading] = useState(false);
-  const [showCropper, setShowCropper] = useState(false);
-  const [tempImageSrc, setTempImageSrc] = useState('');
-  const [formData, setFormData] = useState({
-    full_name: '',
-    email: '',
-    id_number: '',
-    learnership_program: '',
-    employer_name: '',
-    phone_number: '',
-    address: '',
-    date_of_birth: '',
-    emergency_contact: '',
-    emergency_phone: '',
-    start_date: '',
-    end_date: '',
-    avatar_url: '',
-    gender: '',
-    race: '',
-    nationality: '',
-    languages: [] as string[],
-    has_disability: false,
-    disability_description: '',
-    area_of_residence: '',
-    has_drivers_license: false,
-    license_codes: [] as string[],
-    has_own_transport: false,
-    public_transport_types: [] as string[],
-    receives_stipend: false,
-    stipend_amount: 0,
-    is_employed: false // New field for employment status
-  });
-
-  const southAfricanLanguages = [
-    'Afrikaans', 'English', 'isiNdebele', 'isiXhosa', 'isiZulu', 
-    'Sepedi', 'Sesotho', 'Setswana', 'siSwati', 'Tshivenda', 'Xitsonga'
-  ];
-
-  const driversLicenseCodes = [
-    'A - Motorcycles', 'A1 - Motorcycles up to 125cc', 'B - Light motor vehicles',
-    'C - Heavy motor vehicles', 'C1 - Medium heavy motor vehicles', 'EB - Light motor vehicle with trailer',
-    'EC - Heavy motor vehicle with trailer', 'EC1 - Medium heavy motor vehicle with trailer'
-  ];
-
-  const publicTransportOptions = ['Bus', 'Train', 'Taxi', 'Other'];
+  const [isEditing, setIsEditing] = useState(false);
+  const [full_name, setFullName] = useState('');
+  const [phone_number, setPhoneNumber] = useState('');
+  const [address, setAddress] = useState('');
+  const [date_of_birth, setDateOfBirth] = useState<Date | undefined>(undefined);
+  const [id_number, setIdNumber] = useState('');
+  const [learnership_program, setLearnershipProgram] = useState('');
+  const [employer_name, setEmployerName] = useState('');
+  const [start_date, setStartDate] = useState<Date | undefined>(undefined);
+  const [end_date, setEndDate] = useState<Date | undefined>(undefined);
+  const [emergency_contact, setEmergencyContact] = useState('');
+  const [emergency_phone, setEmergencyPhone] = useState('');
+  const [gender, setGender] = useState('');
+  const [race, setRace] = useState('');
+  const [nationality, setNationality] = useState('');
+  const [languages, setLanguages] = useState<string[]>([]);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [showImageCropper, setShowImageCropper] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
-    if (profile && user) {
-      setFormData({
-        full_name: profile.full_name || '',
-        email: user.email || '',
-        id_number: profile.id_number || '',
-        learnership_program: profile.learnership_program || '',
-        employer_name: profile.employer_name || '',
-        phone_number: profile.phone_number || '',
-        address: profile.address || '',
-        date_of_birth: profile.date_of_birth || '',
-        emergency_contact: profile.emergency_contact || '',
-        emergency_phone: profile.emergency_phone || '',
-        start_date: profile.start_date || '',
-        end_date: profile.end_date || '',
-        avatar_url: profile.avatar_url || '',
-        gender: profile.gender || '',
-        race: profile.race || '',
-        nationality: profile.nationality || '',
-        languages: profile.languages || [],
-        has_disability: profile.has_disability || false,
-        disability_description: profile.disability_description || '',
-        area_of_residence: profile.area_of_residence || '',
-        has_drivers_license: profile.has_drivers_license || false,
-        license_codes: profile.license_codes || [],
-        has_own_transport: profile.has_own_transport || false,
-        public_transport_types: profile.public_transport_types || [],
-        receives_stipend: profile.receives_stipend || false,
-        stipend_amount: profile.stipend_amount || 0,
-        is_employed: profile.employer_name ? true : false
-      });
+    if (profile) {
+      setFullName(profile.full_name || '');
+      setPhoneNumber(profile.phone_number || '');
+      setAddress(profile.address || '');
+      setDateOfBirth(profile.date_of_birth ? new Date(profile.date_of_birth) : undefined);
+      setIdNumber(profile.id_number || '');
+      setLearnershipProgram(profile.learnership_program || '');
+      setEmployerName(profile.employer_name || '');
+      setStartDate(profile.start_date ? new Date(profile.start_date) : undefined);
+      setEndDate(profile.end_date ? new Date(profile.end_date) : undefined);
+      setEmergencyContact(profile.emergency_contact || '');
+      setEmergencyPhone(profile.emergency_phone || '');
+      setGender(profile.gender || '');
+      setRace(profile.race || '');
+      setNationality(profile.nationality || '');
+      setLanguages(profile.languages || []);
     }
-  }, [profile, user]);
+  }, [profile]);
 
-  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !user) return;
-
-    // Check file size (2MB limit)
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('Photo must be smaller than 2MB');
-      return;
-    }
-
-    // Check file type
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please upload an image file');
-      return;
-    }
-
-    // Create temporary URL for cropping
-    const tempUrl = URL.createObjectURL(file);
-    setTempImageSrc(tempUrl);
-    setShowCropper(true);
+  const handleEditClick = () => {
+    setIsEditing(true);
   };
 
-  const handleCropComplete = async (croppedImageBlob: Blob) => {
-    if (!user) return;
-
-    setPhotoUploading(true);
-    setShowCropper(false);
-    
-    try {
-      const fileExt = 'jpg';
-      const fileName = `${user.id}/avatar_${Date.now()}.${fileExt}`;
-
-      // First, remove old avatar if it exists
-      if (formData.avatar_url) {
-        const oldPath = formData.avatar_url.split('/').pop();
-        if (oldPath) {
-          await supabase.storage
-            .from('documents')
-            .remove([`${user.id}/${oldPath}`]);
-        }
-      }
-
-      const { error: uploadError } = await supabase.storage
-        .from('documents')
-        .upload(fileName, croppedImageBlob, { upsert: true });
-
-      if (uploadError) {
-        console.error('Upload error:', uploadError);
-        throw uploadError;
-      }
-
-      const { data } = supabase.storage
-        .from('documents')
-        .getPublicUrl(fileName);
-
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ avatar_url: data.publicUrl })
-        .eq('id', user.id);
-
-      if (updateError) {
-        console.error('Profile update error:', updateError);
-        throw updateError;
-      }
-
-      setFormData(prev => ({ ...prev, avatar_url: data.publicUrl }));
-      toast.success('Profile photo updated successfully!');
-    } catch (error: any) {
-      console.error('Photo upload error:', error);
-      toast.error(error.message || 'Failed to upload photo');
-    } finally {
-      setPhotoUploading(false);
-      // Clean up temporary URL
-      URL.revokeObjectURL(tempImageSrc);
-      setTempImageSrc('');
+  const handleCancelClick = () => {
+    setIsEditing(false);
+    // Reset form values
+    if (profile) {
+      setFullName(profile.full_name || '');
+      setPhoneNumber(profile.phone_number || '');
+      setAddress(profile.address || '');
+      setDateOfBirth(profile.date_of_birth ? new Date(profile.date_of_birth) : undefined);
+      setIdNumber(profile.id_number || '');
+      setLearnershipProgram(profile.learnership_program || '');
+      setEmployerName(profile.employer_name || '');
+      setStartDate(profile.start_date ? new Date(profile.start_date) : undefined);
+      setEndDate(profile.end_date ? new Date(profile.end_date) : undefined);
+      setEmergencyContact(profile.emergency_contact || '');
+      setEmergencyPhone(profile.emergency_phone || '');
+      setGender(profile.gender || '');
+      setRace(profile.race || '');
+      setNationality(profile.nationality || '');
+      setLanguages(profile.languages || []);
     }
   };
 
-  const handleLanguageChange = (language: string, checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      languages: checked 
-        ? [...prev.languages, language]
-        : prev.languages.filter(l => l !== language)
-    }));
-  };
-
-  const handleLicenseCodeChange = (code: string, checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      license_codes: checked 
-        ? [...prev.license_codes, code]
-        : prev.license_codes.filter(c => c !== code)
-    }));
-  };
-
-  const handleTransportTypeChange = (type: string, checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      public_transport_types: checked 
-        ? [...prev.public_transport_types, type]
-        : prev.public_transport_types.filter(t => t !== type)
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveClick = async () => {
     if (!user) return;
 
     setLoading(true);
@@ -210,533 +113,374 @@ const ProfileManager = () => {
       const { error } = await supabase
         .from('profiles')
         .update({
-          full_name: formData.full_name,
-          id_number: formData.id_number,
-          learnership_program: formData.learnership_program,
-          employer_name: formData.is_employed ? formData.employer_name : null,
-          phone_number: formData.phone_number,
-          address: formData.address,
-          date_of_birth: formData.date_of_birth || null,
-          emergency_contact: formData.emergency_contact,
-          emergency_phone: formData.emergency_phone,
-          start_date: formData.start_date || null,
-          end_date: formData.end_date || null,
-          gender: formData.gender,
-          race: formData.race,
-          nationality: formData.nationality,
-          languages: formData.languages,
-          has_disability: formData.has_disability,
-          disability_description: formData.disability_description,
-          area_of_residence: formData.area_of_residence,
-          has_drivers_license: formData.has_drivers_license,
-          license_codes: formData.license_codes,
-          has_own_transport: formData.has_own_transport,
-          public_transport_types: formData.public_transport_types,
-          receives_stipend: formData.receives_stipend,
-          stipend_amount: formData.stipend_amount,
-          updated_at: new Date().toISOString()
+          full_name,
+          phone_number,
+          address,
+          date_of_birth: date_of_birth ? format(date_of_birth, 'yyyy-MM-dd') : null,
+          id_number,
+          learnership_program,
+          employer_name,
+          start_date: start_date ? format(start_date, 'yyyy-MM-dd') : null,
+          end_date: end_date ? format(end_date, 'yyyy-MM-dd') : null,
+          emergency_contact,
+          emergency_phone,
+          gender,
+          race,
+          nationality,
+          languages
         })
         .eq('id', user.id);
 
       if (error) throw error;
 
       toast.success('Profile updated successfully!');
+      setIsEditing(false);
+      await refetchProfile();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to update profile');
+      console.error('Error updating profile:', error);
+      toast.error('Failed to update profile');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImage(reader.result as string);
+        setShowImageCropper(true);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCropClose = () => {
+    setShowImageCropper(false);
+    setSelectedImage(null);
+  };
+
+  const handleAvatarUpload = async (croppedImageBlob: Blob) => {
+    if (!user) return;
+
+    setUploadingAvatar(true);
+    try {
+      // Delete old avatar if it exists
+      if (profile?.avatar_url) {
+        const oldPath = profile.avatar_url.split('/').pop();
+        if (oldPath) {
+          await supabase.storage
+            .from('documents')
+            .remove([`avatars/${oldPath}`]);
+        }
+      }
+
+      // Upload new avatar
+      const fileExt = 'jpg';
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, croppedImageBlob, {
+          contentType: 'image/jpeg',
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath);
+
+      // Update profile with new avatar URL
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      await refetchProfile();
+      toast.success('Profile photo updated successfully!');
+      setShowImageCropper(false);
+      setSelectedImage(null);
+    } catch (error: any) {
+      console.error('Error uploading avatar:', error);
+      toast.error('Failed to upload profile photo');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   return (
-    <div className="max-w-4xl mx-auto space-y-4 px-4 sm:px-6">
-      <Card className="bg-gradient-to-br from-white to-blue-50 border-0 shadow-lg">
-        <CardHeader className="text-center pb-4">
-          <div className="flex items-center justify-center space-x-2 mb-2">
-            <User className="h-5 w-5 sm:h-6 sm:w-6 text-[#122ec0]" />
-            <CardTitle className="text-xl sm:text-2xl bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
-              My Profile
-            </CardTitle>
-          </div>
-          <CardDescription className="text-gray-600 text-sm sm:text-base">
-            Manage your personal information and learnership details
-          </CardDescription>
+    <div className="max-w-4xl mx-auto space-y-6">
+      {/* Profile Photo */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Profile Photo</CardTitle>
+          <CardDescription>Update your profile photo</CardDescription>
         </CardHeader>
-        <CardContent className="px-4 sm:px-6">
-          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-            {/* Profile Photo Section */}
-            <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-100">
-              <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <Camera className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                Profile Photo
-              </h3>
-              <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
-                <div className="relative">
-                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-                    {formData.avatar_url ? (
-                      <img
-                        src={formData.avatar_url}
-                        alt="Profile"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <User className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400" />
-                    )}
-                  </div>
-                </div>
-                <div className="flex-1 w-full">
-                  <Label htmlFor="photo" className="block text-sm font-medium text-gray-700 mb-2">
-                    Upload Photo (Max 2MB) - Photos will be cropped to 1:1 ratio
-                  </Label>
-                  <Input
-                    id="photo"
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePhotoUpload}
-                    disabled={photoUploading}
-                    className="rounded-xl border-gray-200 text-sm"
-                  />
-                  {photoUploading && (
-                    <p className="text-sm text-blue-600 mt-2">Processing photo...</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Personal Information Section */}
-            <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-100">
-              <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <User className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                Personal Information
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="full_name" className="text-sm">Full Name *</Label>
-                  <Input
-                    id="full_name"
-                    value={formData.full_name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
-                    className="rounded-xl border-gray-200 text-sm"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-sm">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    className="rounded-xl border-gray-200 bg-gray-50 text-sm"
-                    disabled
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="id_number" className="text-sm">ID Number</Label>
-                  <Input
-                    id="id_number"
-                    value={formData.id_number}
-                    onChange={(e) => setFormData(prev => ({ ...prev, id_number: e.target.value }))}
-                    className="rounded-xl border-gray-200 text-sm"
-                    placeholder="Enter your ID number"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="date_of_birth" className="text-sm">Date of Birth</Label>
-                  <Input
-                    id="date_of_birth"
-                    type="date"
-                    value={formData.date_of_birth}
-                    onChange={(e) => setFormData(prev => ({ ...prev, date_of_birth: e.target.value }))}
-                    className="rounded-xl border-gray-200 text-sm"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="gender" className="text-sm">Gender</Label>
-                  <Select value={formData.gender} onValueChange={(value) => setFormData(prev => ({ ...prev, gender: value }))}>
-                    <SelectTrigger className="rounded-xl border-gray-200 text-sm">
-                      <SelectValue placeholder="Select gender" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="male">Male</SelectItem>
-                      <SelectItem value="female">Female</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="race" className="text-sm">Race</Label>
-                  <Select value={formData.race} onValueChange={(value) => setFormData(prev => ({ ...prev, race: value }))}>
-                    <SelectTrigger className="rounded-xl border-gray-200 text-sm">
-                      <SelectValue placeholder="Select race" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Black">Black</SelectItem>
-                      <SelectItem value="Coloured">Coloured</SelectItem>
-                      <SelectItem value="Indian">Indian</SelectItem>
-                      <SelectItem value="White">White</SelectItem>
-                      <SelectItem value="Asian">Asian</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="nationality" className="text-sm">Nationality</Label>
-                  <Select value={formData.nationality} onValueChange={(value) => setFormData(prev => ({ ...prev, nationality: value }))}>
-                    <SelectTrigger className="rounded-xl border-gray-200 text-sm">
-                      <SelectValue placeholder="Select nationality" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="South African">South African</SelectItem>
-                      <SelectItem value="Non-South African">Non-South African</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="phone_number" className="text-sm">Phone Number</Label>
-                  <Input
-                    id="phone_number"
-                    type="tel"
-                    value={formData.phone_number}
-                    onChange={(e) => setFormData(prev => ({ ...prev, phone_number: e.target.value }))}
-                    className="rounded-xl border-gray-200 text-sm"
-                    placeholder="Enter your phone number"
-                  />
-                </div>
-
-                <div className="md:col-span-2 space-y-2">
-                  <Label htmlFor="address" className="text-sm">Address</Label>
-                  <Textarea
-                    id="address"
-                    value={formData.address}
-                    onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                    className="rounded-xl border-gray-200 text-sm"
-                    placeholder="Enter your full address"
-                    rows={2}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="area_of_residence" className="text-sm">Area of Residence</Label>
-                  <Input
-                    id="area_of_residence"
-                    value={formData.area_of_residence}
-                    onChange={(e) => setFormData(prev => ({ ...prev, area_of_residence: e.target.value }))}
-                    className="rounded-xl border-gray-200 text-sm"
-                    placeholder="e.g., Johannesburg, Cape Town"
-                  />
-                </div>
-
-                <div className="md:col-span-2 space-y-3">
-                  <Label className="text-sm">Languages (Select all that apply)</Label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {southAfricanLanguages.map((language) => (
-                      <div key={language} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`language-${language}`}
-                          checked={formData.languages.includes(language)}
-                          onCheckedChange={(checked) => handleLanguageChange(language, checked as boolean)}
-                        />
-                        <Label htmlFor={`language-${language}`} className="text-xs">{language}</Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="md:col-span-2 space-y-3">
-                  <Label className="text-sm">Do you have a disability?</Label>
-                  <RadioGroup
-                    value={formData.has_disability.toString()}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, has_disability: value === 'true' }))}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="false" id="no-disability" />
-                      <Label htmlFor="no-disability" className="text-sm">No</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="true" id="has-disability" />
-                      <Label htmlFor="has-disability" className="text-sm">Yes</Label>
-                    </div>
-                  </RadioGroup>
-                  {formData.has_disability && (
-                    <div className="space-y-2">
-                      <Label htmlFor="disability_description" className="text-sm">Please describe your disability</Label>
-                      <Textarea
-                        id="disability_description"
-                        value={formData.disability_description}
-                        onChange={(e) => setFormData(prev => ({ ...prev, disability_description: e.target.value }))}
-                        className="rounded-xl border-gray-200 text-sm"
-                        placeholder="Describe your disability"
-                        rows={2}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div className="md:col-span-2 space-y-3">
-                  <Label className="text-sm">Do you have a driver's license?</Label>
-                  <RadioGroup
-                    value={formData.has_drivers_license.toString()}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, has_drivers_license: value === 'true' }))}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="false" id="no-license" />
-                      <Label htmlFor="no-license" className="text-sm">No</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="true" id="has-license" />
-                      <Label htmlFor="has-license" className="text-sm">Yes</Label>
-                    </div>
-                  </RadioGroup>
-                  {formData.has_drivers_license && (
-                    <div className="space-y-3">
-                      <Label className="text-sm">License Codes (Select all that apply)</Label>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {driversLicenseCodes.map((code) => (
-                          <div key={code} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`license-${code}`}
-                              checked={formData.license_codes.includes(code)}
-                              onCheckedChange={(checked) => handleLicenseCodeChange(code, checked as boolean)}
-                            />
-                            <Label htmlFor={`license-${code}`} className="text-xs">{code}</Label>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Emergency Contact Section */}
-            <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-100">
-              <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                Emergency Contact
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="emergency_contact" className="text-sm">Emergency Contact Name</Label>
-                  <Input
-                    id="emergency_contact"
-                    value={formData.emergency_contact}
-                    onChange={(e) => setFormData(prev => ({ ...prev, emergency_contact: e.target.value }))}
-                    className="rounded-xl border-gray-200 text-sm"
-                    placeholder="Full name of emergency contact"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="emergency_phone" className="text-sm">Emergency Contact Phone</Label>
-                  <Input
-                    id="emergency_phone"
-                    type="tel"
-                    value={formData.emergency_phone}
-                    onChange={(e) => setFormData(prev => ({ ...prev, emergency_phone: e.target.value }))}
-                    className="rounded-xl border-gray-200 text-sm"
-                    placeholder="Emergency contact phone number"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Learnership Information Section - Updated with employment status */}
-            <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-100">
-              <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <Award className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                Learnership Information
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                <div className="md:col-span-2 space-y-2">
-                  <Label htmlFor="learnership_program" className="text-sm">Learnership Program</Label>
-                  <Input
-                    id="learnership_program"
-                    value={formData.learnership_program}
-                    onChange={(e) => setFormData(prev => ({ ...prev, learnership_program: e.target.value }))}
-                    className="rounded-xl border-gray-200 text-sm"
-                    placeholder="e.g., Business Administration NQF4"
-                  />
-                </div>
-
-                <div className="md:col-span-2 space-y-3">
-                  <Label className="text-sm">Are you employed or hosted by a company?</Label>
-                  <RadioGroup
-                    value={formData.is_employed.toString()}
-                    onValueChange={(value) => {
-                      const isEmployed = value === 'true';
-                      setFormData(prev => ({ 
-                        ...prev, 
-                        is_employed: isEmployed,
-                        employer_name: isEmployed ? prev.employer_name : ''
-                      }));
-                    }}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="false" id="not-employed" />
-                      <Label htmlFor="not-employed" className="text-sm">No</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="true" id="is-employed" />
-                      <Label htmlFor="is-employed" className="text-sm">Yes</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
-                {formData.is_employed && (
-                  <div className="md:col-span-2 space-y-2">
-                    <Label htmlFor="employer_name" className="text-sm">Employer/Host Company</Label>
-                    <Input
-                      id="employer_name"
-                      value={formData.employer_name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, employer_name: e.target.value }))}
-                      className="rounded-xl border-gray-200 text-sm"
-                      placeholder="Enter your employer name"
-                    />
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <Label htmlFor="start_date" className="text-sm">Start Date</Label>
-                  <Input
-                    id="start_date"
-                    type="date"
-                    value={formData.start_date}
-                    onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
-                    className="rounded-xl border-gray-200 text-sm"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="end_date" className="text-sm">Expected End Date</Label>
-                  <Input
-                    id="end_date"
-                    type="date"
-                    value={formData.end_date}
-                    onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
-                    className="rounded-xl border-gray-200 text-sm"
-                  />
-                </div>
-
-                <div className="md:col-span-2 space-y-3">
-                  <Label className="text-sm">Do you have your own transport?</Label>
-                  <RadioGroup
-                    value={formData.has_own_transport.toString()}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, has_own_transport: value === 'true' }))}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="true" id="own-transport-yes" />
-                      <Label htmlFor="own-transport-yes" className="text-sm">Yes</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="false" id="own-transport-no" />
-                      <Label htmlFor="own-transport-no" className="text-sm">No</Label>
-                    </div>
-                  </RadioGroup>
-                  {!formData.has_own_transport && (
-                    <div className="space-y-3">
-                      <Label className="text-sm">What kind of public transport do you use? (Select all that apply)</Label>
-                      <div className="grid grid-cols-2 gap-3">
-                        {publicTransportOptions.map((transport) => (
-                          <div key={transport} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`transport-${transport}`}
-                              checked={formData.public_transport_types.includes(transport)}
-                              onCheckedChange={(checked) => handleTransportTypeChange(transport, checked as boolean)}
-                            />
-                            <Label htmlFor={`transport-${transport}`} className="text-sm">{transport}</Label>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="md:col-span-2 space-y-3">
-                  <Label className="text-sm">Do you receive a stipend?</Label>
-                  <RadioGroup
-                    value={formData.receives_stipend.toString()}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, receives_stipend: value === 'true' }))}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="false" id="no-stipend" />
-                      <Label htmlFor="no-stipend" className="text-sm">No</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="true" id="receives-stipend" />
-                      <Label htmlFor="receives-stipend" className="text-sm">Yes</Label>
-                    </div>
-                  </RadioGroup>
-                  {formData.receives_stipend && (
-                    <div className="space-y-2">
-                      <Label htmlFor="stipend_amount" className="text-sm">Stipend Amount (R)</Label>
-                      <Input
-                        id="stipend_amount"
-                        type="number"
-                        step="0.01"
-                        value={formData.stipend_amount}
-                        onChange={(e) => setFormData(prev => ({ ...prev, stipend_amount: parseFloat(e.target.value) || 0 }))}
-                        className="rounded-xl border-gray-200 text-sm"
-                        placeholder="Enter stipend amount"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Role Information Section */}
-            <div className="bg-blue-50 p-4 sm:p-6 rounded-xl border border-blue-200">
-              <h3 className="font-semibold text-blue-800 mb-4 text-sm sm:text-base">Account Information</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-xs sm:text-sm">
-                <div>
-                  <strong className="text-blue-700">Current Role:</strong>
-                  <p className="text-blue-600 uppercase font-medium">{profile?.role}</p>
-                </div>
-                <div>
-                  <strong className="text-blue-700">Points:</strong>
-                  <p className="text-blue-600 font-medium">{profile?.points || 0}</p>
-                </div>
-                <div>
-                  <strong className="text-blue-700">Compliance Score:</strong>
-                  <p className="text-blue-600 font-medium">{profile?.compliance_score || 0}%</p>
-                </div>
-              </div>
-            </div>
-
-            <Button 
-              type="submit" 
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-[#122ec0] to-[#e16623] hover:from-[#0f2499] hover:to-[#d55a1f] text-white rounded-xl py-2 sm:py-3 text-sm sm:text-lg font-semibold transition-all duration-300 transform hover:scale-105"
-            >
-              {loading ? (
-                'Updating...'
-              ) : (
-                <>
-                  <Save className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                  Update Profile
-                </>
-              )}
-            </Button>
-          </form>
+        <CardContent className="flex items-center space-x-4">
+          <Avatar className="h-20 w-20">
+            <AvatarImage src={profile?.avatar_url} alt={profile?.full_name} />
+            <AvatarFallback>{profile?.full_name?.charAt(0).toUpperCase()}</AvatarFallback>
+          </Avatar>
+          <div>
+            <Label htmlFor="avatar-upload" className="cursor-pointer">
+              {uploadingAvatar ? 'Uploading...' : 'Upload New Photo'}
+            </Label>
+            <Input
+              type="file"
+              id="avatar-upload"
+              accept="image/*"
+              className="hidden"
+              onChange={handleImageChange}
+              disabled={uploadingAvatar}
+            />
+            <p className="text-sm text-gray-500 mt-1">Click to upload a new photo</p>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Image Cropper Modal */}
+      {/* Image Cropper */}
       <ImageCropper
-        isOpen={showCropper}
-        onClose={() => {
-          setShowCropper(false);
-          URL.revokeObjectURL(tempImageSrc);
-          setTempImageSrc('');
-        }}
-        onCropComplete={handleCropComplete}
-        imageSrc={tempImageSrc}
+        isOpen={showImageCropper}
+        onClose={handleCropClose}
+        onCropComplete={handleAvatarUpload}
+        imageSrc={selectedImage || ''}
       />
+
+      {/* Profile Information */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Profile Information</CardTitle>
+          <CardDescription>Update your personal information</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Full Name */}
+            <div className="space-y-2">
+              <Label htmlFor="full_name">Full Name</Label>
+              <Input
+                id="full_name"
+                value={full_name}
+                onChange={(e) => setFullName(e.target.value)}
+                disabled={!isEditing}
+              />
+            </div>
+
+            {/* Phone Number */}
+            <div className="space-y-2">
+              <Label htmlFor="phone_number">Phone Number</Label>
+              <Input
+                id="phone_number"
+                value={phone_number}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                disabled={!isEditing}
+              />
+            </div>
+          </div>
+
+          {/* Address */}
+          <div className="space-y-2">
+            <Label htmlFor="address">Address</Label>
+            <Textarea
+              id="address"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              disabled={!isEditing}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Date of Birth */}
+            <div className="space-y-2">
+              <Label htmlFor="date_of_birth">Date of Birth</Label>
+              <DatePicker
+                id="date_of_birth"
+                mode="single"
+                selected={date_of_birth}
+                onSelect={(date) => setDateOfBirth(date)}
+                disabled={!isEditing}
+                placeholder="Select date"
+                className="w-full"
+              />
+            </div>
+
+            {/* ID Number */}
+            <div className="space-y-2">
+              <Label htmlFor="id_number">ID Number</Label>
+              <Input
+                id="id_number"
+                value={id_number}
+                onChange={(e) => setIdNumber(e.target.value)}
+                disabled={!isEditing}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Learnership Program */}
+            <div className="space-y-2">
+              <Label htmlFor="learnership_program">Learnership Program</Label>
+              <Input
+                id="learnership_program"
+                value={learnership_program}
+                onChange={(e) => setLearnershipProgram(e.target.value)}
+                disabled={!isEditing}
+              />
+            </div>
+
+            {/* Employer Name */}
+            <div className="space-y-2">
+              <Label htmlFor="employer_name">Employer Name</Label>
+              <Input
+                id="employer_name"
+                value={employer_name}
+                onChange={(e) => setEmployerName(e.target.value)}
+                disabled={!isEditing}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Start Date */}
+            <div className="space-y-2">
+              <Label htmlFor="start_date">Start Date</Label>
+              <DatePicker
+                id="start_date"
+                mode="single"
+                selected={start_date}
+                onSelect={(date) => setStartDate(date)}
+                disabled={!isEditing}
+                placeholder="Select date"
+                className="w-full"
+              />
+            </div>
+
+            {/* End Date */}
+            <div className="space-y-2">
+              <Label htmlFor="end_date">End Date</Label>
+              <DatePicker
+                id="end_date"
+                mode="single"
+                selected={end_date}
+                onSelect={(date) => setEndDate(date)}
+                disabled={!isEditing}
+                placeholder="Select date"
+                className="w-full"
+              />
+            </div>
+          </div>
+
+          {/* Emergency Contact */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="emergency_contact">Emergency Contact</Label>
+              <Input
+                id="emergency_contact"
+                value={emergency_contact}
+                onChange={(e) => setEmergencyContact(e.target.value)}
+                disabled={!isEditing}
+              />
+            </div>
+
+            {/* Emergency Phone */}
+            <div className="space-y-2">
+              <Label htmlFor="emergency_phone">Emergency Phone</Label>
+              <Input
+                id="emergency_phone"
+                value={emergency_phone}
+                onChange={(e) => setEmergencyPhone(e.target.value)}
+                disabled={!isEditing}
+              />
+            </div>
+          </div>
+
+          {/* Gender */}
+          <div className="space-y-2">
+            <Label htmlFor="gender">Gender</Label>
+            <Select value={gender} onValueChange={setGender} disabled={!isEditing}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select gender" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="male">Male</SelectItem>
+                <SelectItem value="female">Female</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Race */}
+          <div className="space-y-2">
+            <Label htmlFor="race">Race</Label>
+            <Select value={race} onValueChange={setRace} disabled={!isEditing}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select race" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="black">Black</SelectItem>
+                <SelectItem value="white">White</SelectItem>
+                <SelectItem value="asian">Asian</SelectItem>
+                <SelectItem value="hispanic">Hispanic</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Nationality */}
+          <div className="space-y-2">
+            <Label htmlFor="nationality">Nationality</Label>
+            <Input
+              id="nationality"
+              value={nationality}
+              onChange={(e) => setNationality(e.target.value)}
+              disabled={!isEditing}
+            />
+          </div>
+
+          {/* Languages */}
+          <div className="space-y-2">
+            <Label htmlFor="languages">Languages (comma-separated)</Label>
+            <Input
+              id="languages"
+              value={languages.join(',')}
+              onChange={(e) => setLanguages(e.target.value.split(',').map(lang => lang.trim()))}
+              disabled={!isEditing}
+            />
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end space-x-2">
+            {isEditing ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={handleCancelClick}
+                  disabled={loading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSaveClick}
+                  disabled={loading}
+                >
+                  {loading ? 'Saving...' : 'Save'}
+                </Button>
+              </>
+            ) : (
+              <Button onClick={handleEditClick}>
+                Edit Profile
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

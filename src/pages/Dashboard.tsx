@@ -69,15 +69,25 @@ const Dashboard = () => {
     setActiveSection('dashboard');
   }
 
+  const handleSectionChange = (newSection: string) => {
+    // If we're in CV builder, let the CVBuilder component handle the navigation warning
+    if (activeSection === 'cv-builder') {
+      // The CVBuilder component will handle its own navigation warnings
+      setActiveSection(newSection);
+    } else {
+      setActiveSection(newSection);
+    }
+  };
+
   const renderContent = () => {
     if (activeSection === 'dashboard') {
       switch (profile?.role) {
         case 'mentor':
-          return <MentorDashboard setActiveSection={setActiveSection} />;
+          return <MentorDashboard setActiveSection={handleSectionChange} />;
         case 'admin':
-          return <AdminDashboard setActiveSection={setActiveSection} />;
+          return <AdminDashboard setActiveSection={handleSectionChange} />;
         default:
-          return <LearnerDashboard setActiveSection={setActiveSection} />;
+          return <LearnerDashboard setActiveSection={handleSectionChange} />;
       }
     }
 
@@ -179,7 +189,7 @@ const Dashboard = () => {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar activeSection={activeSection} setActiveSection={setActiveSection} />
+      <Sidebar activeSection={activeSection} setActiveSection={handleSectionChange} />
       
       <main className="flex-1 overflow-y-auto">
         <div className="p-8">
