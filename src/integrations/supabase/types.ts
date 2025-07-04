@@ -53,48 +53,6 @@ export type Database = {
           },
         ]
       }
-      cvs: {
-        Row: {
-          additional_info: string | null
-          created_at: string
-          cv_name: string
-          education: Json | null
-          id: string
-          is_published: boolean | null
-          learner_id: string
-          personal_info: Json | null
-          skills: string[] | null
-          updated_at: string
-          work_experience: Json | null
-        }
-        Insert: {
-          additional_info?: string | null
-          created_at?: string
-          cv_name: string
-          education?: Json | null
-          id?: string
-          is_published?: boolean | null
-          learner_id: string
-          personal_info?: Json | null
-          skills?: string[] | null
-          updated_at?: string
-          work_experience?: Json | null
-        }
-        Update: {
-          additional_info?: string | null
-          created_at?: string
-          cv_name?: string
-          education?: Json | null
-          id?: string
-          is_published?: boolean | null
-          learner_id?: string
-          personal_info?: Json | null
-          skills?: string[] | null
-          updated_at?: string
-          work_experience?: Json | null
-        }
-        Relationships: []
-      }
       documents: {
         Row: {
           document_type: Database["public"]["Enums"]["document_type"]

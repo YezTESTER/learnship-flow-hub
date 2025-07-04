@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,12 +33,10 @@ const AchievementsDisplay = () => {
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalPoints, setTotalPoints] = useState(0);
-  const [monthlyRequiredDocs, setMonthlyRequiredDocs] = useState<any[]>([]);
 
   useEffect(() => {
     if (user) {
       fetchAchievements();
-      fetchMonthlyRequiredDocs();
     }
   }, [user]);
 
@@ -58,23 +57,6 @@ const AchievementsDisplay = () => {
       toast.error('Failed to load achievements');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchMonthlyRequiredDocs = async () => {
-    try {
-      // Get monthly required documents (attendance logs, time sheets, etc.)
-      const { data, error } = await supabase
-        .from('documents')
-        .select('*')
-        .eq('learner_id', user?.id)
-        .in('document_type', ['work_attendance_log', 'class_attendance_proof'])
-        .order('uploaded_at', { ascending: false });
-
-      if (error) throw error;
-      setMonthlyRequiredDocs(data || []);
-    } catch (error: any) {
-      console.error('Error fetching monthly required docs:', error);
     }
   };
 
@@ -150,25 +132,8 @@ const AchievementsDisplay = () => {
     return { level: 'Starter', color: '#6B7280', progress: (points / 50) * 100 };
   };
 
-  const getMonthlyDocsByMonth = () => {
-    const docsByMonth: { [key: string]: any[] } = {};
-    
-    monthlyRequiredDocs.forEach(doc => {
-      const uploadDate = new Date(doc.uploaded_at);
-      const monthKey = `${uploadDate.getFullYear()}-${String(uploadDate.getMonth() + 1).padStart(2, '0')}`;
-      
-      if (!docsByMonth[monthKey]) {
-        docsByMonth[monthKey] = [];
-      }
-      docsByMonth[monthKey].push(doc);
-    });
-
-    return docsByMonth;
-  };
-
   const categories = groupAchievementsByCategory();
   const pointsLevel = getPointsLevel(totalPoints);
-  const monthlyDocs = getMonthlyDocsByMonth();
 
   if (loading) {
     return (
@@ -249,78 +214,8 @@ const AchievementsDisplay = () => {
         </CardContent>
       </Card>
 
-      {/* Monthly Reports Section - Updated to show monthly required documents */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <div className="p-2 rounded-lg bg-green-100 text-green-600">
-              <Calendar className="h-5 w-5" />
-            </div>
-            <div>
-              <span>Monthly Reports</span>
-              <Badge variant="secondary" className="ml-2">
-                {Object.keys(monthlyDocs).length} months
-              </Badge>
-            </div>
-          </CardTitle>
-          <CardDescription>Monthly required documents and attendance records</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {Object.keys(monthlyDocs).length === 0 ? (
-            <div className="text-center py-8">
-              <div className="p-4 rounded-full mx-auto mb-4 w-16 h-16 flex items-center justify-center bg-green-50">
-                <Calendar className="h-8 w-8 text-green-600" />
-              </div>
-              <h4 className="font-medium text-gray-700 mb-2">No monthly documents yet</h4>
-              <p className="text-sm text-gray-500">Upload attendance logs and time sheets to track your monthly progress</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {Object.entries(monthlyDocs)
-                .sort(([a], [b]) => b.localeCompare(a))
-                .map(([monthKey, docs]) => {
-                  const [year, month] = monthKey.split('-');
-                  const monthName = new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString('en-US', { 
-                    month: 'long', 
-                    year: 'numeric' 
-                  });
-                  
-                  return (
-                    <div key={monthKey} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-medium text-gray-800">{monthName}</h4>
-                        <Badge variant="outline" className="text-green-600 border-green-300">
-                          {docs.length} documents
-                        </Badge>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {docs.map((doc) => (
-                          <div key={doc.id} className="bg-gray-50 p-3 rounded-lg">
-                            <div className="flex items-center space-x-2">
-                              <FileText className="h-4 w-4 text-blue-500" />
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm text-gray-800 truncate">{doc.file_name}</p>
-                                <p className="text-xs text-gray-500">
-                                  {doc.document_type === 'work_attendance_log' ? 'Work Attendance' : 'Class Attendance'}
-                                </p>
-                                <p className="text-xs text-gray-400">
-                                  {new Date(doc.uploaded_at).toLocaleDateString()}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       {/* Achievement Categories */}
-      {categories.slice(1).map((category) => (
+      {categories.map((category) => (
         <Card key={category.type}>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
@@ -413,7 +308,7 @@ const AchievementsDisplay = () => {
                 <h4 className="font-medium text-yellow-800">Monthly Consistency</h4>
               </div>
               <p className="text-sm text-yellow-700 mb-2">
-                Submit monthly attendance for 3 consecutive months
+                Submit feedback for 3 consecutive months
               </p>
               <Badge variant="outline" className="text-yellow-600 border-yellow-300">
                 +25 points

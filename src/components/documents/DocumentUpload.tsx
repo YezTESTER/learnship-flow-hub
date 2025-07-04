@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -246,8 +247,6 @@ const DocumentUpload = () => {
       case 'jpeg':
       case 'png':
         return <Eye className="h-6 w-6 sm:h-8 sm:w-8 text-green-500" />;
-      case 'json': // For CV files
-        return <FileText className="h-6 w-6 sm:h-8 sm:w-8 text-purple-500" />;
       default:
         return <File className="h-6 w-6 sm:h-8 sm:w-8 text-gray-500" />;
     }
@@ -260,12 +259,7 @@ const DocumentUpload = () => {
     });
   };
 
-  const getDocumentLabel = (docType: string, fileName: string) => {
-    // For CV uploads, show the actual CV name from the file name
-    if (docType === 'cv_upload' && fileName.startsWith('CV - ')) {
-      return fileName; // This will show "CV - [CV Name]"
-    }
-    
+  const getDocumentLabel = (docType: string) => {
     const docInfo = getDocumentInfo(docType);
     return docInfo?.label || docType;
   };
@@ -296,7 +290,7 @@ const DocumentUpload = () => {
                     <SelectTrigger className="rounded-xl">
                       <SelectValue placeholder="Select document type" />
                     </SelectTrigger>
-                    <SelectContent className="max-h-60">
+                    <SelectContent>
                       {Object.entries(documentCategories).map(([key, category]) => (
                         <div key={key}>
                           <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wide">
@@ -424,7 +418,7 @@ const DocumentUpload = () => {
                           <h4 className="font-medium text-gray-800 truncate text-sm sm:text-base">{doc.file_name}</h4>
                           <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 text-xs sm:text-sm text-gray-600 space-y-1 sm:space-y-0">
                             <span className="capitalize font-medium">
-                              {getDocumentLabel(doc.document_type, doc.file_name)}
+                              {getDocumentLabel(doc.document_type)}
                             </span>
                             <span>{formatFileSize(doc.file_size)}</span>
                             <span>Uploaded: {new Date(doc.uploaded_at).toLocaleDateString()}</span>
