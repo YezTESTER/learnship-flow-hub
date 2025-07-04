@@ -14,7 +14,7 @@ import { User, Building, Award, Mail, Phone, MapPin, Save, Calendar, AlertCircle
 import ImageCropper from './ImageCropper';
 
 const ProfileManager = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [showCropper, setShowCropper] = useState(false);
@@ -183,8 +183,8 @@ const ProfileManager = () => {
       setFormData(prev => ({ ...prev, avatar_url: data.publicUrl }));
       toast.success('Profile photo updated successfully!');
       
-      // Force a page refresh to update the avatar in the AuthContext
-      window.location.reload();
+      // Refresh the profile context to update the avatar display
+      await refreshProfile();
     } catch (error: any) {
       console.error('Photo upload error:', error);
       toast.error(error.message || 'Failed to upload photo');
