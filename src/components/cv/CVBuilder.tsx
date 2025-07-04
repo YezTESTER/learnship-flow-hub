@@ -16,8 +16,8 @@ interface CV {
   id: string;
   cv_name: string;
   personal_info: any;
-  work_experience: any[];
-  education: any[];
+  work_experience: any;
+  education: any;
   skills: string[];
   additional_info: string;
   is_published: boolean;
@@ -26,6 +26,7 @@ interface CV {
 }
 
 interface PersonalInfo {
+  [key: string]: any;
   full_name: string;
   email: string;
   phone_number: string;
@@ -183,8 +184,8 @@ const CVBuilder = () => {
       setEditingCV(cv);
       setCvName(cv.cv_name);
       setPersonalInfo(cv.personal_info || personalInfo);
-      setWorkExperience(cv.work_experience || [{ company: '', position: '', duration: '', description: '' }]);
-      setEducation(cv.education || [{ institution: '', qualification: '', year: '', description: '' }]);
+      setWorkExperience(Array.isArray(cv.work_experience) ? cv.work_experience : [{ company: '', position: '', duration: '', description: '' }]);
+      setEducation(Array.isArray(cv.education) ? cv.education : [{ institution: '', qualification: '', year: '', description: '' }]);
       setSkills(cv.skills || ['']);
       setAdditionalInfo(cv.additional_info || '');
       setIsPublished(cv.is_published || false);

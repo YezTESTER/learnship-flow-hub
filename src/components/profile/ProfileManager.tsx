@@ -37,7 +37,7 @@ interface Profile {
 }
 
 const ProfileManager = () => {
-  const { user, profile, refetchProfile } = useAuth();
+  const { user, profile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [full_name, setFullName] = useState('');
@@ -135,7 +135,7 @@ const ProfileManager = () => {
 
       toast.success('Profile updated successfully!');
       setIsEditing(false);
-      await refetchProfile();
+      // Profile will be updated in context automatically
     } catch (error: any) {
       console.error('Error updating profile:', error);
       toast.error('Failed to update profile');
@@ -203,8 +203,7 @@ const ProfileManager = () => {
 
       if (updateError) throw updateError;
 
-      // Update local state
-      await refetchProfile();
+      // Profile will be updated in context automatically
       toast.success('Profile photo updated successfully!');
       setShowImageCropper(false);
       setSelectedImage(null);
@@ -301,9 +300,7 @@ const ProfileManager = () => {
             <div className="space-y-2">
               <Label htmlFor="date_of_birth">Date of Birth</Label>
               <DatePicker
-                id="date_of_birth"
-                mode="single"
-                selected={date_of_birth}
+                date={date_of_birth}
                 onSelect={(date) => setDateOfBirth(date)}
                 disabled={!isEditing}
                 placeholder="Select date"
@@ -352,9 +349,7 @@ const ProfileManager = () => {
             <div className="space-y-2">
               <Label htmlFor="start_date">Start Date</Label>
               <DatePicker
-                id="start_date"
-                mode="single"
-                selected={start_date}
+                date={start_date}
                 onSelect={(date) => setStartDate(date)}
                 disabled={!isEditing}
                 placeholder="Select date"
@@ -366,9 +361,7 @@ const ProfileManager = () => {
             <div className="space-y-2">
               <Label htmlFor="end_date">End Date</Label>
               <DatePicker
-                id="end_date"
-                mode="single"
-                selected={end_date}
+                date={end_date}
                 onSelect={(date) => setEndDate(date)}
                 disabled={!isEditing}
                 placeholder="Select date"
