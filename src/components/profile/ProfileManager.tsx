@@ -132,16 +132,16 @@ const ProfileManager = () => {
       let oldFilePath = null;
       if (formData.avatar_url) {
         // Extract the file path from the full URL
-        // URL format: https://domain/storage/v1/object/public/documents/user_id/filename
-        const urlParts = formData.avatar_url.split('/documents/');
+        // URL format: https://domain/storage/v1/object/public/avatars/user_id/filename
+        const urlParts = formData.avatar_url.split('/avatars/');
         if (urlParts.length > 1) {
           oldFilePath = urlParts[1]; // This gives us "user_id/filename"
         }
       }
 
-      // Upload new avatar first
+      // Upload new avatar first to the avatars bucket
       const { error: uploadError } = await supabase.storage
-        .from('documents')
+        .from('avatars')
         .upload(fileName, croppedImageBlob, { upsert: true });
 
       if (uploadError) {
@@ -150,7 +150,7 @@ const ProfileManager = () => {
       }
 
       const { data } = supabase.storage
-        .from('documents')
+        .from('avatars')
         .getPublicUrl(fileName);
 
       // Update profile with new avatar URL
@@ -170,7 +170,7 @@ const ProfileManager = () => {
       // Only delete old file after successful upload and database update
       if (oldFilePath) {
         const { error: deleteError } = await supabase.storage
-          .from('documents')
+          .from('avatars')
           .remove([oldFilePath]);
         
         if (deleteError) {

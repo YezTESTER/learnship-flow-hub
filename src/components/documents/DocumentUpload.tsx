@@ -111,6 +111,25 @@ const DocumentUpload = () => {
     return null;
   };
 
+  const getBucketForDocumentType = (docType: string) => {
+    for (const [categoryKey, category] of Object.entries(documentCategories)) {
+      const doc = category.documents.find(d => d.value === docType);
+      if (doc) {
+        switch (categoryKey) {
+          case 'personal':
+            return 'personal-documents';
+          case 'office':
+            return 'office-documents';
+          case 'contracts':
+            return 'contracts';
+          default:
+            return 'personal-documents';
+        }
+      }
+    }
+    return 'personal-documents';
+  };
+
   const handleUpload = async () => {
     if (!selectedFile || !documentType || !user) {
       toast.error('Please select a file and document type');
@@ -121,13 +140,16 @@ const DocumentUpload = () => {
     setUploadProgress(0);
 
     try {
-      // Create file path
+      // Get the appropriate bucket for this document type
+      const bucketName = getBucketForDocumentType(documentType);
+      
+      // Create file path with user folder: bucket > user_id > filename
       const fileExt = selectedFile.name.split('.').pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
       
-      // Upload file to storage
+      // Upload file to the categorized storage bucket
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('documents')
+        .from(bucketName)
         .upload(fileName, selectedFile);
 
       if (uploadError) throw uploadError;
@@ -181,8 +203,11 @@ const DocumentUpload = () => {
 
   const handleDownload = async (doc: Document) => {
     try {
+      // Get the appropriate bucket for this document type
+      const bucketName = getBucketForDocumentType(doc.document_type);
+      
       const { data, error } = await supabase.storage
-        .from('documents')
+        .from(bucketName)
         .download(doc.file_path);
 
       if (error) throw error;
@@ -205,9 +230,12 @@ const DocumentUpload = () => {
     if (!confirm('Are you sure you want to delete this document?')) return;
 
     try {
+      // Get the appropriate bucket for this document type
+      const bucketName = getBucketForDocumentType(doc.document_type);
+      
       // Delete from storage
       const { error: storageError } = await supabase.storage
-        .from('documents')
+        .from(bucketName)
         .remove([doc.file_path]);
 
       if (storageError) throw storageError;
