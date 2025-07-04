@@ -69,14 +69,40 @@ const DocumentUpload = () => {
 
   const fetchDocuments = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch regular documents
+      const { data: documentsData, error: documentsError } = await supabase
         .from('documents')
         .select('*')
         .eq('learner_id', user?.id)
         .order('uploaded_at', { ascending: false });
 
-      if (error) throw error;
-      setDocuments(data || []);
+      if (documentsError) throw documentsError;
+
+      // Fetch published CVs from cvs table
+      const { data: cvsData, error: cvsError } = await supabase
+        .from('cvs')
+        .select('*')
+        .eq('learner_id', user?.id)
+        .eq('is_published', true)
+        .order('created_at', { ascending: false });
+
+      if (cvsError) throw cvsError;
+
+      // Convert CVs to document format for display
+      const cvDocuments = (cvsData || []).map(cv => ({
+        id: cv.id,
+        file_name: `${cv.cv_name}.pdf`,
+        file_path: cv.id, // Store CV ID for reference
+        document_type: 'cv_upload' as const,
+        file_size: 0, // CVs don't have file size
+        uploaded_at: cv.created_at,
+        learner_id: cv.learner_id,
+        submission_id: null
+      }));
+
+      // Combine documents and CVs
+      const allDocuments = [...(documentsData || []), ...cvDocuments];
+      setDocuments(allDocuments);
     } catch (error: any) {
       console.error('Error fetching documents:', error);
       toast.error('Failed to load documents');
@@ -203,6 +229,13 @@ const DocumentUpload = () => {
 
   const handleDownload = async (doc: Document) => {
     try {
+      // Handle CV downloads differently
+      if (doc.document_type === 'cv_upload' && !doc.file_path.includes('/')) {
+        // This is a CV from the cvs table, show info for now
+        toast.info('CV PDF download functionality coming soon!');
+        return;
+      }
+
       // Get the appropriate bucket for this document type
       const bucketName = getBucketForDocumentType(doc.document_type);
       
@@ -230,6 +263,20 @@ const DocumentUpload = () => {
     if (!confirm('Are you sure you want to delete this document?')) return;
 
     try {
+      // Handle CV deletion differently
+      if (doc.document_type === 'cv_upload' && !doc.file_path.includes('/')) {
+        // This is a CV from the cvs table, unpublish it
+        const { error } = await supabase
+          .from('cvs')
+          .update({ is_published: false })
+          .eq('id', doc.file_path);
+
+        if (error) throw error;
+        toast.success('CV unpublished successfully');
+        fetchDocuments();
+        return;
+      }
+
       // Get the appropriate bucket for this document type
       const bucketName = getBucketForDocumentType(doc.document_type);
       
@@ -442,16 +489,24 @@ const DocumentUpload = () => {
                     <div key={doc.id} className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                       <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
                         {getDocumentIcon(doc.file_name)}
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-gray-800 truncate text-sm sm:text-base">{doc.file_name}</h4>
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 text-xs sm:text-sm text-gray-600 space-y-1 sm:space-y-0">
-                            <span className="capitalize font-medium">
-                              {getDocumentLabel(doc.document_type)}
-                            </span>
-                            <span>{formatFileSize(doc.file_size)}</span>
-                            <span>Uploaded: {new Date(doc.uploaded_at).toLocaleDateString()}</span>
-                          </div>
-                        </div>
+                         <div className="flex-1 min-w-0">
+                           <h4 className="font-medium text-gray-800 truncate text-sm sm:text-base">
+                             {doc.document_type === 'cv_upload' && !doc.file_path.includes('/') 
+                               ? doc.file_name.replace('.pdf', '')
+                               : doc.file_name
+                             }
+                           </h4>
+                           <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 text-xs sm:text-sm text-gray-600 space-y-1 sm:space-y-0">
+                             <span className="capitalize font-medium">
+                               {doc.document_type === 'cv_upload' && !doc.file_path.includes('/') 
+                                 ? 'CV' 
+                                 : getDocumentLabel(doc.document_type)
+                               }
+                             </span>
+                             {doc.file_size > 0 && <span>{formatFileSize(doc.file_size)}</span>}
+                             <span>{doc.document_type === 'cv_upload' && !doc.file_path.includes('/') ? 'Published' : 'Uploaded'}: {new Date(doc.uploaded_at).toLocaleDateString()}</span>
+                           </div>
+                         </div>
                       </div>
                       <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
                         <Button
