@@ -128,16 +128,18 @@ const ProfileManager = () => {
       const fileExt = 'jpg';
       const fileName = `${user.id}/avatar_${Date.now()}.${fileExt}`;
 
-      // First, remove old avatar if it exists
+      // Extract old file path for deletion
+      let oldFilePath = null;
       if (formData.avatar_url) {
-        const oldPath = formData.avatar_url.split('/').pop();
-        if (oldPath) {
-          await supabase.storage
-            .from('documents')
-            .remove([`${user.id}/${oldPath}`]);
+        // Extract the file path from the full URL
+        // URL format: https://domain/storage/v1/object/public/documents/user_id/filename
+        const urlParts = formData.avatar_url.split('/documents/');
+        if (urlParts.length > 1) {
+          oldFilePath = urlParts[1]; // This gives us "user_id/filename"
         }
       }
 
+      // Upload new avatar first
       const { error: uploadError } = await supabase.storage
         .from('documents')
         .upload(fileName, croppedImageBlob, { upsert: true });
@@ -151,9 +153,13 @@ const ProfileManager = () => {
         .from('documents')
         .getPublicUrl(fileName);
 
+      // Update profile with new avatar URL
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ avatar_url: data.publicUrl })
+        .update({ 
+          avatar_url: data.publicUrl,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', user.id);
 
       if (updateError) {
@@ -161,8 +167,24 @@ const ProfileManager = () => {
         throw updateError;
       }
 
+      // Only delete old file after successful upload and database update
+      if (oldFilePath) {
+        const { error: deleteError } = await supabase.storage
+          .from('documents')
+          .remove([oldFilePath]);
+        
+        if (deleteError) {
+          console.warn('Failed to delete old avatar:', deleteError);
+          // Don't throw error here as the main operation succeeded
+        }
+      }
+
+      // Update local state
       setFormData(prev => ({ ...prev, avatar_url: data.publicUrl }));
       toast.success('Profile photo updated successfully!');
+      
+      // Force a page refresh to update the avatar in the AuthContext
+      window.location.reload();
     } catch (error: any) {
       console.error('Photo upload error:', error);
       toast.error(error.message || 'Failed to upload photo');
