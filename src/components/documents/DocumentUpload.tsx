@@ -71,7 +71,7 @@ const DocumentUpload = () => {
     try {
       console.log('Fetching documents for user:', user?.id);
       
-      // Fetch regular documents
+      // Fetch all documents
       const { data: documentsData, error: documentsError } = await supabase
         .from('documents')
         .select('*')
@@ -81,35 +81,38 @@ const DocumentUpload = () => {
       if (documentsError) throw documentsError;
       console.log('Regular documents:', documentsData);
 
-      // Fetch published CVs from cvs table
-      const { data: cvsData, error: cvsError } = await supabase
-        .from('cvs')
-        .select('*')
-        .eq('learner_id', user?.id)
-        .eq('is_published', true)
-        .order('created_at', { ascending: false });
+      // Process documents to extract published CVs
+      const processedDocuments = [];
+      
+      for (const doc of documentsData || []) {
+        // Check if this is a CV document (stored as JSON in file_path when document_type is 'other')
+        if (doc.document_type === 'other' && doc.file_name.startsWith('cv_')) {
+          try {
+            // Parse the JSON in file_path to get CV data
+            const cvData = JSON.parse(doc.file_path);
+            
+            // Only include if it's published
+            if (cvData.is_published) {
+              processedDocuments.push({
+                ...doc,
+                document_type: 'cv_upload',
+                file_name: `${cvData.cv_name || 'CV'}.pdf`, // Use CV name from JSON
+                file_path: doc.file_path // Keep original for download/delete logic
+              });
+            }
+          } catch (parseError) {
+            console.warn('Failed to parse CV data:', parseError);
+            // If parsing fails, treat as regular document
+            processedDocuments.push(doc);
+          }
+        } else {
+          // Regular document
+          processedDocuments.push(doc);
+        }
+      }
 
-      if (cvsError) throw cvsError;
-      console.log('Published CVs:', cvsData);
-
-      // Convert CVs to document format for display
-      const cvDocuments = (cvsData || []).map(cv => ({
-        id: cv.id,
-        file_name: `${cv.cv_name}.pdf`,
-        file_path: cv.id, // Store CV ID for reference
-        document_type: 'cv_upload' as const,
-        file_size: 0, // CVs don't have file size
-        uploaded_at: cv.created_at,
-        learner_id: cv.learner_id,
-        submission_id: null
-      }));
-
-      console.log('CV documents converted:', cvDocuments);
-
-      // Combine documents and CVs
-      const allDocuments = [...(documentsData || []), ...cvDocuments];
-      console.log('All documents combined:', allDocuments);
-      setDocuments(allDocuments);
+      console.log('Processed documents with CVs:', processedDocuments);
+      setDocuments(processedDocuments);
     } catch (error: any) {
       console.error('Error fetching documents:', error);
       toast.error('Failed to load documents');
@@ -236,11 +239,15 @@ const DocumentUpload = () => {
 
   const handleDownload = async (doc: Document) => {
     try {
-      // Handle CV downloads differently
-      if (doc.document_type === 'cv_upload' && !doc.file_path.includes('/')) {
-        // This is a CV from the cvs table, show info for now
-        toast.info('CV PDF download functionality coming soon!');
-        return;
+      // Handle CV downloads differently - they are stored as JSON in file_path
+      if (doc.document_type === 'cv_upload') {
+        try {
+          const cvData = JSON.parse(doc.file_path);
+          toast.info('CV PDF download functionality coming soon!');
+          return;
+        } catch (parseError) {
+          // If parsing fails, treat as regular document
+        }
       }
 
       // Get the appropriate bucket for this document type
@@ -270,18 +277,25 @@ const DocumentUpload = () => {
     if (!confirm('Are you sure you want to delete this document?')) return;
 
     try {
-      // Handle CV deletion differently
-      if (doc.document_type === 'cv_upload' && !doc.file_path.includes('/')) {
-        // This is a CV from the cvs table, unpublish it
-        const { error } = await supabase
-          .from('cvs')
-          .update({ is_published: false })
-          .eq('id', doc.file_path);
+      // Handle CV deletion differently - they are stored as JSON in file_path
+      if (doc.document_type === 'cv_upload') {
+        try {
+          const cvData = JSON.parse(doc.file_path);
+          // Mark the CV as unpublished in the documents table
+          const updatedCvData = { ...cvData, is_published: false };
+          
+          const { error } = await supabase
+            .from('documents')
+            .update({ file_path: JSON.stringify(updatedCvData) })
+            .eq('id', doc.id);
 
-        if (error) throw error;
-        toast.success('CV unpublished successfully');
-        fetchDocuments();
-        return;
+          if (error) throw error;
+          toast.success('CV unpublished successfully');
+          fetchDocuments();
+          return;
+        } catch (parseError) {
+          // If parsing fails, treat as regular document deletion
+        }
       }
 
       // Get the appropriate bucket for this document type
@@ -498,20 +512,17 @@ const DocumentUpload = () => {
                         {getDocumentIcon(doc.file_name)}
                          <div className="flex-1 min-w-0">
                            <h4 className="font-medium text-gray-800 truncate text-sm sm:text-base">
-                             {doc.document_type === 'cv_upload' && !doc.file_path.includes('/') 
-                               ? doc.file_name.replace('.pdf', '')
-                               : doc.file_name
-                             }
+                             {doc.file_name}
                            </h4>
                            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 text-xs sm:text-sm text-gray-600 space-y-1 sm:space-y-0">
                              <span className="capitalize font-medium">
-                               {doc.document_type === 'cv_upload' && !doc.file_path.includes('/') 
+                               {doc.document_type === 'cv_upload' 
                                  ? 'CV' 
                                  : getDocumentLabel(doc.document_type)
                                }
                              </span>
                              {doc.file_size > 0 && <span>{formatFileSize(doc.file_size)}</span>}
-                             <span>{doc.document_type === 'cv_upload' && !doc.file_path.includes('/') ? 'Published' : 'Uploaded'}: {new Date(doc.uploaded_at).toLocaleDateString()}</span>
+                             <span>{doc.document_type === 'cv_upload' ? 'Published' : 'Uploaded'}: {new Date(doc.uploaded_at).toLocaleDateString()}</span>
                            </div>
                          </div>
                       </div>
