@@ -69,6 +69,8 @@ const DocumentUpload = () => {
 
   const fetchDocuments = async () => {
     try {
+      console.log('Fetching documents for user:', user?.id);
+      
       // Fetch regular documents
       const { data: documentsData, error: documentsError } = await supabase
         .from('documents')
@@ -77,6 +79,7 @@ const DocumentUpload = () => {
         .order('uploaded_at', { ascending: false });
 
       if (documentsError) throw documentsError;
+      console.log('Regular documents:', documentsData);
 
       // Fetch published CVs from cvs table
       const { data: cvsData, error: cvsError } = await supabase
@@ -87,6 +90,7 @@ const DocumentUpload = () => {
         .order('created_at', { ascending: false });
 
       if (cvsError) throw cvsError;
+      console.log('Published CVs:', cvsData);
 
       // Convert CVs to document format for display
       const cvDocuments = (cvsData || []).map(cv => ({
@@ -100,8 +104,11 @@ const DocumentUpload = () => {
         submission_id: null
       }));
 
+      console.log('CV documents converted:', cvDocuments);
+
       // Combine documents and CVs
       const allDocuments = [...(documentsData || []), ...cvDocuments];
+      console.log('All documents combined:', allDocuments);
       setDocuments(allDocuments);
     } catch (error: any) {
       console.error('Error fetching documents:', error);
