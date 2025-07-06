@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { UnsavedChangesProvider } from '@/contexts/UnsavedChangesContext';
 import { Navigate } from 'react-router-dom';
 import Sidebar from '@/components/layout/Sidebar';
 import LearnerDashboard from '@/components/dashboard/LearnerDashboard';
@@ -14,6 +15,7 @@ import ProfileManager from '@/components/profile/ProfileManager';
 import AccountSettings from '@/components/profile/AccountSettings';
 import CVBuilder from '@/components/cv/CVBuilder';
 import OnboardingTour from '@/components/onboarding/OnboardingTour';
+import NavigationWarningDialog from '@/components/ui/navigation-warning-dialog';
 
 const Dashboard = () => {
   const { user, profile, loading } = useAuth();
@@ -183,31 +185,36 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar activeSection={activeSection} setActiveSection={setActiveSection} />
-      
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-8">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
-              {getSectionTitle()}
-            </h1>
-            <p className="text-gray-600 mt-2">
-              Welcome back, {profile?.full_name}! Here's your {profile?.role} overview.
-            </p>
+    <UnsavedChangesProvider>
+      <div className="flex h-screen bg-gray-50">
+        <Sidebar activeSection={activeSection} setActiveSection={setActiveSection} />
+        
+        <main className="flex-1 overflow-y-auto">
+          <div className="p-8">
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
+                {getSectionTitle()}
+              </h1>
+              <p className="text-gray-600 mt-2">
+                Welcome back, {profile?.full_name}! Here's your {profile?.role} overview.
+              </p>
+            </div>
+            
+            {renderContent()}
           </div>
-          
-          {renderContent()}
-        </div>
-      </main>
+        </main>
 
-      {/* Onboarding Tour */}
-      <OnboardingTour
-        isOpen={showOnboarding}
-        onClose={() => setShowOnboarding(false)}
-        onComplete={() => setShowOnboarding(false)}
-      />
-    </div>
+        {/* Onboarding Tour */}
+        <OnboardingTour
+          isOpen={showOnboarding}
+          onClose={() => setShowOnboarding(false)}
+          onComplete={() => setShowOnboarding(false)}
+        />
+
+        {/* Navigation Warning Dialog */}
+        <NavigationWarningDialog />
+      </div>
+    </UnsavedChangesProvider>
   );
 };
 

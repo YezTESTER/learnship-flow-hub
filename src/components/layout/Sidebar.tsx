@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUnsavedChanges } from '@/contexts/UnsavedChangesContext';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Home, FileText, Upload, Award, Bell, Settings, Users, BarChart3, LogOut, User, BookOpen } from 'lucide-react';
@@ -18,6 +19,15 @@ const Sidebar: React.FC<SidebarProps> = ({
     profile,
     signOut
   } = useAuth();
+  const { checkUnsavedChanges } = useUnsavedChanges();
+
+  const handleNavigation = (sectionId: string) => {
+    if (activeSection === 'cv-builder' && sectionId !== 'cv-builder') {
+      checkUnsavedChanges(() => setActiveSection(sectionId));
+    } else {
+      setActiveSection(sectionId);
+    }
+  };
 
   const learnerMenuItems = [{
     id: 'dashboard',
@@ -147,7 +157,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       <nav className="flex-1 px-2 sm:px-3 overflow-y-auto">
         {getMenuItems().map(item => {
         const Icon = item.icon;
-        return <button key={item.id} onClick={() => setActiveSection(item.id)} className={`w-full flex items-center space-x-2 sm:space-x-3 px-2 sm:px-3 py-2 rounded-xl mb-1 transition-all duration-200 transform hover:scale-105 text-xs sm:text-sm ${activeSection === item.id ? 'bg-white/20 text-white shadow-lg' : 'text-blue-100 hover:bg-white/10 hover:text-white'}`}>
+        return <button key={item.id} onClick={() => handleNavigation(item.id)} className={`w-full flex items-center space-x-2 sm:space-x-3 px-2 sm:px-3 py-2 rounded-xl mb-1 transition-all duration-200 transform hover:scale-105 text-xs sm:text-sm ${activeSection === item.id ? 'bg-white/20 text-white shadow-lg' : 'text-blue-100 hover:bg-white/10 hover:text-white'}`}>
               <Icon size={16} className="sm:w-[18px] sm:h-[18px]" />
               <span className="font-medium truncate">{item.label}</span>
             </button>;

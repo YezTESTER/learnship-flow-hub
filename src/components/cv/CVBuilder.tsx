@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUnsavedChanges } from '@/contexts/UnsavedChangesContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -65,12 +66,13 @@ interface CVData {
 
 const CVBuilder = () => {
   const { user, profile } = useAuth();
+  const { setHasUnsavedChanges } = useUnsavedChanges();
   const [loading, setLoading] = useState(false);
   const [cvList, setCvList] = useState<CVData[]>([]);
   const [currentCV, setCurrentCV] = useState<CVData | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [localHasUnsavedChanges, setLocalHasUnsavedChanges] = useState(false);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
@@ -135,9 +137,17 @@ const CVBuilder = () => {
   // Track changes to show unsaved warning
   useEffect(() => {
     if (isEditing && currentCV) {
+      setLocalHasUnsavedChanges(true);
       setHasUnsavedChanges(true);
     }
-  }, [currentCV, isEditing]);
+  }, [currentCV, isEditing, setHasUnsavedChanges]);
+
+  // Reset unsaved changes when component unmounts or user saves
+  useEffect(() => {
+    return () => {
+      setHasUnsavedChanges(false);
+    };
+  }, [setHasUnsavedChanges]);
 
   const loadCVs = async () => {
     if (!user) return;
@@ -171,7 +181,7 @@ const CVBuilder = () => {
   };
 
   const handleUnsavedAction = (action: () => void) => {
-    if (hasUnsavedChanges) {
+    if (localHasUnsavedChanges) {
       setPendingAction(() => action);
       setShowUnsavedWarning(true);
     } else {
@@ -209,6 +219,7 @@ const CVBuilder = () => {
       };
       setCurrentCV(newCV);
       setIsEditing(true);
+      setLocalHasUnsavedChanges(false);
       setHasUnsavedChanges(false);
     };
 
@@ -219,6 +230,7 @@ const CVBuilder = () => {
     const action = () => {
       setCurrentCV(cv);
       setIsEditing(true);
+      setLocalHasUnsavedChanges(false);
       setHasUnsavedChanges(false);
     };
 
@@ -253,6 +265,7 @@ const CVBuilder = () => {
       
       toast.success('CV saved successfully!');
       setIsEditing(false);
+      setLocalHasUnsavedChanges(false);
       setHasUnsavedChanges(false);
       loadCVs();
     } catch (error: any) {
@@ -306,6 +319,7 @@ const CVBuilder = () => {
       if (currentCV?.id === cvId) {
         setCurrentCV(null);
         setIsEditing(false);
+        setLocalHasUnsavedChanges(false);
         setHasUnsavedChanges(false);
       }
     } catch (error: any) {
@@ -598,14 +612,15 @@ const CVBuilder = () => {
               <AlertDialogCancel onClick={() => setShowUnsavedWarning(false)}>
                 Cancel
               </AlertDialogCancel>
-              <AlertDialogAction onClick={() => {
-                setShowUnsavedWarning(false);
-                setHasUnsavedChanges(false);
-                if (pendingAction) {
-                  pendingAction();
-                  setPendingAction(null);
-                }
-              }}>
+               <AlertDialogAction onClick={() => {
+                 setShowUnsavedWarning(false);
+                 setLocalHasUnsavedChanges(false);
+                 setHasUnsavedChanges(false);
+                 if (pendingAction) {
+                   pendingAction();
+                   setPendingAction(null);
+                 }
+               }}>
                 Continue without saving
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -1177,6 +1192,7 @@ const CVBuilder = () => {
             </AlertDialogCancel>
             <AlertDialogAction onClick={() => {
               setShowUnsavedWarning(false);
+              setLocalHasUnsavedChanges(false);
               setHasUnsavedChanges(false);
               if (pendingAction) {
                 pendingAction();
