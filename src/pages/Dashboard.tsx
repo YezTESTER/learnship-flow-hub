@@ -11,6 +11,7 @@ import DocumentUpload from '@/components/documents/DocumentUpload';
 import AchievementsDisplay from '@/components/gamification/AchievementsDisplay';
 import NotificationCenter from '@/components/notifications/NotificationCenter';
 import ProfileManager from '@/components/profile/ProfileManager';
+import AccountSettings from '@/components/profile/AccountSettings';
 import CVBuilder from '@/components/cv/CVBuilder';
 import OnboardingTour from '@/components/onboarding/OnboardingTour';
 
@@ -94,6 +95,8 @@ const Dashboard = () => {
         return <NotificationCenter />;
       case 'profile':
         return <ProfileManager />;
+      case 'account-settings':
+        return <AccountSettings />;
       case 'learners':
         if (profile?.role === 'admin' || profile?.role === 'mentor') {
           return (
@@ -164,6 +167,8 @@ const Dashboard = () => {
         return 'Notifications';
       case 'profile':
         return 'Profile Settings';
+      case 'account-settings':
+        return 'Account Settings';
       case 'learners':
         return 'Learner Management';
       case 'reports':
