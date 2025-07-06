@@ -2,6 +2,7 @@
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Home, FileText, Upload, Award, Bell, Settings, Users, BarChart3, LogOut, User, BookOpen } from 'lucide-react';
 
 interface SidebarProps {
@@ -109,14 +110,26 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return <div className="w-64 bg-gradient-to-b from-[#122ec0] to-blue-600 text-white h-screen flex flex-col">
       <div className="p-3 sm:p-4">
-        <h1 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-white to-orange-200 bg-clip-text text-transparent">
+        <h1 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-white to-orange-200 bg-clip-text text-transparent mb-3">
           Learnership Portal
         </h1>
-        <p className="text-blue-200 text-xs sm:text-sm mt-1">
-          Welcome, {profile?.full_name}
-        </p>
-        <div className="text-xs text-blue-300 bg-blue-500/20 px-2 py-1 rounded-full inline-block mt-1">
-          {profile?.role?.toUpperCase()}
+        
+        <div className="flex items-center space-x-3">
+          <Avatar className="w-12 h-12 border-2 border-white/20 shadow-lg">
+            <AvatarImage src={profile?.avatar_url || ''} alt={profile?.full_name || 'User'} />
+            <AvatarFallback className="bg-white/20 text-white font-semibold text-sm">
+              {profile?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+            </AvatarFallback>
+          </Avatar>
+          
+          <div className="flex-1 min-w-0">
+            <p className="text-blue-200 text-xs sm:text-sm truncate">
+              Welcome, {profile?.full_name}
+            </p>
+            <div className="text-xs text-blue-300 bg-blue-500/20 px-2 py-1 rounded-full inline-block mt-1">
+              {profile?.role?.toUpperCase()}
+            </div>
+          </div>
         </div>
       </div>
 
