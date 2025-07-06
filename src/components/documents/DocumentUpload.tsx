@@ -96,7 +96,7 @@ const DocumentUpload = () => {
               processedDocuments.push({
                 ...doc,
                 document_type: 'cv_upload',
-                file_name: `${cvData.cv_name || 'CV'}.pdf`, // Use CV name from JSON
+                file_name: `${cvData.title || 'CV'}.pdf`, // Use CV title from JSON
                 file_path: doc.file_path // Keep original for download/delete logic
               });
             }
