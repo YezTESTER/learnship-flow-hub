@@ -16,6 +16,7 @@ import AccountSettings from '@/components/profile/AccountSettings';
 import CVBuilder from '@/components/cv/CVBuilder';
 import OnboardingTour from '@/components/onboarding/OnboardingTour';
 import NavigationWarningDialog from '@/components/ui/navigation-warning-dialog';
+import LearnersManagement from '@/components/admin/LearnersManagement';
 
 const Dashboard = () => {
   const { user, profile, loading } = useAuth();
@@ -101,12 +102,7 @@ const Dashboard = () => {
         return <AccountSettings />;
       case 'learners':
         if (profile?.role === 'admin' || profile?.role === 'mentor') {
-          return (
-            <div className="text-center py-12">
-              <h2 className="text-2xl font-bold text-gray-700 mb-4">Learner Management</h2>
-              <p className="text-gray-500">View and manage all learners in the system</p>
-            </div>
-          );
+          return <LearnersManagement />;
         }
         return <Navigate to="/dashboard" replace />;
       case 'reports':
