@@ -182,11 +182,11 @@ const Dashboard = () => {
 
   return (
     <UnsavedChangesProvider>
-      <div className="flex h-screen bg-gray-50">
+      <div className="relative min-h-screen md:flex">
         <Sidebar activeSection={activeSection} setActiveSection={setActiveSection} />
         
-        <main className="flex-1 overflow-y-auto">
-          <div className="p-8">
+        <main className="flex-1 md:ml-64 pt-16">
+          <div className="p-4 md:p-8">
             <div className="mb-8">
               <h1 className="text-3xl font-bold bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
                 {getSectionTitle()}

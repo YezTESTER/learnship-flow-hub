@@ -212,7 +212,7 @@ const NotificationCenter = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 space-y-4 sm:space-y-0">
             <div className="flex space-x-2">
               <Button
                 variant={filter === 'all' ? 'default' : 'outline'}
@@ -232,7 +232,7 @@ const NotificationCenter = () => {
               </Button>
             </div>
             
-            <div className="flex space-x-2">
+            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
               {unreadCount > 0 && (
                 <Button
                   variant="outline"
@@ -278,8 +278,8 @@ const NotificationCenter = () => {
                   key={notification.id}
                   className={`p-4 rounded-lg transition-all duration-200 hover:shadow-md ${getNotificationBorderColor(notification.type, !!notification.read_at)}`}
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start space-x-3 flex-1">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex items-start space-x-3">
                       {getNotificationIcon(notification.type)}
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-1">
@@ -304,7 +304,7 @@ const NotificationCenter = () => {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-1 ml-4">
+                    <div className="flex items-center justify-end space-x-1 mt-2 sm:mt-0 sm:ml-4 w-full sm:w-auto">
                       {!notification.read_at && (
                         <Button
                           variant="ghost"
