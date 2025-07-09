@@ -798,15 +798,11 @@ const CVBuilder = () => {
 
             {/* Experience Section */}
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-100">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4">
                 <h3 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center">
                   <Briefcase className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                   Experience
                 </h3>
-                <Button onClick={addExperience} variant="outline" size="sm" className="text-sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Experience
-                </Button>
               </div>
               {currentCV.experience.map((exp, index) => (
                 <div key={exp.id} className="border border-gray-200 rounded-lg p-4 mb-4">
@@ -951,19 +947,19 @@ const CVBuilder = () => {
                   </Button>
                 </div>
               ))}
+              <Button onClick={addExperience} variant="outline" size="sm" className="text-sm w-full sm:w-auto">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Experience
+              </Button>
             </div>
 
             {/* Education Section */}
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-100">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4">
                 <h3 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center">
                   <GraduationCap className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                   Education
                 </h3>
-                <Button onClick={addEducation} variant="outline" size="sm" className="text-sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Education
-                </Button>
               </div>
               {currentCV.education.map((edu, index) => (
                 <div key={edu.id} className="border border-gray-200 rounded-lg p-4 mb-4">
@@ -1019,19 +1015,19 @@ const CVBuilder = () => {
                   </Button>
                 </div>
               ))}
+              <Button onClick={addEducation} variant="outline" size="sm" className="text-sm w-full sm:w-auto">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Education
+              </Button>
             </div>
 
             {/* Skills Section */}
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-100">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4">
                 <h3 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center">
                   <Award className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                   Skills
                 </h3>
-                <Button onClick={addSkill} variant="outline" size="sm" className="text-sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Skill
-                </Button>
               </div>
               <div className="space-y-2">
                 {currentCV.skills.map((skill, index) => (
@@ -1060,16 +1056,16 @@ const CVBuilder = () => {
                   </div>
                 ))}
               </div>
+              <Button onClick={addSkill} variant="outline" size="sm" className="text-sm w-full sm:w-auto">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Skill
+              </Button>
             </div>
 
             {/* References Section */}
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-100">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4">
                 <h3 className="text-base sm:text-lg font-semibold text-gray-800">References</h3>
-                <Button onClick={addReference} variant="outline" size="sm" className="text-sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Reference
-                </Button>
               </div>
               {currentCV.references.map((ref, index) => (
                 <div key={index} className="border border-gray-200 rounded-lg p-4 mb-4">
@@ -1149,6 +1145,10 @@ const CVBuilder = () => {
                   </Button>
                 </div>
               ))}
+              <Button onClick={addReference} variant="outline" size="sm" className="text-sm w-full sm:w-auto">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Reference
+              </Button>
             </div>
           </CardContent>
         </Card>
