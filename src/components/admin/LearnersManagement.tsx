@@ -390,17 +390,17 @@ const LearnersManagement: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
         <div>
-          <h2 className="text-2xl font-bold">Learners Management</h2>
           <p className="text-muted-foreground">Manage all learners and their categories</p>
         </div>
         
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 mt-4 sm:mt-0 w-full sm:w-auto">
           <Button
             variant="outline"
             size="sm"
             onClick={() => setViewMode(viewMode === 'list' ? 'kanban' : 'list')}
+            className="w-full sm:w-auto"
           >
             {viewMode === 'list' ? <Grid3x3 className="w-4 h-4" /> : <List className="w-4 h-4" />}
             {viewMode === 'list' ? 'Kanban' : 'List'}
@@ -408,7 +408,7 @@ const LearnersManagement: React.FC = () => {
           
           <Dialog open={showCategoryDialog} onOpenChange={setShowCategoryDialog}>
             <DialogTrigger asChild>
-              <Button size="sm">
+              <Button size="sm" className="w-full sm:w-auto">
                 <Plus className="w-4 h-4 mr-2" />
                 Create Category
               </Button>

@@ -177,7 +177,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       {isMobile && (
         <div className={`fixed top-4 right-4 z-50 transition-opacity duration-300 ${!showMobileHeader ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-          <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(!isMenuOpen)} className="bg-gray-800/50 text-white hover:bg-gray-800">
+          <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(!isMenuOpen)} className="bg-gradient-to-r from-[#122ec0] to-blue-600 text-white hover:from-[#122ec0] hover:to-blue-700">
             <Menu size={24} />
           </Button>
         </div>
