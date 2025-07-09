@@ -397,14 +397,14 @@ const CVBuilder = () => {
   };
 
   const CVPreview = ({ cv }: { cv: CVData }) => (
-    <div className="bg-white p-4 sm:p-8 max-w-4xl mx-auto" style={{ minHeight: '297mm', width: '210mm' }}>
+    <div className="bg-white p-4 sm:p-8 w-full max-w-4xl mx-auto">
       {/* Header with photo and contact info */}
-      <div className="flex flex-col sm:flex-row items-start space-y-4 sm:space-y-0 sm:space-x-6 mb-6 border-b pb-4">
-        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0 mx-auto sm:mx-0">
+      <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-6 mb-6 border-b pb-4">
+        <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
           {cv.personal_info.avatar_url ? (
             <img src={cv.personal_info.avatar_url} alt="Profile" className="w-full h-full object-cover" />
           ) : (
-            <User className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400" />
+            <User className="h-12 w-12 text-gray-400" />
           )}
         </div>
         <div className="flex-1 text-center sm:text-left">
@@ -545,7 +545,7 @@ const CVBuilder = () => {
                   <Edit className="mr-2 h-4 w-4" />
                   Edit CV
                 </Button>
-                <div className="flex space-x-2">
+                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                   <Button 
                     onClick={() => {
                       setCurrentCV(cv);
