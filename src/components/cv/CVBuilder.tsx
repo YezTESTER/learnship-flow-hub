@@ -10,7 +10,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { FileText, Download, Plus, Trash2, User, Award, Briefcase, GraduationCap, Eye, Edit, Save, Upload, AlertTriangle } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-
 interface CVData {
   id?: string;
   title: string;
@@ -63,10 +62,14 @@ interface CVData {
     email: string;
   }[];
 }
-
 const CVBuilder = () => {
-  const { user, profile } = useAuth();
-  const { setHasUnsavedChanges } = useUnsavedChanges();
+  const {
+    user,
+    profile
+  } = useAuth();
+  const {
+    setHasUnsavedChanges
+  } = useUnsavedChanges();
   const [loading, setLoading] = useState(false);
   const [cvList, setCvList] = useState<CVData[]>([]);
   const [currentCV, setCurrentCV] = useState<CVData | null>(null);
@@ -76,7 +79,6 @@ const CVBuilder = () => {
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
-
   const defaultCVData: CVData = {
     title: 'My CV',
     is_published: false,
@@ -105,7 +107,6 @@ const CVBuilder = () => {
     skills: [],
     references: []
   };
-
   useEffect(() => {
     if (profile && user) {
       const updatedPersonalInfo = {
@@ -128,8 +129,13 @@ const CVBuilder = () => {
         has_own_transport: profile.has_own_transport || false,
         public_transport_types: profile.public_transport_types || []
       };
-      
-      setCurrentCV(prev => prev ? { ...prev, personal_info: updatedPersonalInfo } : { ...defaultCVData, personal_info: updatedPersonalInfo });
+      setCurrentCV(prev => prev ? {
+        ...prev,
+        personal_info: updatedPersonalInfo
+      } : {
+        ...defaultCVData,
+        personal_info: updatedPersonalInfo
+      });
       loadCVs();
     }
   }, [profile, user]);
@@ -148,20 +154,14 @@ const CVBuilder = () => {
       setHasUnsavedChanges(false);
     };
   }, [setHasUnsavedChanges]);
-
   const loadCVs = async () => {
     if (!user) return;
-    
     try {
-      const { data, error } = await supabase
-        .from('documents')
-        .select('*')
-        .eq('learner_id', user.id)
-        .eq('document_type', 'other')
-        .like('file_name', 'cv_%');
-
+      const {
+        data,
+        error
+      } = await supabase.from('documents').select('*').eq('learner_id', user.id).eq('document_type', 'other').like('file_name', 'cv_%');
       if (error) throw error;
-
       const cvs = data.map(doc => {
         try {
           return JSON.parse(doc.file_path) as CVData;
@@ -169,17 +169,14 @@ const CVBuilder = () => {
           return null;
         }
       }).filter(Boolean) as CVData[];
-
       setCvList(cvs);
     } catch (error: any) {
       console.error('Error loading CVs:', error);
     }
   };
-
   const checkDuplicateTitle = (title: string, excludeId?: string) => {
     return cvList.some(cv => cv.title.toLowerCase() === title.toLowerCase() && cv.id !== excludeId);
   };
-
   const handleUnsavedAction = (action: () => void) => {
     if (localHasUnsavedChanges) {
       setPendingAction(() => action);
@@ -188,11 +185,10 @@ const CVBuilder = () => {
       action();
     }
   };
-
   const createNewCV = () => {
     const action = () => {
-      const newCV = { 
-        ...defaultCVData, 
+      const newCV = {
+        ...defaultCVData,
         id: Date.now().toString(),
         title: `CV ${cvList.length + 1}`,
         personal_info: {
@@ -222,10 +218,8 @@ const CVBuilder = () => {
       setLocalHasUnsavedChanges(false);
       setHasUnsavedChanges(false);
     };
-
     handleUnsavedAction(action);
   };
-
   const editCV = (cv: CVData) => {
     const action = () => {
       setCurrentCV(cv);
@@ -233,10 +227,8 @@ const CVBuilder = () => {
       setLocalHasUnsavedChanges(false);
       setHasUnsavedChanges(false);
     };
-
     handleUnsavedAction(action);
   };
-
   const saveCV = async () => {
     if (!user || !currentCV) return;
 
@@ -245,24 +237,23 @@ const CVBuilder = () => {
       setShowDuplicateWarning(true);
       return;
     }
-    
     setLoading(true);
     try {
       const cvId = currentCV.id || Date.now().toString();
       const fileName = `cv_${cvId}.json`;
-      
-      const { error } = await supabase
-        .from('documents')
-        .upsert({
-          learner_id: user.id,
-          document_type: 'other',
-          file_name: fileName,
-          file_path: JSON.stringify({ ...currentCV, id: cvId }),
-          submission_id: null
-        });
-
+      const {
+        error
+      } = await supabase.from('documents').upsert({
+        learner_id: user.id,
+        document_type: 'other',
+        file_name: fileName,
+        file_path: JSON.stringify({
+          ...currentCV,
+          id: cvId
+        }),
+        submission_id: null
+      });
       if (error) throw error;
-      
       toast.success('CV saved successfully!');
       setIsEditing(false);
       setLocalHasUnsavedChanges(false);
@@ -274,46 +265,35 @@ const CVBuilder = () => {
       setLoading(false);
     }
   };
-
   const publishCV = async (cvId: string) => {
     if (!user) return;
-    
     try {
       const cv = cvList.find(c => c.id === cvId);
       if (!cv) return;
-
-      const updatedCV = { ...cv, is_published: !cv.is_published };
+      const updatedCV = {
+        ...cv,
+        is_published: !cv.is_published
+      };
       const fileName = `cv_${cvId}.json`;
-      
-      const { error } = await supabase
-        .from('documents')
-        .update({
-          file_path: JSON.stringify(updatedCV)
-        })
-        .eq('learner_id', user.id)
-        .eq('file_name', fileName);
-
+      const {
+        error
+      } = await supabase.from('documents').update({
+        file_path: JSON.stringify(updatedCV)
+      }).eq('learner_id', user.id).eq('file_name', fileName);
       if (error) throw error;
-      
       toast.success(updatedCV.is_published ? 'CV published successfully!' : 'CV unpublished successfully!');
       loadCVs();
     } catch (error: any) {
       toast.error(error.message || 'Failed to update CV');
     }
   };
-
   const deleteCV = async (cvId: string) => {
     if (!user) return;
-    
     try {
-      const { error } = await supabase
-        .from('documents')
-        .delete()
-        .eq('learner_id', user.id)
-        .eq('file_name', `cv_${cvId}.json`);
-
+      const {
+        error
+      } = await supabase.from('documents').delete().eq('learner_id', user.id).eq('file_name', `cv_${cvId}.json`);
       if (error) throw error;
-      
       toast.success('CV deleted successfully!');
       loadCVs();
       if (currentCV?.id === cvId) {
@@ -326,7 +306,6 @@ const CVBuilder = () => {
       toast.error(error.message || 'Failed to delete CV');
     }
   };
-
   const addEducation = () => {
     if (!currentCV) return;
     const newEdu = {
@@ -340,7 +319,6 @@ const CVBuilder = () => {
       education: [...currentCV.education, newEdu]
     });
   };
-
   const addExperience = () => {
     if (!currentCV) return;
     const newExp = {
@@ -357,7 +335,6 @@ const CVBuilder = () => {
       experience: [...currentCV.experience, newExp]
     });
   };
-
   const addResponsibility = (expIndex: number) => {
     if (!currentCV) return;
     const newResponsibility = {
@@ -372,7 +349,6 @@ const CVBuilder = () => {
       experience: updatedExperience
     });
   };
-
   const addSkill = () => {
     if (!currentCV) return;
     setCurrentCV({
@@ -380,7 +356,6 @@ const CVBuilder = () => {
       skills: [...currentCV.skills, '']
     });
   };
-
   const addReference = () => {
     if (!currentCV) return;
     const newRef = {
@@ -395,17 +370,15 @@ const CVBuilder = () => {
       references: [...currentCV.references, newRef]
     });
   };
-
-  const CVPreview = ({ cv }: { cv: CVData }) => (
-    <div className="bg-white p-4 sm:p-8 w-full max-w-4xl mx-auto">
+  const CVPreview = ({
+    cv
+  }: {
+    cv: CVData;
+  }) => <div className="bg-white p-4 sm:p-8 w-full max-w-4xl mx-auto">
       {/* Header with photo and contact info */}
       <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-6 mb-6 border-b pb-4">
         <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
-          {cv.personal_info.avatar_url ? (
-            <img src={cv.personal_info.avatar_url} alt="Profile" className="w-full h-full object-cover" />
-          ) : (
-            <User className="h-12 w-12 text-gray-400" />
-          )}
+          {cv.personal_info.avatar_url ? <img src={cv.personal_info.avatar_url} alt="Profile" className="w-full h-full object-cover" /> : <User className="h-12 w-12 text-gray-400" />}
         </div>
         <div className="flex-1 text-center sm:text-left">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">{cv.personal_info.full_name}</h1>
@@ -416,82 +389,57 @@ const CVBuilder = () => {
             <p>Gender: {cv.personal_info.gender} | Race: {cv.personal_info.race}</p>
             <p>Nationality: {cv.personal_info.nationality} | Languages: {cv.personal_info.languages.join(', ')}</p>
             {cv.personal_info.area_of_residence && <p>Area: {cv.personal_info.area_of_residence}</p>}
-            {cv.personal_info.has_drivers_license && (
-              <p>Driver's License: {cv.personal_info.license_codes.join(', ')}</p>
-            )}
+            {cv.personal_info.has_drivers_license && <p>Driver's License: {cv.personal_info.license_codes.join(', ')}</p>}
           </div>
         </div>
       </div>
 
-      {cv.education.length > 0 && (
-        <div className="mb-6">
+      {cv.education.length > 0 && <div className="mb-6">
           <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 border-b border-gray-300 pb-1">Education</h2>
-          {cv.education.map((edu, index) => (
-            <div key={index} className="mb-3">
+          {cv.education.map((edu, index) => <div key={index} className="mb-3">
               <h3 className="font-semibold text-sm sm:text-base">{edu.qualification}</h3>
               <p className="text-gray-600 text-sm">{edu.institution} - {edu.year}</p>
-            </div>
-          ))}
-        </div>
-      )}
+            </div>)}
+        </div>}
 
-      {cv.experience.length > 0 && (
-        <div className="mb-6">
+      {cv.experience.length > 0 && <div className="mb-6">
           <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 border-b border-gray-300 pb-1">Experience</h2>
-          {cv.experience.map((exp, index) => (
-            <div key={index} className="mb-4">
+          {cv.experience.map((exp, index) => <div key={index} className="mb-4">
               <h3 className="font-semibold text-sm sm:text-base">{exp.position}</h3>
               <p className="text-gray-600 mb-2 text-sm">{exp.company} - {exp.start_date} to {exp.is_current ? 'Present' : exp.end_date}</p>
-              {exp.responsibilities.length > 0 && (
-                <div>
+              {exp.responsibilities.length > 0 && <div>
                   <h4 className="font-medium text-sm mb-1">Key Responsibilities:</h4>
                   <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-                    {exp.responsibilities.map((resp, i) => (
-                      <li key={i}>
+                    {exp.responsibilities.map((resp, i) => <li key={i}>
                         <strong>{resp.heading}:</strong> {resp.description}
-                      </li>
-                    ))}
+                      </li>)}
                   </ul>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+                </div>}
+            </div>)}
+        </div>}
 
-      {cv.skills.length > 0 && (
-        <div className="mb-6">
+      {cv.skills.length > 0 && <div className="mb-6">
           <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 border-b border-gray-300 pb-1">Skills</h2>
           <div className="flex flex-wrap gap-2">
-            {cv.skills.filter(skill => skill.trim()).map((skill, index) => (
-              <span key={index} className="bg-blue-100 text-blue-800 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
+            {cv.skills.filter(skill => skill.trim()).map((skill, index) => <span key={index} className="bg-blue-100 text-blue-800 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
                 {skill}
-              </span>
-            ))}
+              </span>)}
           </div>
-        </div>
-      )}
+        </div>}
 
-      {cv.references.length > 0 && (
-        <div className="mb-6">
+      {cv.references.length > 0 && <div className="mb-6">
           <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 border-b border-gray-300 pb-1">References</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {cv.references.map((ref, index) => (
-              <div key={index} className="text-xs sm:text-sm">
+            {cv.references.map((ref, index) => <div key={index} className="text-xs sm:text-sm">
                 <h3 className="font-semibold">{ref.name}</h3>
                 <p className="text-gray-600">{ref.position} at {ref.company}</p>
                 <p className="text-gray-600">{ref.phone} | {ref.email}</p>
-              </div>
-            ))}
+              </div>)}
           </div>
-        </div>
-      )}
-    </div>
-  );
-
+        </div>}
+    </div>;
   if (showPreview && currentCV) {
-    return (
-      <div className="max-w-7xl mx-auto space-y-4 px-4 sm:px-6">
+    return <div className="max-w-7xl mx-auto space-y-4 px-4 sm:px-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
             CV Preview: {currentCV.title}
@@ -509,13 +457,10 @@ const CVBuilder = () => {
         <div className="overflow-x-auto">
           <CVPreview cv={currentCV} />
         </div>
-      </div>
-    );
+      </div>;
   }
-
   if (!isEditing) {
-    return (
-      <div className="max-w-6xl mx-auto space-y-4 px-4 sm:px-6">
+    return <div className="max-w-6xl mx-auto space-y-4 px-4 sm:px-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
             My CVs
@@ -527,14 +472,11 @@ const CVBuilder = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {cvList.map((cv) => (
-            <Card key={cv.id} className="hover:shadow-lg transition-shadow">
+          {cvList.map(cv => <Card key={cv.id} className="hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base sm:text-lg flex items-center justify-between">
                   {cv.title}
-                  {cv.is_published && (
-                    <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">Published</span>
-                  )}
+                  {cv.is_published && <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">Published</span>}
                 </CardTitle>
                 <CardDescription className="text-sm">
                   Last updated: {new Date().toLocaleDateString()}
@@ -546,14 +488,10 @@ const CVBuilder = () => {
                   Edit CV
                 </Button>
                 <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-                  <Button 
-                    onClick={() => {
-                      setCurrentCV(cv);
-                      setShowPreview(true);
-                    }} 
-                    variant="outline" 
-                    className="flex-1 text-sm"
-                  >
+                  <Button onClick={() => {
+                setCurrentCV(cv);
+                setShowPreview(true);
+              }} variant="outline" className="flex-1 text-sm">
                     <Eye className="mr-2 h-4 w-4" />
                     Preview
                   </Button>
@@ -562,30 +500,19 @@ const CVBuilder = () => {
                     PDF
                   </Button>
                 </div>
-                <Button 
-                  onClick={() => cv.id && publishCV(cv.id)} 
-                  variant={cv.is_published ? "secondary" : "default"}
-                  className="w-full text-sm"
-                >
+                <Button onClick={() => cv.id && publishCV(cv.id)} variant={cv.is_published ? "secondary" : "default"} className="w-full text-sm">
                   <Upload className="mr-2 h-4 w-4" />
                   {cv.is_published ? 'Unpublish CV' : 'Publish CV'}
                 </Button>
-                <Button 
-                  onClick={() => cv.id && deleteCV(cv.id)} 
-                  variant="destructive" 
-                  size="sm"
-                  className="w-full text-sm"
-                >
+                <Button onClick={() => cv.id && deleteCV(cv.id)} variant="destructive" size="sm" className="w-full text-sm">
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete
                 </Button>
               </CardContent>
-            </Card>
-          ))}
+            </Card>)}
         </div>
 
-        {cvList.length === 0 && (
-          <div className="text-center py-8 sm:py-12">
+        {cvList.length === 0 && <div className="text-center py-8 sm:py-12">
             <FileText className="h-16 w-16 sm:h-24 sm:w-24 text-gray-400 mx-auto mb-4" />
             <h2 className="text-xl sm:text-2xl font-bold text-gray-700 mb-2">No CVs Created Yet</h2>
             <p className="text-gray-500 mb-4 text-sm sm:text-base">Create your first CV to get started</p>
@@ -593,8 +520,7 @@ const CVBuilder = () => {
               <Plus className="mr-2 h-4 w-4" />
               Create Your First CV
             </Button>
-          </div>
-        )}
+          </div>}
 
         {/* Unsaved Changes Warning Dialog */}
         <AlertDialog open={showUnsavedWarning} onOpenChange={setShowUnsavedWarning}>
@@ -613,14 +539,14 @@ const CVBuilder = () => {
                 Cancel
               </AlertDialogCancel>
                <AlertDialogAction onClick={() => {
-                 setShowUnsavedWarning(false);
-                 setLocalHasUnsavedChanges(false);
-                 setHasUnsavedChanges(false);
-                 if (pendingAction) {
-                   pendingAction();
-                   setPendingAction(null);
-                 }
-               }}>
+              setShowUnsavedWarning(false);
+              setLocalHasUnsavedChanges(false);
+              setHasUnsavedChanges(false);
+              if (pendingAction) {
+                pendingAction();
+                setPendingAction(null);
+              }
+            }}>
                 Continue without saving
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -646,12 +572,9 @@ const CVBuilder = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      </div>
-    );
+      </div>;
   }
-
-  return (
-    <div className="max-w-6xl mx-auto space-y-4 px-4 sm:px-6">
+  return <div className="max-w-6xl mx-auto space-y-4 sm:px-6 px-0">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
           {currentCV?.id ? 'Edit CV' : 'Create New CV'}
@@ -671,20 +594,17 @@ const CVBuilder = () => {
         </div>
       </div>
 
-      {currentCV && (
-        <Card className="bg-gradient-to-br from-white to-blue-50 border-0 shadow-lg">
+      {currentCV && <Card className="bg-gradient-to-br from-white to-blue-50 border-0 shadow-lg mx-0">
           <CardHeader className="pb-4">
             <div className="space-y-2">
               <Label className="text-sm">CV Title</Label>
-              <Input
-                value={currentCV.title}
-                onChange={(e) => setCurrentCV({ ...currentCV, title: e.target.value })}
-                className="rounded-xl border-gray-200 text-sm"
-                placeholder="Enter CV title"
-              />
+              <Input value={currentCV.title} onChange={e => setCurrentCV({
+            ...currentCV,
+            title: e.target.value
+          })} className="rounded-xl border-gray-200 text-sm" placeholder="Enter CV title" />
             </div>
           </CardHeader>
-          <CardContent className="space-y-6 sm:space-y-8">
+          <CardContent className="space-y-6 sm:space-y-8 px-0 py-0 mx-0 bg-gray-50">
             {/* Personal Information - Editable */}
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-100">
               <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-4 flex items-center">
@@ -694,104 +614,93 @@ const CVBuilder = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
                   <Label className="text-sm">Full Name</Label>
-                  <Input
-                    value={currentCV.personal_info.full_name}
-                    onChange={(e) => setCurrentCV({
-                      ...currentCV,
-                      personal_info: { ...currentCV.personal_info, full_name: e.target.value }
-                    })}
-                    className="rounded-xl border-gray-200 text-sm"
-                  />
+                  <Input value={currentCV.personal_info.full_name} onChange={e => setCurrentCV({
+                ...currentCV,
+                personal_info: {
+                  ...currentCV.personal_info,
+                  full_name: e.target.value
+                }
+              })} className="rounded-xl border-gray-200 text-sm" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm">Email</Label>
-                  <Input
-                    value={currentCV.personal_info.email}
-                    onChange={(e) => setCurrentCV({
-                      ...currentCV,
-                      personal_info: { ...currentCV.personal_info, email: e.target.value }
-                    })}
-                    className="rounded-xl border-gray-200 text-sm"
-                  />
+                  <Input value={currentCV.personal_info.email} onChange={e => setCurrentCV({
+                ...currentCV,
+                personal_info: {
+                  ...currentCV.personal_info,
+                  email: e.target.value
+                }
+              })} className="rounded-xl border-gray-200 text-sm" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm">Phone</Label>
-                  <Input
-                    value={currentCV.personal_info.phone}
-                    onChange={(e) => setCurrentCV({
-                      ...currentCV,
-                      personal_info: { ...currentCV.personal_info, phone: e.target.value }
-                    })}
-                    className="rounded-xl border-gray-200 text-sm"
-                  />
+                  <Input value={currentCV.personal_info.phone} onChange={e => setCurrentCV({
+                ...currentCV,
+                personal_info: {
+                  ...currentCV.personal_info,
+                  phone: e.target.value
+                }
+              })} className="rounded-xl border-gray-200 text-sm" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm">ID Number</Label>
-                  <Input
-                    value={currentCV.personal_info.id_number}
-                    onChange={(e) => setCurrentCV({
-                      ...currentCV,
-                      personal_info: { ...currentCV.personal_info, id_number: e.target.value }
-                    })}
-                    className="rounded-xl border-gray-200 text-sm"
-                  />
+                  <Input value={currentCV.personal_info.id_number} onChange={e => setCurrentCV({
+                ...currentCV,
+                personal_info: {
+                  ...currentCV.personal_info,
+                  id_number: e.target.value
+                }
+              })} className="rounded-xl border-gray-200 text-sm" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm">Date of Birth</Label>
-                  <Input
-                    type="date"
-                    value={currentCV.personal_info.date_of_birth}
-                    onChange={(e) => setCurrentCV({
-                      ...currentCV,
-                      personal_info: { ...currentCV.personal_info, date_of_birth: e.target.value }
-                    })}
-                    className="rounded-xl border-gray-200 text-sm"
-                  />
+                  <Input type="date" value={currentCV.personal_info.date_of_birth} onChange={e => setCurrentCV({
+                ...currentCV,
+                personal_info: {
+                  ...currentCV.personal_info,
+                  date_of_birth: e.target.value
+                }
+              })} className="rounded-xl border-gray-200 text-sm" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm">Gender</Label>
-                  <Input
-                    value={currentCV.personal_info.gender}
-                    onChange={(e) => setCurrentCV({
-                      ...currentCV,
-                      personal_info: { ...currentCV.personal_info, gender: e.target.value }
-                    })}
-                    className="rounded-xl border-gray-200 text-sm"
-                  />
+                  <Input value={currentCV.personal_info.gender} onChange={e => setCurrentCV({
+                ...currentCV,
+                personal_info: {
+                  ...currentCV.personal_info,
+                  gender: e.target.value
+                }
+              })} className="rounded-xl border-gray-200 text-sm" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm">Race</Label>
-                  <Input
-                    value={currentCV.personal_info.race}
-                    onChange={(e) => setCurrentCV({
-                      ...currentCV,
-                      personal_info: { ...currentCV.personal_info, race: e.target.value }
-                    })}
-                    className="rounded-xl border-gray-200 text-sm"
-                  />
+                  <Input value={currentCV.personal_info.race} onChange={e => setCurrentCV({
+                ...currentCV,
+                personal_info: {
+                  ...currentCV.personal_info,
+                  race: e.target.value
+                }
+              })} className="rounded-xl border-gray-200 text-sm" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm">Nationality</Label>
-                  <Input
-                    value={currentCV.personal_info.nationality}
-                    onChange={(e) => setCurrentCV({
-                      ...currentCV,
-                      personal_info: { ...currentCV.personal_info, nationality: e.target.value }
-                    })}
-                    className="rounded-xl border-gray-200 text-sm"
-                  />
+                  <Input value={currentCV.personal_info.nationality} onChange={e => setCurrentCV({
+                ...currentCV,
+                personal_info: {
+                  ...currentCV.personal_info,
+                  nationality: e.target.value
+                }
+              })} className="rounded-xl border-gray-200 text-sm" />
                 </div>
                 <div className="sm:col-span-2 space-y-2">
                   <Label className="text-sm">Address</Label>
-                  <Textarea
-                    value={currentCV.personal_info.address}
-                    onChange={(e) => setCurrentCV({
-                      ...currentCV,
-                      personal_info: { ...currentCV.personal_info, address: e.target.value }
-                    })}
-                    className="rounded-xl border-gray-200 text-sm"
-                    rows={2}
-                  />
+                  <Textarea value={currentCV.personal_info.address} onChange={e => setCurrentCV({
+                ...currentCV,
+                personal_info: {
+                  ...currentCV.personal_info,
+                  address: e.target.value
+                }
+              })} className="rounded-xl border-gray-200 text-sm" rows={2} />
                 </div>
               </div>
             </div>
@@ -804,77 +713,66 @@ const CVBuilder = () => {
                   Experience
                 </h3>
               </div>
-              {currentCV.experience.map((exp, index) => (
-                <div key={exp.id} className="border border-gray-200 rounded-lg p-4 mb-4">
+              {currentCV.experience.map((exp, index) => <div key={exp.id} className="border border-gray-200 rounded-lg p-4 mb-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                     <div className="space-y-2">
                       <Label className="text-sm">Position</Label>
-                      <Input
-                        value={exp.position}
-                        onChange={(e) => {
-                          const newExperience = [...currentCV.experience];
-                          newExperience[index].position = e.target.value;
-                          setCurrentCV({ ...currentCV, experience: newExperience });
-                        }}
-                        className="rounded-xl border-gray-200 text-sm"
-                      />
+                      <Input value={exp.position} onChange={e => {
+                  const newExperience = [...currentCV.experience];
+                  newExperience[index].position = e.target.value;
+                  setCurrentCV({
+                    ...currentCV,
+                    experience: newExperience
+                  });
+                }} className="rounded-xl border-gray-200 text-sm" />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-sm">Company</Label>
-                      <Input
-                        value={exp.company}
-                        onChange={(e) => {
-                          const newExperience = [...currentCV.experience];
-                          newExperience[index].company = e.target.value;
-                          setCurrentCV({ ...currentCV, experience: newExperience });
-                        }}
-                        className="rounded-xl border-gray-200 text-sm"
-                      />
+                      <Input value={exp.company} onChange={e => {
+                  const newExperience = [...currentCV.experience];
+                  newExperience[index].company = e.target.value;
+                  setCurrentCV({
+                    ...currentCV,
+                    experience: newExperience
+                  });
+                }} className="rounded-xl border-gray-200 text-sm" />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-sm">Start Date</Label>
-                      <Input
-                        type="date"
-                        value={exp.start_date}
-                        onChange={(e) => {
-                          const newExperience = [...currentCV.experience];
-                          newExperience[index].start_date = e.target.value;
-                          setCurrentCV({ ...currentCV, experience: newExperience });
-                        }}
-                        className="rounded-xl border-gray-200 text-sm"
-                      />
+                      <Input type="date" value={exp.start_date} onChange={e => {
+                  const newExperience = [...currentCV.experience];
+                  newExperience[index].start_date = e.target.value;
+                  setCurrentCV({
+                    ...currentCV,
+                    experience: newExperience
+                  });
+                }} className="rounded-xl border-gray-200 text-sm" />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-sm">End Date</Label>
                       <div className="space-y-2">
                         <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            checked={exp.is_current}
-                            onChange={(e) => {
-                              const newExperience = [...currentCV.experience];
-                              newExperience[index].is_current = e.target.checked;
-                              if (e.target.checked) {
-                                newExperience[index].end_date = '';
-                              }
-                              setCurrentCV({ ...currentCV, experience: newExperience });
-                            }}
-                            className="rounded"
-                          />
+                          <input type="checkbox" checked={exp.is_current} onChange={e => {
+                      const newExperience = [...currentCV.experience];
+                      newExperience[index].is_current = e.target.checked;
+                      if (e.target.checked) {
+                        newExperience[index].end_date = '';
+                      }
+                      setCurrentCV({
+                        ...currentCV,
+                        experience: newExperience
+                      });
+                    }} className="rounded" />
                           <Label className="text-sm">Currently working here</Label>
                         </div>
-                        {!exp.is_current && (
-                          <Input
-                            type="date"
-                            value={exp.end_date}
-                            onChange={(e) => {
-                              const newExperience = [...currentCV.experience];
-                              newExperience[index].end_date = e.target.value;
-                              setCurrentCV({ ...currentCV, experience: newExperience });
-                            }}
-                            className="rounded-xl border-gray-200 text-sm"
-                          />
-                        )}
+                        {!exp.is_current && <Input type="date" value={exp.end_date} onChange={e => {
+                    const newExperience = [...currentCV.experience];
+                    newExperience[index].end_date = e.target.value;
+                    setCurrentCV({
+                      ...currentCV,
+                      experience: newExperience
+                    });
+                  }} className="rounded-xl border-gray-200 text-sm" />}
                       </div>
                     </div>
                   </div>
@@ -882,71 +780,53 @@ const CVBuilder = () => {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label className="text-sm">Key Responsibilities</Label>
-                      <Button
-                        type="button"
-                        onClick={() => addResponsibility(index)}
-                        variant="outline"
-                        size="sm"
-                        className="text-xs"
-                      >
+                      <Button type="button" onClick={() => addResponsibility(index)} variant="outline" size="sm" className="text-xs">
                         <Plus className="h-3 w-3 mr-1" />
                         Add Responsibility
                       </Button>
                     </div>
-                    {exp.responsibilities.map((resp, respIndex) => (
-                      <div key={resp.id} className="border border-gray-100 rounded p-3 space-y-2">
-                        <Input
-                          value={resp.heading}
-                          onChange={(e) => {
-                            const newExperience = [...currentCV.experience];
-                            newExperience[index].responsibilities[respIndex].heading = e.target.value;
-                            setCurrentCV({ ...currentCV, experience: newExperience });
-                          }}
-                          className="rounded-xl border-gray-200 text-sm"
-                          placeholder="Responsibility heading"
-                        />
-                        <Textarea
-                          value={resp.description}
-                          onChange={(e) => {
-                            const newExperience = [...currentCV.experience];
-                            newExperience[index].responsibilities[respIndex].description = e.target.value;
-                            setCurrentCV({ ...currentCV, experience: newExperience });
-                          }}
-                          className="rounded-xl border-gray-200 text-sm"
-                          placeholder="Responsibility description"
-                          rows={2}
-                        />
-                        <Button
-                          onClick={() => {
-                            const newExperience = [...currentCV.experience];
-                            newExperience[index].responsibilities = newExperience[index].responsibilities.filter((_, i) => i !== respIndex);
-                            setCurrentCV({ ...currentCV, experience: newExperience });
-                          }}
-                          variant="destructive"
-                          size="sm"
-                          className="text-xs"
-                        >
+                    {exp.responsibilities.map((resp, respIndex) => <div key={resp.id} className="border border-gray-100 rounded p-3 space-y-2">
+                        <Input value={resp.heading} onChange={e => {
+                  const newExperience = [...currentCV.experience];
+                  newExperience[index].responsibilities[respIndex].heading = e.target.value;
+                  setCurrentCV({
+                    ...currentCV,
+                    experience: newExperience
+                  });
+                }} className="rounded-xl border-gray-200 text-sm" placeholder="Responsibility heading" />
+                        <Textarea value={resp.description} onChange={e => {
+                  const newExperience = [...currentCV.experience];
+                  newExperience[index].responsibilities[respIndex].description = e.target.value;
+                  setCurrentCV({
+                    ...currentCV,
+                    experience: newExperience
+                  });
+                }} className="rounded-xl border-gray-200 text-sm" placeholder="Responsibility description" rows={2} />
+                        <Button onClick={() => {
+                  const newExperience = [...currentCV.experience];
+                  newExperience[index].responsibilities = newExperience[index].responsibilities.filter((_, i) => i !== respIndex);
+                  setCurrentCV({
+                    ...currentCV,
+                    experience: newExperience
+                  });
+                }} variant="destructive" size="sm" className="text-xs">
                           <Trash2 className="h-3 w-3 mr-1" />
                           Remove
                         </Button>
-                      </div>
-                    ))}
+                      </div>)}
                   </div>
                   
-                  <Button
-                    onClick={() => {
-                      const newExperience = currentCV.experience.filter((_, i) => i !== index);
-                      setCurrentCV({ ...currentCV, experience: newExperience });
-                    }}
-                    variant="destructive"
-                    size="sm"
-                    className="mt-2 text-sm"
-                  >
+                  <Button onClick={() => {
+              const newExperience = currentCV.experience.filter((_, i) => i !== index);
+              setCurrentCV({
+                ...currentCV,
+                experience: newExperience
+              });
+            }} variant="destructive" size="sm" className="mt-2 text-sm">
                     <Trash2 className="h-4 w-4 mr-2" />
                     Remove Experience
                   </Button>
-                </div>
-              ))}
+                </div>)}
               <Button onClick={addExperience} variant="outline" size="sm" className="text-sm w-full sm:w-auto">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Experience
@@ -961,60 +841,53 @@ const CVBuilder = () => {
                   Education
                 </h3>
               </div>
-              {currentCV.education.map((edu, index) => (
-                <div key={edu.id} className="border border-gray-200 rounded-lg p-4 mb-4">
+              {currentCV.education.map((edu, index) => <div key={edu.id} className="border border-gray-200 rounded-lg p-4 mb-4">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label className="text-sm">Institution</Label>
-                      <Input
-                        value={edu.institution}
-                        onChange={(e) => {
-                          const newEducation = [...currentCV.education];
-                          newEducation[index].institution = e.target.value;
-                          setCurrentCV({ ...currentCV, education: newEducation });
-                        }}
-                        className="rounded-xl border-gray-200 text-sm"
-                      />
+                      <Input value={edu.institution} onChange={e => {
+                  const newEducation = [...currentCV.education];
+                  newEducation[index].institution = e.target.value;
+                  setCurrentCV({
+                    ...currentCV,
+                    education: newEducation
+                  });
+                }} className="rounded-xl border-gray-200 text-sm" />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-sm">Qualification</Label>
-                      <Input
-                        value={edu.qualification}
-                        onChange={(e) => {
-                          const newEducation = [...currentCV.education];
-                          newEducation[index].qualification = e.target.value;
-                          setCurrentCV({ ...currentCV, education: newEducation });
-                        }}
-                        className="rounded-xl border-gray-200 text-sm"
-                      />
+                      <Input value={edu.qualification} onChange={e => {
+                  const newEducation = [...currentCV.education];
+                  newEducation[index].qualification = e.target.value;
+                  setCurrentCV({
+                    ...currentCV,
+                    education: newEducation
+                  });
+                }} className="rounded-xl border-gray-200 text-sm" />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-sm">Year</Label>
-                      <Input
-                        value={edu.year}
-                        onChange={(e) => {
-                          const newEducation = [...currentCV.education];
-                          newEducation[index].year = e.target.value;
-                          setCurrentCV({ ...currentCV, education: newEducation });
-                        }}
-                        className="rounded-xl border-gray-200 text-sm"
-                      />
+                      <Input value={edu.year} onChange={e => {
+                  const newEducation = [...currentCV.education];
+                  newEducation[index].year = e.target.value;
+                  setCurrentCV({
+                    ...currentCV,
+                    education: newEducation
+                  });
+                }} className="rounded-xl border-gray-200 text-sm" />
                     </div>
                   </div>
-                  <Button
-                    onClick={() => {
-                      const newEducation = currentCV.education.filter((_, i) => i !== index);
-                      setCurrentCV({ ...currentCV, education: newEducation });
-                    }}
-                    variant="destructive"
-                    size="sm"
-                    className="mt-2 text-sm"
-                  >
+                  <Button onClick={() => {
+              const newEducation = currentCV.education.filter((_, i) => i !== index);
+              setCurrentCV({
+                ...currentCV,
+                education: newEducation
+              });
+            }} variant="destructive" size="sm" className="mt-2 text-sm">
                     <Trash2 className="h-4 w-4 mr-2" />
                     Remove
                   </Button>
-                </div>
-              ))}
+                </div>)}
               <Button onClick={addEducation} variant="outline" size="sm" className="text-sm w-full sm:w-auto">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Education
@@ -1030,31 +903,25 @@ const CVBuilder = () => {
                 </h3>
               </div>
               <div className="space-y-2">
-                {currentCV.skills.map((skill, index) => (
-                  <div key={index} className="flex items-center space-x-2">
-                    <Input
-                      value={skill}
-                      onChange={(e) => {
-                        const newSkills = [...currentCV.skills];
-                        newSkills[index] = e.target.value;
-                        setCurrentCV({ ...currentCV, skills: newSkills });
-                      }}
-                      className="rounded-xl border-gray-200 text-sm"
-                      placeholder="Enter skill"
-                    />
-                    <Button
-                      onClick={() => {
-                        const newSkills = currentCV.skills.filter((_, i) => i !== index);
-                        setCurrentCV({ ...currentCV, skills: newSkills });
-                      }}
-                      variant="destructive"
-                      size="sm"
-                      className="text-sm"
-                    >
+                {currentCV.skills.map((skill, index) => <div key={index} className="flex items-center space-x-2">
+                    <Input value={skill} onChange={e => {
+                const newSkills = [...currentCV.skills];
+                newSkills[index] = e.target.value;
+                setCurrentCV({
+                  ...currentCV,
+                  skills: newSkills
+                });
+              }} className="rounded-xl border-gray-200 text-sm" placeholder="Enter skill" />
+                    <Button onClick={() => {
+                const newSkills = currentCV.skills.filter((_, i) => i !== index);
+                setCurrentCV({
+                  ...currentCV,
+                  skills: newSkills
+                });
+              }} variant="destructive" size="sm" className="text-sm">
                       <Trash2 className="h-4 w-4" />
                     </Button>
-                  </div>
-                ))}
+                  </div>)}
               </div>
               <Button onClick={addSkill} variant="outline" size="sm" className="text-sm w-full sm:w-auto">
                 <Plus className="h-4 w-4 mr-2" />
@@ -1067,112 +934,92 @@ const CVBuilder = () => {
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4">
                 <h3 className="text-base sm:text-lg font-semibold text-gray-800">References</h3>
               </div>
-              {currentCV.references.map((ref, index) => (
-                <div key={index} className="border border-gray-200 rounded-lg p-4 mb-4">
+              {currentCV.references.map((ref, index) => <div key={index} className="border border-gray-200 rounded-lg p-4 mb-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-sm">Name</Label>
-                      <Input
-                        value={ref.name}
-                        onChange={(e) => {
-                          const newReferences = [...currentCV.references];
-                          newReferences[index].name = e.target.value;
-                          setCurrentCV({ ...currentCV, references: newReferences });
-                        }}
-                        className="rounded-xl border-gray-200 text-sm"
-                      />
+                      <Input value={ref.name} onChange={e => {
+                  const newReferences = [...currentCV.references];
+                  newReferences[index].name = e.target.value;
+                  setCurrentCV({
+                    ...currentCV,
+                    references: newReferences
+                  });
+                }} className="rounded-xl border-gray-200 text-sm" />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-sm">Position</Label>
-                      <Input
-                        value={ref.position}
-                        onChange={(e) => {
-                          const newReferences = [...currentCV.references];
-                          newReferences[index].position = e.target.value;
-                          setCurrentCV({ ...currentCV, references: newReferences });
-                        }}
-                        className="rounded-xl border-gray-200 text-sm"
-                      />
+                      <Input value={ref.position} onChange={e => {
+                  const newReferences = [...currentCV.references];
+                  newReferences[index].position = e.target.value;
+                  setCurrentCV({
+                    ...currentCV,
+                    references: newReferences
+                  });
+                }} className="rounded-xl border-gray-200 text-sm" />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-sm">Company</Label>
-                      <Input
-                        value={ref.company}
-                        onChange={(e) => {
-                          const newReferences = [...currentCV.references];
-                          newReferences[index].company = e.target.value;
-                          setCurrentCV({ ...currentCV, references: newReferences });
-                        }}
-                        className="rounded-xl border-gray-200 text-sm"
-                      />
+                      <Input value={ref.company} onChange={e => {
+                  const newReferences = [...currentCV.references];
+                  newReferences[index].company = e.target.value;
+                  setCurrentCV({
+                    ...currentCV,
+                    references: newReferences
+                  });
+                }} className="rounded-xl border-gray-200 text-sm" />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-sm">Phone</Label>
-                      <Input
-                        value={ref.phone}
-                        onChange={(e) => {
-                          const newReferences = [...currentCV.references];
-                          newReferences[index].phone = e.target.value;
-                          setCurrentCV({ ...currentCV, references: newReferences });
-                        }}
-                        className="rounded-xl border-gray-200 text-sm"
-                      />
+                      <Input value={ref.phone} onChange={e => {
+                  const newReferences = [...currentCV.references];
+                  newReferences[index].phone = e.target.value;
+                  setCurrentCV({
+                    ...currentCV,
+                    references: newReferences
+                  });
+                }} className="rounded-xl border-gray-200 text-sm" />
                     </div>
                     <div className="sm:col-span-2 space-y-2">
                       <Label className="text-sm">Email</Label>
-                      <Input
-                        value={ref.email}
-                        onChange={(e) => {
-                          const newReferences = [...currentCV.references];
-                          newReferences[index].email = e.target.value;
-                          setCurrentCV({ ...currentCV, references: newReferences });
-                        }}
-                        className="rounded-xl border-gray-200 text-sm"
-                      />
+                      <Input value={ref.email} onChange={e => {
+                  const newReferences = [...currentCV.references];
+                  newReferences[index].email = e.target.value;
+                  setCurrentCV({
+                    ...currentCV,
+                    references: newReferences
+                  });
+                }} className="rounded-xl border-gray-200 text-sm" />
                     </div>
                   </div>
-                  <Button
-                    onClick={() => {
-                      const newReferences = currentCV.references.filter((_, i) => i !== index);
-                      setCurrentCV({ ...currentCV, references: newReferences });
-                    }}
-                    variant="destructive"
-                    size="sm"
-                    className="mt-2 text-sm"
-                  >
+                  <Button onClick={() => {
+              const newReferences = currentCV.references.filter((_, i) => i !== index);
+              setCurrentCV({
+                ...currentCV,
+                references: newReferences
+              });
+            }} variant="destructive" size="sm" className="mt-2 text-sm">
                     <Trash2 className="h-4 w-4 mr-2" />
                     Remove
                   </Button>
-                </div>
-              ))}
+                </div>)}
               <Button onClick={addReference} variant="outline" size="sm" className="text-sm w-full sm:w-auto">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Reference
               </Button>
             </div>
           </CardContent>
-        </Card>
-      )}
+        </Card>}
 
       {/* Save Button at Bottom */}
-      {isEditing && (
-        <div className="flex justify-center pb-8">
-          <Button 
-            onClick={saveCV} 
-            disabled={loading}
-            className="bg-gradient-to-r from-[#122ec0] to-[#e16623] hover:from-[#0f2499] hover:to-[#d55a1f] text-white px-8 py-3 text-lg font-semibold rounded-xl"
-          >
-            {loading ? (
-              'Saving...'
-            ) : (
-              <>
+      {isEditing && <div className="flex justify-center pb-8">
+          <Button onClick={saveCV} disabled={loading} className="bg-gradient-to-r from-[#122ec0] to-[#e16623] hover:from-[#0f2499] hover:to-[#d55a1f] text-white px-8 py-3 text-lg font-semibold rounded-xl">
+            {loading ? 'Saving...' : <>
                 <Save className="mr-2 h-5 w-5" />
                 Save CV
-              </>
-            )}
+              </>}
           </Button>
-        </div>
-      )}
+        </div>}
 
       {/* Warning Dialogs */}
       <AlertDialog open={showUnsavedWarning} onOpenChange={setShowUnsavedWarning}>
@@ -1191,14 +1038,14 @@ const CVBuilder = () => {
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction onClick={() => {
-              setShowUnsavedWarning(false);
-              setLocalHasUnsavedChanges(false);
-              setHasUnsavedChanges(false);
-              if (pendingAction) {
-                pendingAction();
-                setPendingAction(null);
-              }
-            }}>
+            setShowUnsavedWarning(false);
+            setLocalHasUnsavedChanges(false);
+            setHasUnsavedChanges(false);
+            if (pendingAction) {
+              pendingAction();
+              setPendingAction(null);
+            }
+          }}>
               Continue without saving
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -1223,8 +1070,6 @@ const CVBuilder = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
-  );
+    </div>;
 };
-
 export default CVBuilder;
