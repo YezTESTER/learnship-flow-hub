@@ -12,9 +12,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { User, Building, Award, Mail, Phone, MapPin, Save, Calendar, AlertCircle, Camera, Upload } from 'lucide-react';
 import ImageCropper from './ImageCropper';
-
 const ProfileManager = () => {
-  const { user, profile, refreshProfile } = useAuth();
+  const {
+    user,
+    profile,
+    refreshProfile
+  } = useAuth();
   const [loading, setLoading] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [showCropper, setShowCropper] = useState(false);
@@ -48,20 +51,9 @@ const ProfileManager = () => {
     stipend_amount: 0,
     is_employed: false // New field for employment status
   });
-
-  const southAfricanLanguages = [
-    'Afrikaans', 'English', 'isiNdebele', 'isiXhosa', 'isiZulu', 
-    'Sepedi', 'Sesotho', 'Setswana', 'siSwati', 'Tshivenda', 'Xitsonga'
-  ];
-
-  const driversLicenseCodes = [
-    'A - Motorcycles', 'A1 - Motorcycles up to 125cc', 'B - Light motor vehicles',
-    'C - Heavy motor vehicles', 'C1 - Medium heavy motor vehicles', 'EB - Light motor vehicle with trailer',
-    'EC - Heavy motor vehicle with trailer', 'EC1 - Medium heavy motor vehicle with trailer'
-  ];
-
+  const southAfricanLanguages = ['Afrikaans', 'English', 'isiNdebele', 'isiXhosa', 'isiZulu', 'Sepedi', 'Sesotho', 'Setswana', 'siSwati', 'Tshivenda', 'Xitsonga'];
+  const driversLicenseCodes = ['A - Motorcycles', 'A1 - Motorcycles up to 125cc', 'B - Light motor vehicles', 'C - Heavy motor vehicles', 'C1 - Medium heavy motor vehicles', 'EB - Light motor vehicle with trailer', 'EC - Heavy motor vehicle with trailer', 'EC1 - Medium heavy motor vehicle with trailer'];
   const publicTransportOptions = ['Bus', 'Train', 'Taxi', 'Other'];
-
   useEffect(() => {
     if (profile && user) {
       setFormData({
@@ -95,7 +87,6 @@ const ProfileManager = () => {
       });
     }
   }, [profile, user]);
-
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !user) return;
@@ -117,13 +108,10 @@ const ProfileManager = () => {
     setTempImageSrc(tempUrl);
     setShowCropper(true);
   };
-
   const handleCropComplete = async (croppedImageBlob: Blob) => {
     if (!user) return;
-
     setPhotoUploading(true);
     setShowCropper(false);
-    
     try {
       const fileExt = 'jpg';
       const fileName = `${user.id}/avatar_${Date.now()}.${fileExt}`;
@@ -140,28 +128,26 @@ const ProfileManager = () => {
       }
 
       // Upload new avatar first to the avatars bucket
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(fileName, croppedImageBlob, { upsert: true });
-
+      const {
+        error: uploadError
+      } = await supabase.storage.from('avatars').upload(fileName, croppedImageBlob, {
+        upsert: true
+      });
       if (uploadError) {
         console.error('Upload error:', uploadError);
         throw uploadError;
       }
-
-      const { data } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(fileName);
+      const {
+        data
+      } = supabase.storage.from('avatars').getPublicUrl(fileName);
 
       // Update profile with new avatar URL
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ 
-          avatar_url: data.publicUrl,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', user.id);
-
+      const {
+        error: updateError
+      } = await supabase.from('profiles').update({
+        avatar_url: data.publicUrl,
+        updated_at: new Date().toISOString()
+      }).eq('id', user.id);
       if (updateError) {
         console.error('Profile update error:', updateError);
         throw updateError;
@@ -169,10 +155,9 @@ const ProfileManager = () => {
 
       // Only delete old file after successful upload and database update
       if (oldFilePath) {
-        const { error: deleteError } = await supabase.storage
-          .from('avatars')
-          .remove([oldFilePath]);
-        
+        const {
+          error: deleteError
+        } = await supabase.storage.from('avatars').remove([oldFilePath]);
         if (deleteError) {
           console.warn('Failed to delete old avatar:', deleteError);
           // Don't throw error here as the main operation succeeded
@@ -180,9 +165,12 @@ const ProfileManager = () => {
       }
 
       // Update local state
-      setFormData(prev => ({ ...prev, avatar_url: data.publicUrl }));
+      setFormData(prev => ({
+        ...prev,
+        avatar_url: data.publicUrl
+      }));
       toast.success('Profile photo updated successfully!');
-      
+
       // Refresh the profile context to update the avatar display
       await refreshProfile();
     } catch (error: any) {
@@ -195,73 +183,59 @@ const ProfileManager = () => {
       setTempImageSrc('');
     }
   };
-
   const handleLanguageChange = (language: string, checked: boolean) => {
     setFormData(prev => ({
       ...prev,
-      languages: checked 
-        ? [...prev.languages, language]
-        : prev.languages.filter(l => l !== language)
+      languages: checked ? [...prev.languages, language] : prev.languages.filter(l => l !== language)
     }));
   };
-
   const handleLicenseCodeChange = (code: string, checked: boolean) => {
     setFormData(prev => ({
       ...prev,
-      license_codes: checked 
-        ? [...prev.license_codes, code]
-        : prev.license_codes.filter(c => c !== code)
+      license_codes: checked ? [...prev.license_codes, code] : prev.license_codes.filter(c => c !== code)
     }));
   };
-
   const handleTransportTypeChange = (type: string, checked: boolean) => {
     setFormData(prev => ({
       ...prev,
-      public_transport_types: checked 
-        ? [...prev.public_transport_types, type]
-        : prev.public_transport_types.filter(t => t !== type)
+      public_transport_types: checked ? [...prev.public_transport_types, type] : prev.public_transport_types.filter(t => t !== type)
     }));
   };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          full_name: formData.full_name,
-          id_number: formData.id_number,
-          learnership_program: formData.learnership_program,
-          employer_name: formData.is_employed ? formData.employer_name : null,
-          phone_number: formData.phone_number,
-          address: formData.address,
-          date_of_birth: formData.date_of_birth || null,
-          emergency_contact: formData.emergency_contact,
-          emergency_phone: formData.emergency_phone,
-          start_date: formData.start_date || null,
-          end_date: formData.end_date || null,
-          gender: formData.gender || null,
-          race: formData.race || null,
-          nationality: formData.nationality || null,
-          languages: formData.languages,
-          has_disability: formData.has_disability,
-          disability_description: formData.disability_description,
-          area_of_residence: formData.area_of_residence,
-          has_drivers_license: formData.has_drivers_license,
-          license_codes: formData.license_codes,
-          has_own_transport: formData.has_own_transport,
-          public_transport_types: formData.public_transport_types,
-          receives_stipend: formData.receives_stipend,
-          stipend_amount: formData.stipend_amount,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', user.id);
-
+      const {
+        error
+      } = await supabase.from('profiles').update({
+        full_name: formData.full_name,
+        id_number: formData.id_number,
+        learnership_program: formData.learnership_program,
+        employer_name: formData.is_employed ? formData.employer_name : null,
+        phone_number: formData.phone_number,
+        address: formData.address,
+        date_of_birth: formData.date_of_birth || null,
+        emergency_contact: formData.emergency_contact,
+        emergency_phone: formData.emergency_phone,
+        start_date: formData.start_date || null,
+        end_date: formData.end_date || null,
+        gender: formData.gender || null,
+        race: formData.race || null,
+        nationality: formData.nationality || null,
+        languages: formData.languages,
+        has_disability: formData.has_disability,
+        disability_description: formData.disability_description,
+        area_of_residence: formData.area_of_residence,
+        has_drivers_license: formData.has_drivers_license,
+        license_codes: formData.license_codes,
+        has_own_transport: formData.has_own_transport,
+        public_transport_types: formData.public_transport_types,
+        receives_stipend: formData.receives_stipend,
+        stipend_amount: formData.stipend_amount,
+        updated_at: new Date().toISOString()
+      }).eq('id', user.id);
       if (error) throw error;
-
       toast.success('Profile updated successfully!');
     } catch (error: any) {
       toast.error(error.message || 'Failed to update profile');
@@ -269,9 +243,7 @@ const ProfileManager = () => {
       setLoading(false);
     }
   };
-
-  return (
-    <div className="max-w-4xl mx-auto space-y-4 px-4 sm:px-6">
+  return <div className="max-w-4xl mx-auto space-y-4 sm:px-6 px-0">
       <Card className="bg-gradient-to-br from-white to-blue-50 border-0 shadow-lg">
         <CardHeader className="text-center pb-4">
           <div className="flex items-center justify-center space-x-2 mb-2">
@@ -284,7 +256,7 @@ const ProfileManager = () => {
             Manage your personal information and learnership details
           </CardDescription>
         </CardHeader>
-        <CardContent className="px-4 sm:px-6">
+        <CardContent className="sm:px-6 px-[6px]">
           <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
             {/* Profile Photo Section */}
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-100">
@@ -295,32 +267,15 @@ const ProfileManager = () => {
               <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
                 <div className="relative">
                   <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-                    {formData.avatar_url ? (
-                      <img
-                        src={formData.avatar_url}
-                        alt="Profile"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <User className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400" />
-                    )}
+                    {formData.avatar_url ? <img src={formData.avatar_url} alt="Profile" className="w-full h-full object-cover" /> : <User className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400" />}
                   </div>
                 </div>
                 <div className="flex-1 w-full">
                   <Label htmlFor="photo" className="block text-sm font-medium text-gray-700 mb-2">
                     Upload Photo (Max 2MB) - Photos will be cropped to 1:1 ratio
                   </Label>
-                  <Input
-                    id="photo"
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePhotoUpload}
-                    disabled={photoUploading}
-                    className="rounded-xl border-gray-200 text-sm"
-                  />
-                  {photoUploading && (
-                    <p className="text-sm text-blue-600 mt-2">Processing photo...</p>
-                  )}
+                  <Input id="photo" type="file" accept="image/*" onChange={handlePhotoUpload} disabled={photoUploading} className="rounded-xl border-gray-200 text-sm" />
+                  {photoUploading && <p className="text-sm text-blue-600 mt-2">Processing photo...</p>}
                 </div>
               </div>
             </div>
@@ -334,51 +289,39 @@ const ProfileManager = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="full_name" className="text-sm">Full Name *</Label>
-                  <Input
-                    id="full_name"
-                    value={formData.full_name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
-                    className="rounded-xl border-gray-200 text-sm"
-                    required
-                  />
+                  <Input id="full_name" value={formData.full_name} onChange={e => setFormData(prev => ({
+                  ...prev,
+                  full_name: e.target.value
+                }))} className="rounded-xl border-gray-200 text-sm" required />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-sm">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    className="rounded-xl border-gray-200 bg-gray-50 text-sm"
-                    disabled
-                  />
+                  <Input id="email" type="email" value={formData.email} className="rounded-xl border-gray-200 bg-gray-50 text-sm" disabled />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="id_number" className="text-sm">ID Number</Label>
-                  <Input
-                    id="id_number"
-                    value={formData.id_number}
-                    onChange={(e) => setFormData(prev => ({ ...prev, id_number: e.target.value }))}
-                    className="rounded-xl border-gray-200 text-sm"
-                    placeholder="Enter your ID number"
-                  />
+                  <Input id="id_number" value={formData.id_number} onChange={e => setFormData(prev => ({
+                  ...prev,
+                  id_number: e.target.value
+                }))} className="rounded-xl border-gray-200 text-sm" placeholder="Enter your ID number" />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="date_of_birth" className="text-sm">Date of Birth</Label>
-                  <Input
-                    id="date_of_birth"
-                    type="date"
-                    value={formData.date_of_birth}
-                    onChange={(e) => setFormData(prev => ({ ...prev, date_of_birth: e.target.value }))}
-                    className="rounded-xl border-gray-200 text-sm"
-                  />
+                  <Input id="date_of_birth" type="date" value={formData.date_of_birth} onChange={e => setFormData(prev => ({
+                  ...prev,
+                  date_of_birth: e.target.value
+                }))} className="rounded-xl border-gray-200 text-sm" />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="gender" className="text-sm">Gender</Label>
-                  <Select value={formData.gender} onValueChange={(value) => setFormData(prev => ({ ...prev, gender: value }))}>
+                  <Select value={formData.gender} onValueChange={value => setFormData(prev => ({
+                  ...prev,
+                  gender: value
+                }))}>
                     <SelectTrigger className="rounded-xl border-gray-200 text-sm">
                       <SelectValue placeholder="Select gender" />
                     </SelectTrigger>
@@ -391,7 +334,10 @@ const ProfileManager = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="race" className="text-sm">Race</Label>
-                  <Select value={formData.race} onValueChange={(value) => setFormData(prev => ({ ...prev, race: value }))}>
+                  <Select value={formData.race} onValueChange={value => setFormData(prev => ({
+                  ...prev,
+                  race: value
+                }))}>
                     <SelectTrigger className="rounded-xl border-gray-200 text-sm">
                       <SelectValue placeholder="Select race" />
                     </SelectTrigger>
@@ -407,7 +353,10 @@ const ProfileManager = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="nationality" className="text-sm">Nationality</Label>
-                  <Select value={formData.nationality} onValueChange={(value) => setFormData(prev => ({ ...prev, nationality: value }))}>
+                  <Select value={formData.nationality} onValueChange={value => setFormData(prev => ({
+                  ...prev,
+                  nationality: value
+                }))}>
                     <SelectTrigger className="rounded-xl border-gray-200 text-sm">
                       <SelectValue placeholder="Select nationality" />
                     </SelectTrigger>
@@ -420,61 +369,44 @@ const ProfileManager = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="phone_number" className="text-sm">Phone Number</Label>
-                  <Input
-                    id="phone_number"
-                    type="tel"
-                    value={formData.phone_number}
-                    onChange={(e) => setFormData(prev => ({ ...prev, phone_number: e.target.value }))}
-                    className="rounded-xl border-gray-200 text-sm"
-                    placeholder="Enter your phone number"
-                  />
+                  <Input id="phone_number" type="tel" value={formData.phone_number} onChange={e => setFormData(prev => ({
+                  ...prev,
+                  phone_number: e.target.value
+                }))} className="rounded-xl border-gray-200 text-sm" placeholder="Enter your phone number" />
                 </div>
 
                 <div className="md:col-span-2 space-y-2">
                   <Label htmlFor="address" className="text-sm">Address</Label>
-                  <Textarea
-                    id="address"
-                    value={formData.address}
-                    onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                    className="rounded-xl border-gray-200 text-sm"
-                    placeholder="Enter your full address"
-                    rows={2}
-                  />
+                  <Textarea id="address" value={formData.address} onChange={e => setFormData(prev => ({
+                  ...prev,
+                  address: e.target.value
+                }))} className="rounded-xl border-gray-200 text-sm" placeholder="Enter your full address" rows={2} />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="area_of_residence" className="text-sm">Area of Residence</Label>
-                  <Input
-                    id="area_of_residence"
-                    value={formData.area_of_residence}
-                    onChange={(e) => setFormData(prev => ({ ...prev, area_of_residence: e.target.value }))}
-                    className="rounded-xl border-gray-200 text-sm"
-                    placeholder="e.g., Johannesburg, Cape Town"
-                  />
+                  <Input id="area_of_residence" value={formData.area_of_residence} onChange={e => setFormData(prev => ({
+                  ...prev,
+                  area_of_residence: e.target.value
+                }))} className="rounded-xl border-gray-200 text-sm" placeholder="e.g., Johannesburg, Cape Town" />
                 </div>
 
                 <div className="md:col-span-2 space-y-3">
                   <Label className="text-sm">Languages (Select all that apply)</Label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {southAfricanLanguages.map((language) => (
-                      <div key={language} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`language-${language}`}
-                          checked={formData.languages.includes(language)}
-                          onCheckedChange={(checked) => handleLanguageChange(language, checked as boolean)}
-                        />
+                    {southAfricanLanguages.map(language => <div key={language} className="flex items-center space-x-2">
+                        <Checkbox id={`language-${language}`} checked={formData.languages.includes(language)} onCheckedChange={checked => handleLanguageChange(language, checked as boolean)} />
                         <Label htmlFor={`language-${language}`} className="text-xs">{language}</Label>
-                      </div>
-                    ))}
+                      </div>)}
                   </div>
                 </div>
 
                 <div className="md:col-span-2 space-y-3">
                   <Label className="text-sm">Do you have a disability?</Label>
-                  <RadioGroup
-                    value={formData.has_disability.toString()}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, has_disability: value === 'true' }))}
-                  >
+                  <RadioGroup value={formData.has_disability.toString()} onValueChange={value => setFormData(prev => ({
+                  ...prev,
+                  has_disability: value === 'true'
+                }))}>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="false" id="no-disability" />
                       <Label htmlFor="no-disability" className="text-sm">No</Label>
@@ -484,27 +416,21 @@ const ProfileManager = () => {
                       <Label htmlFor="has-disability" className="text-sm">Yes</Label>
                     </div>
                   </RadioGroup>
-                  {formData.has_disability && (
-                    <div className="space-y-2">
+                  {formData.has_disability && <div className="space-y-2">
                       <Label htmlFor="disability_description" className="text-sm">Please describe your disability</Label>
-                      <Textarea
-                        id="disability_description"
-                        value={formData.disability_description}
-                        onChange={(e) => setFormData(prev => ({ ...prev, disability_description: e.target.value }))}
-                        className="rounded-xl border-gray-200 text-sm"
-                        placeholder="Describe your disability"
-                        rows={2}
-                      />
-                    </div>
-                  )}
+                      <Textarea id="disability_description" value={formData.disability_description} onChange={e => setFormData(prev => ({
+                    ...prev,
+                    disability_description: e.target.value
+                  }))} className="rounded-xl border-gray-200 text-sm" placeholder="Describe your disability" rows={2} />
+                    </div>}
                 </div>
 
                 <div className="md:col-span-2 space-y-3">
                   <Label className="text-sm">Do you have a driver's license?</Label>
-                  <RadioGroup
-                    value={formData.has_drivers_license.toString()}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, has_drivers_license: value === 'true' }))}
-                  >
+                  <RadioGroup value={formData.has_drivers_license.toString()} onValueChange={value => setFormData(prev => ({
+                  ...prev,
+                  has_drivers_license: value === 'true'
+                }))}>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="false" id="no-license" />
                       <Label htmlFor="no-license" className="text-sm">No</Label>
@@ -514,23 +440,15 @@ const ProfileManager = () => {
                       <Label htmlFor="has-license" className="text-sm">Yes</Label>
                     </div>
                   </RadioGroup>
-                  {formData.has_drivers_license && (
-                    <div className="space-y-3">
+                  {formData.has_drivers_license && <div className="space-y-3">
                       <Label className="text-sm">License Codes (Select all that apply)</Label>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {driversLicenseCodes.map((code) => (
-                          <div key={code} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`license-${code}`}
-                              checked={formData.license_codes.includes(code)}
-                              onCheckedChange={(checked) => handleLicenseCodeChange(code, checked as boolean)}
-                            />
+                        {driversLicenseCodes.map(code => <div key={code} className="flex items-center space-x-2">
+                            <Checkbox id={`license-${code}`} checked={formData.license_codes.includes(code)} onCheckedChange={checked => handleLicenseCodeChange(code, checked as boolean)} />
                             <Label htmlFor={`license-${code}`} className="text-xs">{code}</Label>
-                          </div>
-                        ))}
+                          </div>)}
                       </div>
-                    </div>
-                  )}
+                    </div>}
                 </div>
               </div>
             </div>
@@ -544,25 +462,18 @@ const ProfileManager = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="emergency_contact" className="text-sm">Emergency Contact Name</Label>
-                  <Input
-                    id="emergency_contact"
-                    value={formData.emergency_contact}
-                    onChange={(e) => setFormData(prev => ({ ...prev, emergency_contact: e.target.value }))}
-                    className="rounded-xl border-gray-200 text-sm"
-                    placeholder="Full name of emergency contact"
-                  />
+                  <Input id="emergency_contact" value={formData.emergency_contact} onChange={e => setFormData(prev => ({
+                  ...prev,
+                  emergency_contact: e.target.value
+                }))} className="rounded-xl border-gray-200 text-sm" placeholder="Full name of emergency contact" />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="emergency_phone" className="text-sm">Emergency Contact Phone</Label>
-                  <Input
-                    id="emergency_phone"
-                    type="tel"
-                    value={formData.emergency_phone}
-                    onChange={(e) => setFormData(prev => ({ ...prev, emergency_phone: e.target.value }))}
-                    className="rounded-xl border-gray-200 text-sm"
-                    placeholder="Emergency contact phone number"
-                  />
+                  <Input id="emergency_phone" type="tel" value={formData.emergency_phone} onChange={e => setFormData(prev => ({
+                  ...prev,
+                  emergency_phone: e.target.value
+                }))} className="rounded-xl border-gray-200 text-sm" placeholder="Emergency contact phone number" />
                 </div>
               </div>
             </div>
@@ -576,28 +487,22 @@ const ProfileManager = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 <div className="md:col-span-2 space-y-2">
                   <Label htmlFor="learnership_program" className="text-sm">Learnership Program</Label>
-                  <Input
-                    id="learnership_program"
-                    value={formData.learnership_program}
-                    onChange={(e) => setFormData(prev => ({ ...prev, learnership_program: e.target.value }))}
-                    className="rounded-xl border-gray-200 text-sm"
-                    placeholder="e.g., Business Administration NQF4"
-                  />
+                  <Input id="learnership_program" value={formData.learnership_program} onChange={e => setFormData(prev => ({
+                  ...prev,
+                  learnership_program: e.target.value
+                }))} className="rounded-xl border-gray-200 text-sm" placeholder="e.g., Business Administration NQF4" />
                 </div>
 
                 <div className="md:col-span-2 space-y-3">
                   <Label className="text-sm">Are you employed or hosted by a company?</Label>
-                  <RadioGroup
-                    value={formData.is_employed.toString()}
-                    onValueChange={(value) => {
-                      const isEmployed = value === 'true';
-                      setFormData(prev => ({ 
-                        ...prev, 
-                        is_employed: isEmployed,
-                        employer_name: isEmployed ? prev.employer_name : ''
-                      }));
-                    }}
-                  >
+                  <RadioGroup value={formData.is_employed.toString()} onValueChange={value => {
+                  const isEmployed = value === 'true';
+                  setFormData(prev => ({
+                    ...prev,
+                    is_employed: isEmployed,
+                    employer_name: isEmployed ? prev.employer_name : ''
+                  }));
+                }}>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="false" id="not-employed" />
                       <Label htmlFor="not-employed" className="text-sm">No</Label>
@@ -609,47 +514,36 @@ const ProfileManager = () => {
                   </RadioGroup>
                 </div>
 
-                {formData.is_employed && (
-                  <div className="md:col-span-2 space-y-2">
+                {formData.is_employed && <div className="md:col-span-2 space-y-2">
                     <Label htmlFor="employer_name" className="text-sm">Employer/Host Company</Label>
-                    <Input
-                      id="employer_name"
-                      value={formData.employer_name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, employer_name: e.target.value }))}
-                      className="rounded-xl border-gray-200 text-sm"
-                      placeholder="Enter your employer name"
-                    />
-                  </div>
-                )}
+                    <Input id="employer_name" value={formData.employer_name} onChange={e => setFormData(prev => ({
+                  ...prev,
+                  employer_name: e.target.value
+                }))} className="rounded-xl border-gray-200 text-sm" placeholder="Enter your employer name" />
+                  </div>}
 
                 <div className="space-y-2">
                   <Label htmlFor="start_date" className="text-sm">Start Date</Label>
-                  <Input
-                    id="start_date"
-                    type="date"
-                    value={formData.start_date}
-                    onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
-                    className="rounded-xl border-gray-200 text-sm"
-                  />
+                  <Input id="start_date" type="date" value={formData.start_date} onChange={e => setFormData(prev => ({
+                  ...prev,
+                  start_date: e.target.value
+                }))} className="rounded-xl border-gray-200 text-sm" />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="end_date" className="text-sm">Expected End Date</Label>
-                  <Input
-                    id="end_date"
-                    type="date"
-                    value={formData.end_date}
-                    onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
-                    className="rounded-xl border-gray-200 text-sm"
-                  />
+                  <Input id="end_date" type="date" value={formData.end_date} onChange={e => setFormData(prev => ({
+                  ...prev,
+                  end_date: e.target.value
+                }))} className="rounded-xl border-gray-200 text-sm" />
                 </div>
 
                 <div className="md:col-span-2 space-y-3">
                   <Label className="text-sm">Do you have your own transport?</Label>
-                  <RadioGroup
-                    value={formData.has_own_transport.toString()}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, has_own_transport: value === 'true' }))}
-                  >
+                  <RadioGroup value={formData.has_own_transport.toString()} onValueChange={value => setFormData(prev => ({
+                  ...prev,
+                  has_own_transport: value === 'true'
+                }))}>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="true" id="own-transport-yes" />
                       <Label htmlFor="own-transport-yes" className="text-sm">Yes</Label>
@@ -659,31 +553,23 @@ const ProfileManager = () => {
                       <Label htmlFor="own-transport-no" className="text-sm">No</Label>
                     </div>
                   </RadioGroup>
-                  {!formData.has_own_transport && (
-                    <div className="space-y-3">
+                  {!formData.has_own_transport && <div className="space-y-3">
                       <Label className="text-sm">What kind of public transport do you use? (Select all that apply)</Label>
                       <div className="grid grid-cols-2 gap-3">
-                        {publicTransportOptions.map((transport) => (
-                          <div key={transport} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`transport-${transport}`}
-                              checked={formData.public_transport_types.includes(transport)}
-                              onCheckedChange={(checked) => handleTransportTypeChange(transport, checked as boolean)}
-                            />
+                        {publicTransportOptions.map(transport => <div key={transport} className="flex items-center space-x-2">
+                            <Checkbox id={`transport-${transport}`} checked={formData.public_transport_types.includes(transport)} onCheckedChange={checked => handleTransportTypeChange(transport, checked as boolean)} />
                             <Label htmlFor={`transport-${transport}`} className="text-sm">{transport}</Label>
-                          </div>
-                        ))}
+                          </div>)}
                       </div>
-                    </div>
-                  )}
+                    </div>}
                 </div>
 
                 <div className="md:col-span-2 space-y-3">
                   <Label className="text-sm">Do you receive a stipend?</Label>
-                  <RadioGroup
-                    value={formData.receives_stipend.toString()}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, receives_stipend: value === 'true' }))}
-                  >
+                  <RadioGroup value={formData.receives_stipend.toString()} onValueChange={value => setFormData(prev => ({
+                  ...prev,
+                  receives_stipend: value === 'true'
+                }))}>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="false" id="no-stipend" />
                       <Label htmlFor="no-stipend" className="text-sm">No</Label>
@@ -693,20 +579,13 @@ const ProfileManager = () => {
                       <Label htmlFor="receives-stipend" className="text-sm">Yes</Label>
                     </div>
                   </RadioGroup>
-                  {formData.receives_stipend && (
-                    <div className="space-y-2">
+                  {formData.receives_stipend && <div className="space-y-2">
                       <Label htmlFor="stipend_amount" className="text-sm">Stipend Amount (R)</Label>
-                      <Input
-                        id="stipend_amount"
-                        type="number"
-                        step="0.01"
-                        value={formData.stipend_amount}
-                        onChange={(e) => setFormData(prev => ({ ...prev, stipend_amount: parseFloat(e.target.value) || 0 }))}
-                        className="rounded-xl border-gray-200 text-sm"
-                        placeholder="Enter stipend amount"
-                      />
-                    </div>
-                  )}
+                      <Input id="stipend_amount" type="number" step="0.01" value={formData.stipend_amount} onChange={e => setFormData(prev => ({
+                    ...prev,
+                    stipend_amount: parseFloat(e.target.value) || 0
+                  }))} className="rounded-xl border-gray-200 text-sm" placeholder="Enter stipend amount" />
+                    </div>}
                 </div>
               </div>
             </div>
@@ -730,37 +609,22 @@ const ProfileManager = () => {
               </div>
             </div>
 
-            <Button 
-              type="submit" 
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-[#122ec0] to-[#e16623] hover:from-[#0f2499] hover:to-[#d55a1f] text-white rounded-xl py-2 sm:py-3 text-sm sm:text-lg font-semibold transition-all duration-300 transform hover:scale-105"
-            >
-              {loading ? (
-                'Updating...'
-              ) : (
-                <>
+            <Button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-[#122ec0] to-[#e16623] hover:from-[#0f2499] hover:to-[#d55a1f] text-white rounded-xl py-2 sm:py-3 text-sm sm:text-lg font-semibold transition-all duration-300 transform hover:scale-105">
+              {loading ? 'Updating...' : <>
                   <Save className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                   Update Profile
-                </>
-              )}
+                </>}
             </Button>
           </form>
         </CardContent>
       </Card>
 
       {/* Image Cropper Modal */}
-      <ImageCropper
-        isOpen={showCropper}
-        onClose={() => {
-          setShowCropper(false);
-          URL.revokeObjectURL(tempImageSrc);
-          setTempImageSrc('');
-        }}
-        onCropComplete={handleCropComplete}
-        imageSrc={tempImageSrc}
-      />
-    </div>
-  );
+      <ImageCropper isOpen={showCropper} onClose={() => {
+      setShowCropper(false);
+      URL.revokeObjectURL(tempImageSrc);
+      setTempImageSrc('');
+    }} onCropComplete={handleCropComplete} imageSrc={tempImageSrc} />
+    </div>;
 };
-
 export default ProfileManager;
