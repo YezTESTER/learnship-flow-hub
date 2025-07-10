@@ -449,7 +449,7 @@ const DocumentUpload = () => {
                     <SelectTrigger className="rounded-xl">
                       <SelectValue placeholder="Select document type" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-[60vh] overflow-y-auto">
                       {Object.entries(documentCategories).map(([key, category]) => <div key={key}>
                           <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                             {category.icon} {category.title}
