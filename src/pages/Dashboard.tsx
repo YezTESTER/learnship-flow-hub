@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { UnsavedChangesProvider } from '@/contexts/UnsavedChangesContext';
@@ -17,52 +16,41 @@ import CVBuilder from '@/components/cv/CVBuilder';
 import OnboardingTour from '@/components/onboarding/OnboardingTour';
 import NavigationWarningDialog from '@/components/ui/navigation-warning-dialog';
 import LearnersManagement from '@/components/admin/LearnersManagement';
-
 const Dashboard = () => {
-  const { user, profile, loading } = useAuth();
+  const {
+    user,
+    profile,
+    loading
+  } = useAuth();
   const [activeSection, setActiveSection] = useState('dashboard');
   const [showOnboarding, setShowOnboarding] = useState(false);
-
   useEffect(() => {
     // Check if user needs onboarding (new user or incomplete profile)
     if (profile && profile.role === 'learner') {
       const isNewUser = !profile.learnership_program || !profile.employer_name;
       const hasLowProfileCompletion = checkProfileCompletion() < 50;
-      
       if (isNewUser || hasLowProfileCompletion) {
         setShowOnboarding(true);
       }
     }
   }, [profile]);
-
   const checkProfileCompletion = () => {
     if (!profile) return 0;
-    
-    const requiredFields = [
-      'full_name', 'id_number', 'learnership_program', 'employer_name',
-      'phone_number', 'address', 'date_of_birth', 'emergency_contact',
-      'emergency_phone', 'start_date', 'end_date'
-    ];
-    
+    const requiredFields = ['full_name', 'id_number', 'learnership_program', 'employer_name', 'phone_number', 'address', 'date_of_birth', 'emergency_contact', 'emergency_phone', 'start_date', 'end_date'];
     const completedFields = requiredFields.filter(field => {
       const value = profile[field as keyof typeof profile];
       return value && value.toString().trim() !== '';
     }).length;
-    
-    return Math.round((completedFields / requiredFields.length) * 100);
+    return Math.round(completedFields / requiredFields.length * 100);
   };
-
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#122ec0] via-blue-400 to-white">
+    return <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#122ec0] via-blue-400 to-white">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-white mx-auto"></div>
           <p className="text-white mt-4 text-lg">Loading your dashboard...</p>
         </div>
-      </div>
-    );
+      </div>;
   }
-
   if (!user) {
     return <Navigate to="/" replace />;
   }
@@ -72,7 +60,6 @@ const Dashboard = () => {
   if (profile?.role !== 'admin' && adminOnlySections.includes(activeSection)) {
     setActiveSection('dashboard');
   }
-
   const renderContent = () => {
     if (activeSection === 'dashboard') {
       switch (profile?.role) {
@@ -84,7 +71,6 @@ const Dashboard = () => {
           return <LearnerDashboard setActiveSection={setActiveSection} />;
       }
     }
-
     switch (activeSection) {
       case 'feedback':
         return <MonthlyFeedbackForm />;
@@ -107,48 +93,39 @@ const Dashboard = () => {
         return <Navigate to="/dashboard" replace />;
       case 'reports':
         if (profile?.role === 'admin') {
-          return (
-            <div className="text-center py-12">
+          return <div className="text-center py-12">
               <h2 className="text-2xl font-bold text-gray-700 mb-4">Compliance Reports</h2>
               <p className="text-gray-500">Generate and view compliance reports</p>
-            </div>
-          );
+            </div>;
         }
         return <Navigate to="/dashboard" replace />;
       case 'feedback-review':
         if (profile?.role === 'admin' || profile?.role === 'mentor') {
-          return (
-            <div className="text-center py-12">
+          return <div className="text-center py-12">
               <h2 className="text-2xl font-bold text-gray-700 mb-4">Feedback Review</h2>
               <p className="text-gray-500">Review and approve learner feedback submissions</p>
-            </div>
-          );
+            </div>;
         }
         return <Navigate to="/dashboard" replace />;
       case 'settings':
         if (profile?.role === 'admin') {
-          return (
-            <div className="text-center py-12">
+          return <div className="text-center py-12">
               <h2 className="text-2xl font-bold text-gray-700 mb-4">System Settings</h2>
               <p className="text-gray-500">Configure system settings and preferences</p>
-            </div>
-          );
+            </div>;
         }
         return <Navigate to="/dashboard" replace />;
       default:
-        return (
-          <div className="flex items-center justify-center h-64">
+        return <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <h2 className="text-2xl font-bold text-gray-700 mb-2">
                 {activeSection.charAt(0).toUpperCase() + activeSection.slice(1)}
               </h2>
               <p className="text-gray-500">This section is coming soon!</p>
             </div>
-          </div>
-        );
+          </div>;
     }
   };
-
   const getSectionTitle = () => {
     switch (activeSection) {
       case 'dashboard':
@@ -179,14 +156,12 @@ const Dashboard = () => {
         return activeSection.charAt(0).toUpperCase() + activeSection.slice(1);
     }
   };
-
-  return (
-    <UnsavedChangesProvider>
+  return <UnsavedChangesProvider>
       <div className="relative min-h-screen md:flex">
         <Sidebar activeSection={activeSection} setActiveSection={setActiveSection} />
         
         <main className="flex-1 md:ml-64 pt-16">
-          <div className="p-4 md:p-8">
+          <div className="p-4 md:p-8 px-[17px]">
             <div className="mb-8">
               <h1 className="text-3xl font-bold bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
                 {getSectionTitle()}
@@ -201,17 +176,11 @@ const Dashboard = () => {
         </main>
 
         {/* Onboarding Tour */}
-        <OnboardingTour
-          isOpen={showOnboarding}
-          onClose={() => setShowOnboarding(false)}
-          onComplete={() => setShowOnboarding(false)}
-        />
+        <OnboardingTour isOpen={showOnboarding} onClose={() => setShowOnboarding(false)} onComplete={() => setShowOnboarding(false)} />
 
         {/* Navigation Warning Dialog */}
         <NavigationWarningDialog />
       </div>
-    </UnsavedChangesProvider>
-  );
+    </UnsavedChangesProvider>;
 };
-
 export default Dashboard;
