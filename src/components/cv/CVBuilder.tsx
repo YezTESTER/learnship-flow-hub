@@ -604,7 +604,7 @@ const CVBuilder = () => {
           })} className="rounded-xl border-gray-200 text-sm" placeholder="Enter CV title" />
             </div>
           </CardHeader>
-          <CardContent className="space-y-6 sm:space-y-8 px-0 py-0 mx-0 bg-gray-50">
+          <CardContent className="space-y-6 sm:space-y-8 px-0 py-0 mx-0 bg-transparent">
             {/* Personal Information - Editable */}
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-100">
               <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-4 flex items-center">
