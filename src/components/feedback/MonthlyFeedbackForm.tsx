@@ -197,7 +197,133 @@ const MonthlyFeedbackForm = () => {
   return <div className="max-w-4xl mx-auto space-y-6">
       {/* Current Month Submission Form */}
       <Card className="bg-gradient-to-br from-white to-blue-50 border-0 shadow-lg">
-        {/* ... form content ... */}
+        <CardHeader className="text-center">
+          <div className="flex items-center justify-center space-x-2 mb-2">
+            <FileText className="h-6 w-6 text-[#122ec0]" />
+            <CardTitle className="text-2xl bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
+              Monthly Feedback - {new Date(currentYear, currentMonth - 1).toLocaleDateString('en-US', {
+              month: 'long',
+              year: 'numeric'
+            })}
+            </CardTitle>
+          </div>
+          <CardDescription className="text-gray-600">
+            {existingSubmission ? `Submitted on ${new Date(existingSubmission.submitted_at).toLocaleDateString()}` : 'Complete your monthly performance evaluation'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Performance Ratings */}
+            <div className="bg-white p-6 rounded-xl border border-gray-100 px-[10px]">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <Star className="h-5 w-5 mr-2" />
+                Performance Ratings
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="attendance_rating">Attendance Rating (1-5)</Label>
+                  <Select value={formData.attendance_rating} onValueChange={value => handleFormChange('attendance_rating', value)}>
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue placeholder="Select rating" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 - Poor</SelectItem>
+                      <SelectItem value="2">2 - Below Average</SelectItem>
+                      <SelectItem value="3">3 - Average</SelectItem>
+                      <SelectItem value="4">4 - Good</SelectItem>
+                      <SelectItem value="5">5 - Excellent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="performance_rating">Overall Performance (1-5)</Label>
+                  <Select value={formData.performance_rating} onValueChange={value => handleFormChange('performance_rating', value)}>
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue placeholder="Select rating" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 - Poor</SelectItem>
+                      <SelectItem value="2">2 - Below Average</SelectItem>
+                      <SelectItem value="3">3 - Average</SelectItem>
+                      <SelectItem value="4">4 - Good</SelectItem>
+                      <SelectItem value="5">5 - Excellent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            {/* Progress and Achievements */}
+            <div className="bg-white p-6 rounded-xl border border-gray-100 px-[10px]">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Progress and Achievements</h3>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="achievements">Key Achievements This Month</Label>
+                  <Textarea id="achievements" value={formData.achievements} onChange={e => handleFormChange('achievements', e.target.value)} className="rounded-xl border-gray-200" placeholder="Describe your main achievements and milestones" rows={3} />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="learning_objectives">Learning Objectives Met</Label>
+                  <Textarea id="learning_objectives" value={formData.learning_objectives} onChange={e => handleFormChange('learning_objectives', e.target.value)} className="rounded-xl border-gray-200" placeholder="Which learning objectives did you meet this month?" rows={3} />
+                </div>
+              </div>
+            </div>
+
+            {/* Challenges and Support */}
+            <div className="bg-white p-6 rounded-xl border border-gray-100 px-[10px]">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <AlertTriangle className="h-5 w-5 mr-2" />
+                Challenges and Support
+              </h3>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="challenges_faced">Challenges Faced</Label>
+                  <Textarea id="challenges_faced" value={formData.challenges_faced} onChange={e => handleFormChange('challenges_faced', e.target.value)} className="rounded-xl border-gray-200" placeholder="Describe any challenges or difficulties you encountered" rows={3} />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="mentorship_received">Mentorship and Support Received</Label>
+                  <Textarea id="mentorship_received" value={formData.mentorship_received} onChange={e => handleFormChange('mentorship_received', e.target.value)} className="rounded-xl border-gray-200" placeholder="Describe the mentorship and support you received" rows={3} />
+                </div>
+              </div>
+            </div>
+
+            {/* Supervisor Information */}
+            <div className="bg-white p-6 rounded-xl border border-gray-100 px-[10px]">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <User className="h-5 w-5 mr-2" />
+                Supervisor Information
+              </h3>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="supervisor_name">Supervisor Name</Label>
+                  <Input id="supervisor_name" value={formData.supervisor_name} onChange={e => handleFormChange('supervisor_name', e.target.value)} className="rounded-xl border-gray-200" placeholder="Enter your supervisor's name" />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="supervisor_feedback">Supervisor Comments (if any)</Label>
+                  <Textarea id="supervisor_feedback" value={formData.supervisor_feedback} onChange={e => handleFormChange('supervisor_feedback', e.target.value)} className="rounded-xl border-gray-200" placeholder="Any comments from your supervisor" rows={3} />
+                </div>
+              </div>
+            </div>
+
+            {/* Additional Comments */}
+            <div className="bg-white p-6 rounded-xl border border-gray-100 px-[10px]">
+              <div className="space-y-2">
+                <Label htmlFor="additional_comments">Additional Comments</Label>
+                <Textarea id="additional_comments" value={formData.additional_comments} onChange={e => handleFormChange('additional_comments', e.target.value)} className="rounded-xl border-gray-200" placeholder="Any other comments or feedback" rows={4} />
+              </div>
+            </div>
+
+            <Button type="submit" disabled={loading || existingSubmission?.status === 'submitted'} className="w-full bg-gradient-to-r from-[#122ec0] to-[#e16623] hover:from-[#0f2499] hover:to-[#d55a1f] text-white rounded-xl py-3 font-semibold transition-all duration-300 transform hover:scale-105 text-base">
+              {loading ? 'Submitting...' : existingSubmission?.status === 'submitted' ? 'Already Submitted' : <>
+                  <Send className="mr-2 h-5 w-5" />
+                  {existingSubmission ? 'Update Submission' : 'Submit Monthly Feedback'}
+                </>}
+            </Button>
+          </form>
+        </CardContent>
       </Card>
 
       {/* Previous Submissions */}
