@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Upload, FileText, Download, Trash2, Eye, File, CheckCircle, AlertCircle, FolderOpen } from 'lucide-react';
+import { Upload, FileText, Download, Trash2, Eye, File, CheckCircle, AlertCircle, FolderOpen, HelpCircle } from 'lucide-react';
 interface Document {
   id: string;
   file_name: string;
@@ -409,7 +410,41 @@ const DocumentUpload = () => {
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-100">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="document-type" className="text-sm sm:text-base">Document Type *</Label>
+                  <div className="flex items-center space-x-2">
+                    <Label htmlFor="document-type" className="text-sm sm:text-base">Document Type *</Label>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <HelpCircle className="h-4 w-4 text-gray-500 cursor-pointer" />
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[425px] max-h-[80vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle>Document Point System</DialogTitle>
+                          <DialogDescription>
+                            Here's a breakdown of the points awarded for each document.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          {Object.entries(documentCategories).map(([key, category]) => (
+                            <div key={key}>
+                              <h4 className="font-semibold text-gray-800">{category.icon} {category.title}</h4>
+                              <ul className="list-disc list-inside space-y-1 mt-1">
+                                {category.documents.map(doc => (
+                                  <li key={doc.value} className="text-sm text-gray-600">
+                                    {doc.label}:
+                                    <span className="font-semibold ml-1">
+                                      {doc.points > 0 ? `${doc.points} points` : 'No points'}
+                                    </span>
+                                    {doc.required && <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full ml-2">Required</span>}
+                                    {doc.whenRequired && <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full ml-2">When Required</span>}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                   <Select value={documentType} onValueChange={setDocumentType}>
                     <SelectTrigger className="rounded-xl">
                       <SelectValue placeholder="Select document type" />
@@ -422,17 +457,6 @@ const DocumentUpload = () => {
                           {category.documents.map(doc => <SelectItem key={doc.value} value={doc.value} className="pl-6">
                               <div className="flex items-center justify-between w-full">
                                 <span>{doc.label}</span>
-                                <div className="flex items-center space-x-2 ml-2">
-                                  {doc.points > 0 && <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                                      +{doc.points} pts
-                                    </span>}
-                                  {doc.whenRequired && <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full">
-                                      When Required
-                                    </span>}
-                                  {doc.required && <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">
-                                      Required
-                                    </span>}
-                                </div>
                               </div>
                             </SelectItem>)}
                         </div>)}
