@@ -706,14 +706,14 @@ const CVBuilder = () => {
             </div>
 
             {/* Experience Section */}
-            <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-100">
+            <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-100 px-0">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4">
                 <h3 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center">
                   <Briefcase className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                   Experience
                 </h3>
               </div>
-              {currentCV.experience.map((exp, index) => <div key={exp.id} className="border border-gray-200 rounded-lg p-4 mb-4">
+              {currentCV.experience.map((exp, index) => <div key={exp.id} className="border border-gray-200 rounded-lg p-4 mb-4 px-[12px]">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                     <div className="space-y-2">
                       <Label className="text-sm">Position</Label>
@@ -827,7 +827,7 @@ const CVBuilder = () => {
                     Remove Experience
                   </Button>
                 </div>)}
-              <Button onClick={addExperience} variant="outline" size="sm" className="text-sm w-full sm:w-auto">
+              <Button onClick={addExperience} variant="outline" size="sm" className="text-sm w-full sm:w-auto px-[2px] mx-0">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Experience
               </Button>
