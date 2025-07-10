@@ -1,0 +1,1 @@
+ALTER TABLE public.feedback_submissions ADD COLUMN edited_at TIMESTAMPTZ NULL;
