@@ -337,8 +337,8 @@ const MonthlyFeedbackForm = () => {
           <CardContent>
             <div className="space-y-3">
               {submissions.map(submission => (
-                <div key={submission.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div>
+                <div key={submission.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 bg-gray-50 rounded-lg">
+                  <div className="mb-2 sm:mb-0">
                     <h4 className="font-medium">
                       {new Date(submission.year, submission.month - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                     </h4>
@@ -347,7 +347,7 @@ const MonthlyFeedbackForm = () => {
                       {submission.edited_at && <span className="ml-2 text-xs text-gray-500">(Edited)</span>}
                     </p>
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2 sm:ml-auto">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(submission.status)}`}>
                       {submission.status.toUpperCase()}
                     </span>
