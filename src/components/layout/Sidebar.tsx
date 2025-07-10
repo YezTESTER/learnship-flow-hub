@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUnsavedChanges } from '@/contexts/UnsavedChangesContext';
+import { useUnreadNotifications } from '@/hooks/useUnreadNotifications';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Home, FileText, Upload, Award, Bell, Settings, Users, BarChart3, LogOut, User, BookOpen, Menu, X } from 'lucide-react';
@@ -16,11 +17,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   activeSection,
   setActiveSection
 }) => {
-  const {
-    profile,
-    signOut
-  } = useAuth();
+  const { profile, signOut } = useAuth();
   const { checkUnsavedChanges } = useUnsavedChanges();
+  const { unreadCount } = useUnreadNotifications();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isMobile = useMediaQuery({ maxWidth: 768 });
   const [showMobileHeader, setShowMobileHeader] = useState(true);
@@ -29,10 +28,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   const handleMobileScroll = () => {
     const currentScrollY = window.scrollY;
     if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
-      // Scrolling down
       setShowMobileHeader(false);
     } else {
-      // Scrolling up
       setShowMobileHeader(true);
     }
     lastScrollY.current = currentScrollY;
@@ -134,6 +131,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       <nav className="flex-1 px-3 overflow-y-auto">
         {getMenuItems().map(item => {
           const Icon = item.icon;
+          const isNotifications = item.id === 'notifications';
           return (
             <button
               key={item.id}
@@ -146,6 +144,11 @@ const Sidebar: React.FC<SidebarProps> = ({
             >
               <Icon size={18} />
               <span className="font-medium truncate">{item.label}</span>
+              {isNotifications && unreadCount > 0 && (
+                <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                  {unreadCount}
+                </span>
+              )}
             </button>
           );
         })}
@@ -169,9 +172,19 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className={`md:hidden fixed top-0 left-0 right-0 z-50 transition-transform duration-300 ${showMobileHeader ? 'translate-y-0' : '-translate-y-full'}`}>
         <div className="p-4 bg-gradient-to-r from-[#122ec0] to-blue-600 text-white flex justify-between items-center">
           <h1 className="text-lg font-bold">Learnership Portal</h1>
-          <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </Button>
+          <div className="flex items-center space-x-2">
+            <Button variant="ghost" size="icon" onClick={() => handleNavigation('notifications')} className="relative">
+              <Bell size={24} />
+              {unreadCount > 0 && (
+                <span className="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                  {unreadCount}
+                </span>
+              )}
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+              {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </Button>
+          </div>
         </div>
       </div>
 

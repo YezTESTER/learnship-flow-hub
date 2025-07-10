@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUnreadNotifications } from '@/hooks/useUnreadNotifications';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Bell, Check, Trash2, AlertCircle, Info, CheckCircle, AlertTriangle, X } from 'lucide-react';
+
 interface Notification {
   id: string;
   title: string;
@@ -13,38 +15,23 @@ interface Notification {
   read_at: string | null;
   created_at: string;
 }
+
 const NotificationCenter = () => {
-  const {
-    user
-  } = useAuth();
+  const { user } = useAuth();
+  const { unreadCount, refresh: refreshUnreadCount } = useUnreadNotifications();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
-  useEffect(() => {
-    if (user) {
-      fetchNotifications();
-      // Set up real-time subscription
-      const subscription = supabase.channel('notifications').on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'notifications',
-        filter: `user_id=eq.${user.id}`
-      }, () => {
-        fetchNotifications();
-      }).subscribe();
-      return () => {
-        subscription.unsubscribe();
-      };
-    }
-  }, [user]);
+
   const fetchNotifications = async () => {
+    if (!user) return;
     try {
-      const {
-        data,
-        error
-      } = await supabase.from('notifications').select('*').eq('user_id', user?.id).order('created_at', {
-        ascending: false
-      });
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
       if (error) throw error;
       setNotifications(data || []);
     } catch (error: any) {
@@ -54,68 +41,50 @@ const NotificationCenter = () => {
       setLoading(false);
     }
   };
-  const markAsRead = async (notificationId: string) => {
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [user]);
+
+  const handleNotificationAction = async (action: Promise<any>) => {
     try {
-      const {
-        error
-      } = await supabase.from('notifications').update({
-        read_at: new Date().toISOString()
-      }).eq('id', notificationId);
-      if (error) throw error;
-      setNotifications(prev => prev.map(notif => notif.id === notificationId ? {
-        ...notif,
-        read_at: new Date().toISOString()
-      } : notif));
+      await action;
+      await fetchNotifications();
+      await refreshUnreadCount();
     } catch (error: any) {
-      toast.error('Failed to mark notification as read');
+      toast.error(error.message || 'An error occurred');
     }
   };
-  const markAllAsRead = async () => {
-    try {
-      const unreadIds = notifications.filter(notif => !notif.read_at).map(notif => notif.id);
-      if (unreadIds.length === 0) return;
-      const {
-        error
-      } = await supabase.from('notifications').update({
-        read_at: new Date().toISOString()
-      }).in('id', unreadIds);
-      if (error) throw error;
-      setNotifications(prev => prev.map(notif => ({
-        ...notif,
-        read_at: notif.read_at || new Date().toISOString()
-      })));
-      toast.success('All notifications marked as read');
-    } catch (error: any) {
-      toast.error('Failed to mark all notifications as read');
-    }
+
+  const markAsRead = (notificationId: string) => {
+    handleNotificationAction(
+      supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', notificationId)
+    );
   };
-  const deleteNotification = async (notificationId: string) => {
-    try {
-      const {
-        error
-      } = await supabase.from('notifications').delete().eq('id', notificationId);
-      if (error) throw error;
-      setNotifications(prev => prev.filter(notif => notif.id !== notificationId));
-      toast.success('Notification deleted');
-    } catch (error: any) {
-      toast.error('Failed to delete notification');
-    }
+
+  const markAllAsRead = () => {
+    const unreadIds = notifications.filter(notif => !notif.read_at).map(notif => notif.id);
+    if (unreadIds.length === 0) return;
+    handleNotificationAction(
+      supabase.from('notifications').update({ read_at: new Date().toISOString() }).in('id', unreadIds)
+    ).then(() => toast.success('All notifications marked as read'));
   };
-  const deleteAllRead = async () => {
+
+  const deleteNotification = (notificationId: string) => {
+    handleNotificationAction(
+      supabase.from('notifications').delete().eq('id', notificationId)
+    ).then(() => toast.success('Notification deleted'));
+  };
+
+  const deleteAllRead = () => {
     if (!confirm('Are you sure you want to delete all read notifications?')) return;
-    try {
-      const readIds = notifications.filter(notif => notif.read_at).map(notif => notif.id);
-      if (readIds.length === 0) return;
-      const {
-        error
-      } = await supabase.from('notifications').delete().in('id', readIds);
-      if (error) throw error;
-      setNotifications(prev => prev.filter(notif => !notif.read_at));
-      toast.success('All read notifications deleted');
-    } catch (error: any) {
-      toast.error('Failed to delete notifications');
-    }
+    const readIds = notifications.filter(notif => notif.read_at).map(notif => notif.id);
+    if (readIds.length === 0) return;
+    handleNotificationAction(
+      supabase.from('notifications').delete().in('id', readIds)
+    ).then(() => toast.success('All read notifications deleted'));
   };
+
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'success':
@@ -128,6 +97,7 @@ const NotificationCenter = () => {
         return <Info className="h-5 w-5 text-blue-500" />;
     }
   };
+
   const getNotificationBorderColor = (type: string, isRead: boolean) => {
     const baseColors = {
       success: 'border-l-green-500',
@@ -137,13 +107,16 @@ const NotificationCenter = () => {
     };
     return `border-l-4 ${baseColors[type as keyof typeof baseColors] || baseColors.info} ${isRead ? 'bg-gray-50' : 'bg-white'}`;
   };
-  const filteredNotifications = notifications.filter(notif => filter === 'all' || filter === 'unread' && !notif.read_at);
-  const unreadCount = notifications.filter(notif => !notif.read_at).length;
+
+  const filteredNotifications = notifications.filter(notif => filter === 'all' || (filter === 'unread' && !notif.read_at));
+  const currentUnreadCount = notifications.filter(notif => !notif.read_at).length;
+
   if (loading) {
     return <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#122ec0]"></div>
       </div>;
   }
+
   return <div className="max-w-4xl mx-auto space-y-6">
       <Card className="bg-gradient-to-br from-white to-blue-50 border-0 shadow-lg">
         <CardHeader>
@@ -169,12 +142,12 @@ const NotificationCenter = () => {
                 All ({notifications.length})
               </Button>
               <Button variant={filter === 'unread' ? 'default' : 'outline'} size="sm" onClick={() => setFilter('unread')} className="rounded-lg">
-                Unread ({unreadCount})
+                Unread ({currentUnreadCount})
               </Button>
             </div>
             
             <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-              {unreadCount > 0 && <Button variant="outline" size="sm" onClick={markAllAsRead} className="rounded-lg">
+              {currentUnreadCount > 0 && <Button variant="outline" size="sm" onClick={markAllAsRead} className="rounded-lg">
                   <Check className="h-4 w-4 mr-1" />
                   Mark All Read
                 </Button>}
@@ -264,4 +237,5 @@ const NotificationCenter = () => {
       </Card>
     </div>;
 };
+
 export default NotificationCenter;
