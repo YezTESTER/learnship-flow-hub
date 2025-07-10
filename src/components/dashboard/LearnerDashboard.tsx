@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,28 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  Calendar, 
-  FileText, 
-  Award, 
-  Bell, 
-  Settings,
-  TrendingUp, 
-  Clock, 
-  CheckCircle, 
-  Target,
-  Star,
-  Upload,
-  AlertCircle,
-  User
-} from 'lucide-react';
-
+import { Calendar, FileText, Award, Bell, Settings, TrendingUp, Clock, CheckCircle, Target, Star, Upload, AlertCircle, User } from 'lucide-react';
 interface LearnerDashboardProps {
   setActiveSection?: (section: string) => void;
 }
-
-const LearnerDashboard: React.FC<LearnerDashboardProps> = ({ setActiveSection }) => {
-  const { profile } = useAuth();
+const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
+  setActiveSection
+}) => {
+  const {
+    profile
+  } = useAuth();
   const [stats, setStats] = useState({
     totalSubmissions: 0,
     completedSubmissions: 0,
@@ -38,64 +25,46 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({ setActiveSection })
   const [recentAchievements, setRecentAchievements] = useState([]);
   const [profileCompletion, setProfileCompletion] = useState(0);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     fetchDashboardData();
     calculateProfileCompletion();
   }, [profile]);
-
   const calculateProfileCompletion = () => {
     if (!profile) return;
-    
-    const requiredFields = [
-      'full_name', 'id_number', 'learnership_program', 'employer_name',
-      'phone_number', 'address', 'date_of_birth', 'emergency_contact',
-      'emergency_phone', 'start_date', 'end_date'
-    ];
-    
+    const requiredFields = ['full_name', 'id_number', 'learnership_program', 'employer_name', 'phone_number', 'address', 'date_of_birth', 'emergency_contact', 'emergency_phone', 'start_date', 'end_date'];
     const completedFields = requiredFields.filter(field => {
       const value = profile[field as keyof typeof profile];
       return value && value.toString().trim() !== '';
     }).length;
-    
-    const completion = Math.round((completedFields / requiredFields.length) * 100);
+    const completion = Math.round(completedFields / requiredFields.length * 100);
     setProfileCompletion(completion);
   };
-
   const fetchDashboardData = async () => {
     if (!profile) return;
-
     try {
       // Fetch submission statistics
-      const { data: submissions } = await supabase
-        .from('feedback_submissions')
-        .select('*')
-        .eq('learner_id', profile.id);
+      const {
+        data: submissions
+      } = await supabase.from('feedback_submissions').select('*').eq('learner_id', profile.id);
 
       // Fetch documents count
-      const { data: documents } = await supabase
-        .from('documents')
-        .select('id')
-        .eq('learner_id', profile.id);
+      const {
+        data: documents
+      } = await supabase.from('documents').select('id').eq('learner_id', profile.id);
 
       // Fetch recent achievements
-      const { data: achievements } = await supabase
-        .from('achievements')
-        .select('*')
-        .eq('learner_id', profile.id)
-        .order('earned_at', { ascending: false })
-        .limit(3);
-
+      const {
+        data: achievements
+      } = await supabase.from('achievements').select('*').eq('learner_id', profile.id).order('earned_at', {
+        ascending: false
+      }).limit(3);
       if (submissions) {
         const completed = submissions.filter(s => s.status === 'submitted' || s.status === 'approved').length;
         const overdue = submissions.filter(s => s.status === 'overdue').length;
-        
+
         // Find next due submission
         const pendingSubmissions = submissions.filter(s => s.status === 'pending');
-        const nextDue = pendingSubmissions.length > 0 
-          ? pendingSubmissions.sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())[0]
-          : null;
-        
+        const nextDue = pendingSubmissions.length > 0 ? pendingSubmissions.sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())[0] : null;
         setStats({
           totalSubmissions: submissions.length,
           completedSubmissions: completed,
@@ -104,7 +73,6 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({ setActiveSection })
           uploadedDocuments: documents?.length || 0
         });
       }
-
       if (achievements) {
         setRecentAchievements(achievements);
       }
@@ -116,26 +84,19 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({ setActiveSection })
   };
 
   // Fix compliance calculation - should be based on actual performance, not just existence
-  const compliancePercentage = stats.totalSubmissions > 0 
-    ? Math.round((stats.completedSubmissions / stats.totalSubmissions) * 100)
-    : 0; // Changed from 100 to 0 when no submissions exist
+  const compliancePercentage = stats.totalSubmissions > 0 ? Math.round(stats.completedSubmissions / stats.totalSubmissions * 100) : 0; // Changed from 100 to 0 when no submissions exist
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
+    return <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#122ec0]"></div>
-      </div>
-    );
+      </div>;
   }
-
   const handleNavigateToSection = (section: string) => {
     if (setActiveSection) {
       setActiveSection(section);
     }
   };
-
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-6">
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-[#122ec0] to-blue-400 rounded-2xl p-6 text-white shadow-xl">
         <div className="flex items-center space-x-4">
@@ -150,8 +111,7 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({ setActiveSection })
       </div>
 
       {/* Profile Completion Alert */}
-      {profileCompletion < 100 && (
-        <Card className="bg-yellow-50 border-yellow-200">
+      {profileCompletion < 100 && <Card className="bg-yellow-50 border-yellow-200">
           <CardContent className="p-4">
             <div className="flex items-center space-x-3">
               <AlertCircle className="h-8 w-8 text-yellow-600" />
@@ -162,17 +122,12 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({ setActiveSection })
                   <Progress value={profileCompletion} className="h-2" />
                 </div>
               </div>
-              <Button 
-                onClick={() => handleNavigateToSection('profile')}
-                size="sm"
-                className="bg-yellow-600 hover:bg-yellow-700"
-              >
+              <Button onClick={() => handleNavigateToSection('profile')} size="sm" className="bg-yellow-600 hover:bg-yellow-700">
                 Complete Profile
               </Button>
             </div>
           </CardContent>
-        </Card>
-      )}
+        </Card>}
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -236,11 +191,7 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({ setActiveSection })
                 <p className="text-2xl font-bold text-indigo-900">{stats.uploadedDocuments}</p>
               </div>
             </div>
-            <Button 
-              onClick={() => handleNavigateToSection('documents')}
-              variant="outline"
-              className="border-indigo-300 text-indigo-700 hover:bg-indigo-100"
-            >
+            <Button onClick={() => handleNavigateToSection('documents')} variant="outline" className="border-indigo-300 text-indigo-700 hover:bg-indigo-100 text-xs">
               View Documents
             </Button>
           </div>
@@ -277,12 +228,10 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({ setActiveSection })
               </div>
             </div>
 
-            {stats.nextDueDate && (
-              <div className="bg-blue-50 p-3 rounded-lg">
+            {stats.nextDueDate && <div className="bg-blue-50 p-3 rounded-lg">
                 <p className="text-sm font-medium text-blue-800">Next Due Date</p>
                 <p className="text-blue-700">{new Date(stats.nextDueDate).toLocaleDateString()}</p>
-              </div>
-            )}
+              </div>}
           </CardContent>
         </Card>
 
@@ -295,10 +244,8 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({ setActiveSection })
             <CardDescription>Your latest badges and milestones</CardDescription>
           </CardHeader>
           <CardContent>
-            {recentAchievements.length > 0 ? (
-              <div className="space-y-3">
-                {recentAchievements.map((achievement: any) => (
-                  <div key={achievement.id} className="flex items-center space-x-3 p-3 bg-gradient-to-r from-[#122ec0]/10 to-[#e16623]/10 rounded-lg">
+            {recentAchievements.length > 0 ? <div className="space-y-3">
+                {recentAchievements.map((achievement: any) => <div key={achievement.id} className="flex items-center space-x-3 p-3 bg-gradient-to-r from-[#122ec0]/10 to-[#e16623]/10 rounded-lg">
                     <div className="h-8 w-8 rounded-full bg-gradient-to-r from-[#122ec0] to-[#e16623] flex items-center justify-center">
                       <Award className="h-4 w-4 text-white" />
                     </div>
@@ -307,16 +254,12 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({ setActiveSection })
                       <p className="text-xs text-gray-600">{achievement.description}</p>
                     </div>
                     <Badge variant="secondary">+{achievement.points_awarded}</Badge>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
+                  </div>)}
+              </div> : <div className="text-center py-8 text-gray-500">
                 <Award className="h-12 w-12 mx-auto mb-2 opacity-50" />
                 <p>No achievements yet</p>
                 <p className="text-sm">Complete your first feedback to earn badges!</p>
-              </div>
-            )}
+              </div>}
           </CardContent>
         </Card>
       </div>
@@ -332,43 +275,28 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({ setActiveSection })
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Button 
-              onClick={() => handleNavigateToSection('feedback')}
-              className="h-20 bg-gradient-to-r from-[#122ec0] to-blue-500 hover:from-[#0f2499] hover:to-blue-600 text-white rounded-xl transition-all duration-300 transform hover:scale-105"
-            >
+            <Button onClick={() => handleNavigateToSection('feedback')} className="h-20 bg-gradient-to-r from-[#122ec0] to-blue-500 hover:from-[#0f2499] hover:to-blue-600 text-white rounded-xl transition-all duration-300 transform hover:scale-105">
               <div className="text-center">
                 <FileText className="h-6 w-6 mx-auto mb-1" />
                 <span className="text-sm font-semibold">Submit Feedback</span>
               </div>
             </Button>
 
-            <Button 
-              onClick={() => handleNavigateToSection('documents')}
-              variant="outline"
-              className="h-20 border-2 border-[#e16623] text-[#e16623] hover:bg-[#e16623] hover:text-white rounded-xl transition-all duration-300 transform hover:scale-105"
-            >
+            <Button onClick={() => handleNavigateToSection('documents')} variant="outline" className="h-20 border-2 border-[#e16623] text-[#e16623] hover:bg-[#e16623] hover:text-white rounded-xl transition-all duration-300 transform hover:scale-105">
               <div className="text-center">
                 <Upload className="h-6 w-6 mx-auto mb-1" />
                 <span className="text-sm font-semibold">Upload Documents</span>
               </div>
             </Button>
 
-            <Button 
-              onClick={() => handleNavigateToSection('achievements')}
-              variant="outline"
-              className="h-20 border-2 border-green-500 text-green-600 hover:bg-green-500 hover:text-white rounded-xl transition-all duration-300 transform hover:scale-105"
-            >
+            <Button onClick={() => handleNavigateToSection('achievements')} variant="outline" className="h-20 border-2 border-green-500 text-green-600 hover:bg-green-500 hover:text-white rounded-xl transition-all duration-300 transform hover:scale-105">
               <div className="text-center">
                 <Award className="h-6 w-6 mx-auto mb-1" />
                 <span className="text-sm font-semibold">View Achievements</span>
               </div>
             </Button>
 
-            <Button 
-              onClick={() => handleNavigateToSection('profile')}
-              variant="outline"
-              className="h-20 border-2 border-purple-500 text-purple-600 hover:bg-purple-500 hover:text-white rounded-xl transition-all duration-300 transform hover:scale-105"
-            >
+            <Button onClick={() => handleNavigateToSection('profile')} variant="outline" className="h-20 border-2 border-purple-500 text-purple-600 hover:bg-purple-500 hover:text-white rounded-xl transition-all duration-300 transform hover:scale-105">
               <div className="text-center">
                 <Settings className="h-6 w-6 mx-auto mb-1" />
                 <span className="text-sm font-semibold">Profile Settings</span>
@@ -377,8 +305,6 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({ setActiveSection })
           </div>
         </CardContent>
       </Card>
-    </div>
-  );
+    </div>;
 };
-
 export default LearnerDashboard;
