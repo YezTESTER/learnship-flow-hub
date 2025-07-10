@@ -8,9 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { Mail, Lock, Shield } from 'lucide-react';
-
 const AccountSettings = () => {
-  const { user } = useAuth();
+  const {
+    user
+  } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [emailData, setEmailData] = useState({
     newEmail: user?.email || ''
@@ -19,64 +20,60 @@ const AccountSettings = () => {
     newPassword: '',
     confirmPassword: ''
   });
-
   const handleEmailChange = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-
     try {
-      const { error } = await supabase.auth.updateUser({
+      const {
+        error
+      } = await supabase.auth.updateUser({
         email: emailData.newEmail
       });
-
       if (error) throw error;
-
       toast.success('Email update initiated! Please check your new email to confirm the change.');
-      setEmailData({ newEmail: '' });
+      setEmailData({
+        newEmail: ''
+      });
     } catch (error: any) {
       toast.error(error.message || 'Failed to update email');
     } finally {
       setIsLoading(false);
     }
   };
-
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       toast.error('Passwords do not match');
       return;
     }
-
     if (passwordData.newPassword.length < 6) {
       toast.error('Password must be at least 6 characters long');
       return;
     }
-
     setIsLoading(true);
-
     try {
-      const { error } = await supabase.auth.updateUser({
+      const {
+        error
+      } = await supabase.auth.updateUser({
         password: passwordData.newPassword
       });
-
       if (error) throw error;
-
       toast.success('Password updated successfully!');
-      setPasswordData({ newPassword: '', confirmPassword: '' });
+      setPasswordData({
+        newPassword: '',
+        confirmPassword: ''
+      });
     } catch (error: any) {
       toast.error(error.message || 'Failed to update password');
     } finally {
       setIsLoading(false);
     }
   };
-
-  return (
-    <div className="max-w-2xl space-y-6">
+  return <div className="max-w-2xl space-y-6">
       {/* Current Account Info */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-xl font-bold">
             <Shield className="h-5 w-5" />
             Account Information
           </CardTitle>
@@ -105,7 +102,7 @@ const AccountSettings = () => {
       {/* Change Email */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-xl font-bold">
             <Mail className="h-5 w-5" />
             Change Email Address
           </CardTitle>
@@ -117,14 +114,9 @@ const AccountSettings = () => {
           <form onSubmit={handleEmailChange} className="space-y-4">
             <div>
               <Label htmlFor="newEmail">New Email Address</Label>
-              <Input
-                id="newEmail"
-                type="email"
-                value={emailData.newEmail}
-                onChange={(e) => setEmailData({ newEmail: e.target.value })}
-                placeholder="Enter new email address"
-                required
-              />
+              <Input id="newEmail" type="email" value={emailData.newEmail} onChange={e => setEmailData({
+              newEmail: e.target.value
+            })} placeholder="Enter new email address" required />
             </div>
             <Button type="submit" disabled={isLoading || emailData.newEmail === user?.email}>
               {isLoading ? 'Updating...' : 'Update Email'}
@@ -138,7 +130,7 @@ const AccountSettings = () => {
       {/* Change Password */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-xl font-bold">
             <Lock className="h-5 w-5" />
             Change Password
           </CardTitle>
@@ -150,32 +142,19 @@ const AccountSettings = () => {
           <form onSubmit={handlePasswordChange} className="space-y-4">
             <div>
               <Label htmlFor="newPassword">New Password</Label>
-              <Input
-                id="newPassword"
-                type="password"
-                value={passwordData.newPassword}
-                onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                placeholder="Enter new password"
-                required
-                minLength={6}
-              />
+              <Input id="newPassword" type="password" value={passwordData.newPassword} onChange={e => setPasswordData({
+              ...passwordData,
+              newPassword: e.target.value
+            })} placeholder="Enter new password" required minLength={6} />
             </div>
             <div>
               <Label htmlFor="confirmPassword">Confirm New Password</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                value={passwordData.confirmPassword}
-                onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                placeholder="Confirm new password"
-                required
-                minLength={6}
-              />
+              <Input id="confirmPassword" type="password" value={passwordData.confirmPassword} onChange={e => setPasswordData({
+              ...passwordData,
+              confirmPassword: e.target.value
+            })} placeholder="Confirm new password" required minLength={6} />
             </div>
-            <Button 
-              type="submit" 
-              disabled={isLoading || !passwordData.newPassword || !passwordData.confirmPassword}
-            >
+            <Button type="submit" disabled={isLoading || !passwordData.newPassword || !passwordData.confirmPassword}>
               {isLoading ? 'Updating...' : 'Update Password'}
             </Button>
           </form>
@@ -197,8 +176,6 @@ const AccountSettings = () => {
           </div>
         </CardContent>
       </Card>
-    </div>
-  );
+    </div>;
 };
-
 export default AccountSettings;
