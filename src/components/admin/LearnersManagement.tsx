@@ -26,7 +26,9 @@ import {
   Calendar,
   Mail,
   Phone,
-  MapPin
+  MapPin,
+  CheckCircle,
+  Clock
 } from 'lucide-react';
 
 type Profile = Tables<'profiles'>;
@@ -59,6 +61,7 @@ const LearnersManagement: React.FC = () => {
   const [showMessageDialog, setShowMessageDialog] = useState(false);
   const [newCategory, setNewCategory] = useState({ name: '', color: '#3B82F6', description: '' });
   const [messageData, setMessageData] = useState({ title: '', message: '' });
+  const [messageHistory, setMessageHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -289,6 +292,12 @@ const LearnersManagement: React.FC = () => {
 
       setMessageData({ title: '', message: '' });
       setShowMessageDialog(false);
+      
+      // Refresh message history
+      if (selectedLearner) {
+        const messages = await checkMessageReadStatus(selectedLearner.id);
+        setMessageHistory(messages);
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
@@ -299,9 +308,37 @@ const LearnersManagement: React.FC = () => {
     }
   };
 
-  const openLearnerProfile = (learner: ExtendedProfile) => {
+  const checkMessageReadStatus = async (learnerId: string) => {
+    try {
+      const { data: notifications } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', learnerId)
+        .eq('message_type', 'admin_message')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      return notifications?.map(notif => ({
+        id: notif.id,
+        title: notif.title,
+        message: notif.message,
+        created_at: notif.created_at,
+        read_at: notif.read_at,
+        isRead: !!notif.read_at
+      })) || [];
+    } catch (error) {
+      console.error('Error fetching message status:', error);
+      return [];
+    }
+  };
+
+  const openLearnerProfile = async (learner: ExtendedProfile) => {
     setSelectedLearner(learner);
     setShowLearnerProfile(true);
+    
+    // Load message history for this learner
+    const messages = await checkMessageReadStatus(learner.id);
+    setMessageHistory(messages);
   };
 
   const LearnerCard = ({ learner }: { learner: ExtendedProfile }) => (
@@ -555,12 +592,13 @@ const LearnersManagement: React.FC = () => {
 
           {selectedLearner && (
             <Tabs defaultValue="profile" className="w-full">
-              <TabsList className="grid grid-cols-5 w-full">
+              <TabsList className="grid grid-cols-6 w-full">
                 <TabsTrigger value="profile">Profile</TabsTrigger>
                 <TabsTrigger value="feedback">Feedback</TabsTrigger>
                 <TabsTrigger value="documents">Documents</TabsTrigger>
                 <TabsTrigger value="achievements">Achievements</TabsTrigger>
                 <TabsTrigger value="cv">CV</TabsTrigger>
+                <TabsTrigger value="messages">Messages</TabsTrigger>
               </TabsList>
 
               <TabsContent value="profile" className="space-y-4">
@@ -721,6 +759,80 @@ const LearnersManagement: React.FC = () => {
                           </Button>
                         </div>
                       ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="messages" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      Message History
+                      <Button
+                        size="sm"
+                        onClick={() => setShowMessageDialog(true)}
+                        className="ml-auto"
+                      >
+                        <MessageCircle className="w-4 h-4 mr-2" />
+                        Send New Message
+                      </Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {messageHistory.length > 0 ? (
+                        messageHistory.map(message => (
+                          <div key={message.id} className="border rounded-lg p-3">
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="flex-1">
+                                <h4 className="font-medium text-sm">{message.title}</h4>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {message.message}
+                                </p>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                {message.isRead ? (
+                                  <div className="flex items-center text-green-600">
+                                    <CheckCircle className="w-4 h-4 mr-1" />
+                                    <span className="text-xs">Read</span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center text-orange-600">
+                                    <Clock className="w-4 h-4 mr-1" />
+                                    <span className="text-xs">Unread</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex justify-between items-center text-xs text-muted-foreground">
+                              <span>
+                                Sent: {new Date(message.created_at).toLocaleDateString()} at{' '}
+                                {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              {message.read_at && (
+                                <span>
+                                  Read: {new Date(message.read_at).toLocaleDateString()} at{' '}
+                                  {new Date(message.read_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                          <p>No messages sent to this learner yet.</p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setShowMessageDialog(true)}
+                            className="mt-3"
+                          >
+                            Send First Message
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

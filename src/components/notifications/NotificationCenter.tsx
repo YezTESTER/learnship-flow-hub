@@ -56,33 +56,78 @@ const NotificationCenter = () => {
     }
   };
 
-  const markAsRead = (notificationId: string) => {
-    handleNotificationAction(
-      supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', notificationId)
-    );
+  const markAsRead = async (notificationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read_at: new Date().toISOString() })
+        .eq('id', notificationId);
+      
+      if (error) throw error;
+      
+      await fetchNotifications();
+      await refreshUnreadCount();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to mark as read');
+    }
   };
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
     const unreadIds = notifications.filter(notif => !notif.read_at).map(notif => notif.id);
     if (unreadIds.length === 0) return;
-    handleNotificationAction(
-      supabase.from('notifications').update({ read_at: new Date().toISOString() }).in('id', unreadIds)
-    ).then(() => toast.success('All notifications marked as read'));
+    
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read_at: new Date().toISOString() })
+        .in('id', unreadIds);
+      
+      if (error) throw error;
+      
+      await fetchNotifications();
+      await refreshUnreadCount();
+      toast.success('All notifications marked as read');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to mark all as read');
+    }
   };
 
-  const deleteNotification = (notificationId: string) => {
-    handleNotificationAction(
-      supabase.from('notifications').delete().eq('id', notificationId)
-    ).then(() => toast.success('Notification deleted'));
+  const deleteNotification = async (notificationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', notificationId);
+      
+      if (error) throw error;
+      
+      await fetchNotifications();
+      await refreshUnreadCount();
+      toast.success('Notification deleted');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to delete notification');
+    }
   };
 
-  const deleteAllRead = () => {
+  const deleteAllRead = async () => {
     if (!confirm('Are you sure you want to delete all read notifications?')) return;
     const readIds = notifications.filter(notif => notif.read_at).map(notif => notif.id);
     if (readIds.length === 0) return;
-    handleNotificationAction(
-      supabase.from('notifications').delete().in('id', readIds)
-    ).then(() => toast.success('All read notifications deleted'));
+    
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .in('id', readIds);
+      
+      if (error) throw error;
+      
+      await fetchNotifications();
+      await refreshUnreadCount();
+      toast.success('All read notifications deleted');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to delete read notifications');
+    }
   };
 
   const getNotificationIcon = (type: string) => {
