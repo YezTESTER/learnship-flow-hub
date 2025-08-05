@@ -16,6 +16,8 @@ import CVBuilder from '@/components/cv/CVBuilder';
 import OnboardingTour from '@/components/onboarding/OnboardingTour';
 import NavigationWarningDialog from '@/components/ui/navigation-warning-dialog';
 import LearnersManagement from '@/components/admin/LearnersManagement';
+import Reports from '@/components/admin/Reports';
+
 const Dashboard = () => {
   const {
     user,
@@ -93,10 +95,7 @@ const Dashboard = () => {
         return <Navigate to="/dashboard" replace />;
       case 'reports':
         if (profile?.role === 'admin') {
-          return <div className="text-center py-12">
-              <h2 className="text-2xl font-bold text-gray-700 mb-4">Compliance Reports</h2>
-              <p className="text-gray-500">Generate and view compliance reports</p>
-            </div>;
+          return <Reports />;
         }
         return <Navigate to="/dashboard" replace />;
       case 'feedback-review':
