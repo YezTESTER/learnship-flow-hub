@@ -24,13 +24,18 @@ export function useUnreadNotifications() {
   };
 
   useEffect(() => {
+    if (!user?.id) {
+      setUnreadCount(0);
+      return;
+    }
+
     fetchUnreadCount();
 
     const channel = supabase
-      .channel('public:notifications')
+      .channel(`public:notifications:${user.id}`) // Make channel name unique per user
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user?.id}` },
+        { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
         () => fetchUnreadCount()
       )
       .subscribe();
@@ -38,7 +43,7 @@ export function useUnreadNotifications() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user?.id]); // Only depend on user.id, not the entire user object
 
   return { unreadCount, refresh: fetchUnreadCount };
 }
