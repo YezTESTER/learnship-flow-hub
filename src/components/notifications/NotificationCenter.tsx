@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,7 +22,6 @@ const NotificationCenter = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
-  const channelRef = useRef<any>(null);
 
   const fetchNotifications = useCallback(async () => {
     if (!user) {
@@ -48,59 +47,15 @@ const NotificationCenter = () => {
     } catch (error: any) {
       console.error('Error fetching notifications:', error);
       setNotifications([]);
-      // Don't show toast error immediately on load to avoid spam
     } finally {
       setLoading(false);
     }
   }, [user]);
 
-  // Fetch notifications on mount and user change
+  // Fetch notifications on mount and when unreadCount changes (from the hook's real-time subscription)
   useEffect(() => {
     fetchNotifications();
-  }, [fetchNotifications]);
-
-  // Set up real-time subscription separately
-  useEffect(() => {
-    if (!user) return;
-
-    // Clean up any existing channel
-    if (channelRef.current) {
-      console.log('Cleaning up existing channel');
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
-    }
-
-    const channelName = `notifications-${user.id}-${Date.now()}`;
-    console.log('Setting up new channel:', channelName);
-    
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`
-        },
-        (payload) => {
-          console.log('Notification change:', payload);
-          fetchNotifications();
-          refreshUnreadCount();
-        }
-      )
-      .subscribe();
-
-    channelRef.current = channel;
-
-    return () => {
-      console.log('Cleaning up channel on unmount');
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
-  }, [user?.id, fetchNotifications, refreshUnreadCount]);
+  }, [fetchNotifications, unreadCount]);
 
   const handleNotificationAction = async (action: Promise<any>) => {
     try {
