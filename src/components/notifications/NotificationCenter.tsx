@@ -44,6 +44,31 @@ const NotificationCenter = () => {
 
   useEffect(() => {
     fetchNotifications();
+
+    // Set up real-time subscription for notifications
+    if (user) {
+      const channel = supabase
+        .channel('notifications-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('Notification change:', payload);
+            fetchNotifications();
+            refreshUnreadCount();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
   }, [user]);
 
   const handleNotificationAction = async (action: Promise<any>) => {
