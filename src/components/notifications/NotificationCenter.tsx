@@ -24,19 +24,30 @@ const NotificationCenter = () => {
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
 
   const fetchNotifications = async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    
     try {
+      console.log('Fetching notifications for user:', user.id);
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+      
+      console.log('Fetched notifications:', data);
       setNotifications(data || []);
     } catch (error: any) {
       console.error('Error fetching notifications:', error);
-      toast.error('Failed to load notifications');
+      setNotifications([]);
+      // Don't show toast error immediately on load to avoid spam
     } finally {
       setLoading(false);
     }
@@ -47,8 +58,9 @@ const NotificationCenter = () => {
 
     // Set up real-time subscription for notifications
     if (user) {
+      const channelName = `notifications-${user.id}`;
       const channel = supabase
-        .channel('notifications-changes')
+        .channel(channelName)
         .on(
           'postgres_changes',
           {

@@ -17,6 +17,7 @@ import OnboardingTour from '@/components/onboarding/OnboardingTour';
 import NavigationWarningDialog from '@/components/ui/navigation-warning-dialog';
 import LearnersManagement from '@/components/admin/LearnersManagement';
 import Reports from '@/components/admin/Reports';
+import { ErrorBoundary } from '@/components/ui/error-boundary';
 
 const Dashboard = () => {
   const {
@@ -83,7 +84,11 @@ const Dashboard = () => {
       case 'achievements':
         return <AchievementsDisplay />;
       case 'notifications':
-        return <NotificationCenter />;
+        return (
+          <ErrorBoundary>
+            <NotificationCenter />
+          </ErrorBoundary>
+        );
       case 'profile':
         return <ProfileManager />;
       case 'account-settings':
