@@ -17,6 +17,7 @@ import OnboardingTour from '@/components/onboarding/OnboardingTour';
 import NavigationWarningDialog from '@/components/ui/navigation-warning-dialog';
 import LearnersManagement from '@/components/admin/LearnersManagement';
 import Reports from '@/components/admin/Reports';
+import ManageFeedback from '@/components/admin/ManageFeedback';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 
 const Dashboard = () => {
@@ -105,10 +106,7 @@ const Dashboard = () => {
         return <Navigate to="/dashboard" replace />;
       case 'feedback-review':
         if (profile?.role === 'admin' || profile?.role === 'mentor') {
-          return <div className="text-center py-12">
-              <h2 className="text-2xl font-bold text-gray-700 mb-4">Feedback Review</h2>
-              <p className="text-gray-500">Review and approve learner feedback submissions</p>
-            </div>;
+          return <ManageFeedback />;
         }
         return <Navigate to="/dashboard" replace />;
       case 'settings':

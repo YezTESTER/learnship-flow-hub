@@ -17,6 +17,8 @@ interface FeedbackSubmission {
   submission_data: any;
   submitted_at: string;
   due_date: string;
+  mentor_comments?: string | null;
+  mentor_rating?: number | null;
 }
 const MonthlyFeedbackForm = () => {
   const {
@@ -298,7 +300,27 @@ const MonthlyFeedbackForm = () => {
                   {existingSubmission ? 'Update Submission' : 'Submit Monthly Feedback'}
                 </>}
             </Button>
-          </form>
+            </form>
+
+            {existingSubmission && (existingSubmission.mentor_comments || typeof (existingSubmission.mentor_rating as any) === 'number') && (
+              <div className="mt-6 bg-white p-6 rounded-xl border border-gray-100 px-[10px]">
+                <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
+                  <Star className="h-5 w-5 mr-2" />
+                  Manager Review
+                </h3>
+                {typeof (existingSubmission.mentor_rating as any) === 'number' && (
+                  <div className="flex items-center mb-2">
+                    {[1,2,3].map((v) => (
+                      <Star key={v} className={`h-4 w-4 mr-1 ${((existingSubmission.mentor_rating as number) ?? 0) >= v ? 'text-yellow-500 fill-current' : 'text-gray-300'}`} />
+                    ))}
+                    <span className="ml-2 text-sm text-gray-600">{existingSubmission.mentor_rating} / 3</span>
+                  </div>
+                )}
+                {existingSubmission.mentor_comments && (
+                  <p className="text-gray-700 whitespace-pre-wrap">{existingSubmission.mentor_comments}</p>
+                )}
+              </div>
+            )}
         </CardContent>
       </Card>
 
