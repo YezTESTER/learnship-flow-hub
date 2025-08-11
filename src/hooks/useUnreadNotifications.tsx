@@ -13,6 +13,7 @@ export function useUnreadNotifications() {
       .from('notifications')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', user.id)
+      .is('deleted_at', null)
       .is('read_at', null);
 
     if (error) {
