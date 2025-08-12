@@ -25,6 +25,9 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
   const [recentAchievements, setRecentAchievements] = useState([]);
   const [profileCompletion, setProfileCompletion] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [hasCurrentMonthFeedback, setHasCurrentMonthFeedback] = useState(false);
+  const [timesheetStatus, setTimesheetStatus] = useState<{ weeks: Array<{week:number, work:boolean, class:boolean}>, outstanding: number[] }>({ weeks: [], outstanding: [] });
+  const [timesheetCompletion, setTimesheetCompletion] = useState(0);
   useEffect(() => {
     fetchDashboardData();
     calculateProfileCompletion();
@@ -47,10 +50,10 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
         data: submissions
       } = await supabase.from('feedback_submissions').select('*').eq('learner_id', profile.id);
 
-      // Fetch documents count
+      // Fetch documents
       const {
         data: documents
-      } = await supabase.from('documents').select('id').eq('learner_id', profile.id);
+      } = await supabase.from('documents').select('*').eq('learner_id', profile.id);
 
       // Fetch recent achievements
       const {
@@ -61,6 +64,39 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
       if (submissions) {
         const completed = submissions.filter(s => s.status === 'submitted' || s.status === 'approved').length;
         const overdue = submissions.filter(s => s.status === 'overdue').length;
+
+        // Current period
+        const now = new Date();
+        const currMonth = now.getMonth() + 1;
+        const currYear = now.getFullYear();
+        const current = submissions.find(s => s.month === currMonth && s.year === currYear && (s.status === 'submitted' || s.status === 'approved'));
+        setHasCurrentMonthFeedback(!!current);
+
+        // Timesheet weekly compliance (4 weeks target)
+        const isInCurrentMonth = (d: any) => {
+          const dt = new Date(d.uploaded_at);
+          return dt.getFullYear() === currYear && dt.getMonth() + 1 === currMonth;
+        };
+        const weekIndex = (dateStr: string) => {
+          const d = new Date(dateStr);
+          return Math.min(4, Math.max(1, Math.ceil(d.getDate() / 7)));
+        };
+        const workWeeks = new Set<number>();
+        const classWeeks = new Set<number>();
+        (documents || []).forEach((doc: any) => {
+          if (!isInCurrentMonth(doc)) return;
+          const wk = weekIndex(doc.uploaded_at);
+          if (doc.document_type === 'work_attendance_log') workWeeks.add(wk);
+          if (doc.document_type === 'class_attendance_proof') classWeeks.add(wk);
+        });
+        const weeks = Array.from({ length: 4 }, (_, i) => ({
+          week: i + 1,
+          work: workWeeks.has(i + 1),
+          class: classWeeks.has(i + 1),
+        }));
+        const completeWeeks = weeks.filter(w => w.work && w.class).length;
+        setTimesheetStatus({ weeks, outstanding: weeks.filter(w => !(w.work && w.class)).map(w => w.week) });
+        setTimesheetCompletion(completeWeeks / 4);
 
         // Find next due submission
         const pendingSubmissions = submissions.filter(s => s.status === 'pending');

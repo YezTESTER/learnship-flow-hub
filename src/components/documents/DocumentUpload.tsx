@@ -116,6 +116,73 @@ const DocumentUpload = () => {
       }]
     }
   };
+  // Helpers to evaluate document badges
+  const getPersonalDocsConfig = () => documentCategories.personal.documents;
+  const requiredPersonalDocTypes = () => getPersonalDocsConfig().filter(d => d.required).map(d => d.value);
+  const allPersonalDocTypes = () => getPersonalDocsConfig().map(d => d.value);
+
+  const checkAndAwardDocumentBadges = async (currentDocs: Document[]) => {
+    if (!user) return;
+    try {
+      const presentTypes = new Set(currentDocs.map(d => d.document_type));
+      const required = requiredPersonalDocTypes();
+      const all = allPersonalDocTypes();
+
+      const hasAllRequired = required.every(t => presentTypes.has(t));
+      const hasAllPersonal = all.every(t => presentTypes.has(t));
+
+      // Helper to ensure single-award
+      const hasBadge = async (name: string) => {
+        const { data } = await supabase
+          .from('achievements')
+          .select('id')
+          .eq('learner_id', user.id)
+          .eq('badge_type', 'document_upload')
+          .eq('badge_name', name)
+          .maybeSingle();
+        return !!data;
+      };
+
+      if (hasAllRequired && !(await hasBadge('Required Documents Complete'))) {
+        await supabase.from('achievements').insert({
+          learner_id: user.id,
+          badge_type: 'document_upload',
+          badge_name: 'Required Documents Complete',
+          description: 'All required personal documents uploaded',
+          points_awarded: 25,
+          badge_color: '#10B981',
+          badge_icon: 'check-circle',
+        });
+        await supabase.rpc('create_notification', {
+          target_user_id: user.id,
+          notification_title: 'Required Documents Complete',
+          notification_message: 'Great job! You have uploaded all required personal documents.',
+          notification_type: 'success',
+        });
+      }
+
+      if (hasAllPersonal && !(await hasBadge('All Personal Documents Uploaded'))) {
+        await supabase.from('achievements').insert({
+          learner_id: user.id,
+          badge_type: 'document_upload',
+          badge_name: 'All Personal Documents Uploaded',
+          description: 'All personal documents (required and optional) uploaded',
+          points_awarded: 40,
+          badge_color: '#3B82F6',
+          badge_icon: 'gift',
+        });
+        await supabase.rpc('create_notification', {
+          target_user_id: user.id,
+          notification_title: 'Document Master Badge Earned',
+          notification_message: 'You uploaded all personal documents and earned a badge!',
+          notification_type: 'success',
+        });
+      }
+    } catch (e) {
+      console.warn('Badge evaluation failed', e);
+    }
+  };
+
   useEffect(() => {
     if (user) {
       fetchDocuments();
@@ -166,6 +233,7 @@ const DocumentUpload = () => {
       }
       console.log('Processed documents with CVs:', processedDocuments);
       setDocuments(processedDocuments);
+      await checkAndAwardDocumentBadges(processedDocuments);
     } catch (error: any) {
       console.error('Error fetching documents:', error);
       toast.error('Failed to load documents');
