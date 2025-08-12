@@ -28,6 +28,7 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
   const [hasCurrentMonthFeedback, setHasCurrentMonthFeedback] = useState(false);
   const [timesheetStatus, setTimesheetStatus] = useState<{ weeks: Array<{week:number, work:boolean, class:boolean}>, outstanding: number[] }>({ weeks: [], outstanding: [] });
   const [timesheetCompletion, setTimesheetCompletion] = useState(0);
+  const [missingRequiredDocs, setMissingRequiredDocs] = useState<string[]>([]);
   useEffect(() => {
     fetchDashboardData();
     calculateProfileCompletion();
@@ -98,6 +99,11 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
         setTimesheetStatus({ weeks, outstanding: weeks.filter(w => !(w.work && w.class)).map(w => w.week) });
         setTimesheetCompletion(completeWeeks / 4);
 
+        // Required personal documents status
+        const requiredDocTypes = ['qualifications', 'certified_id', 'certified_proof_residence', 'cv_upload', 'popia_form'];
+        const presentTypes = new Set((documents || []).map((d: any) => d.document_type));
+        setMissingRequiredDocs(requiredDocTypes.filter(t => !presentTypes.has(t)));
+
         // Find next due submission
         const pendingSubmissions = submissions.filter(s => s.status === 'pending');
         const nextDue = pendingSubmissions.length > 0 ? pendingSubmissions.sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())[0] : null;
@@ -121,6 +127,14 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
 
   // Fix compliance calculation - should be based on actual performance, not just existence
   const compliancePercentage = stats.totalSubmissions > 0 ? Math.round(stats.completedSubmissions / stats.totalSubmissions * 100) : 0; // Changed from 100 to 0 when no submissions exist
+
+  const docLabels: Record<string, string> = {
+    qualifications: 'Qualifications',
+    certified_id: 'Certified ID',
+    certified_proof_residence: 'Certified Proof of Residence',
+    cv_upload: 'CV',
+    popia_form: 'POPIA Form',
+  };
 
   if (loading) {
     return <div className="flex items-center justify-center h-64">
@@ -299,6 +313,89 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
           </CardContent>
         </Card>
       </div>
+
+      {/* Weekly Timesheets */}
+      <Card className="bg-white shadow-lg border-0">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Clock className="h-5 w-5 text-[#122ec0]" />
+            <span>Weekly Timesheets (This Month)</span>
+          </CardTitle>
+          <CardDescription>
+            {Math.round(timesheetCompletion * 100)}% complete · {timesheetStatus.outstanding.length} week{timesheetStatus.outstanding.length === 1 ? '' : 's'} outstanding
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            {timesheetStatus.weeks.map((w) => {
+              const complete = w.work && w.class;
+              const partial = !complete && (w.work || w.class);
+              return (
+                <div key={w.week} className={`px-3 py-1 rounded-full text-xs font-medium ${
+                  complete ? 'bg-green-50 text-green-700' : partial ? 'bg-yellow-50 text-yellow-700' : 'bg-red-50 text-red-700'
+                }`}>
+                  Week {w.week}: {complete ? 'Complete' : partial ? 'Partial' : 'Missing'}
+                </div>
+              );
+            })}
+          </div>
+          {timesheetStatus.outstanding.length > 0 && (
+            <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-md p-3">
+              <AlertCircle className="h-4 w-4 text-red-600 mt-0.5" />
+              <div className="text-sm text-red-700">
+                Outstanding weeks: {timesheetStatus.outstanding.join(', ')}. Upload both Work and Class timesheets.
+              </div>
+              <div className="ml-auto">
+                <Button size="sm" variant="outline" onClick={() => handleNavigateToSection('documents')}>Upload Timesheets</Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Action Center */}
+      <Card className="bg-white shadow-lg border-0">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Target className="h-5 w-5 text-[#e16623]" />
+            <span>Action Center</span>
+          </CardTitle>
+          <CardDescription>Focused tasks to boost your compliance and achievements</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {(!hasCurrentMonthFeedback && (
+            <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-md p-3">
+              <div className="text-sm text-blue-800">Monthly feedback is pending.</div>
+              <Button size="sm" onClick={() => handleNavigateToSection('feedback')}>Open Feedback</Button>
+            </div>
+          )) || null}
+
+          {(missingRequiredDocs.length > 0 && (
+            <div className="flex items-center justify-between bg-yellow-50 border border-yellow-200 rounded-md p-3">
+              <div className="text-sm text-yellow-800">
+                Missing required documents: {missingRequiredDocs.slice(0,3).map(k => docLabels[k] || k).join(', ')}
+                {missingRequiredDocs.length > 3 ? ` +${missingRequiredDocs.length - 3} more` : ''}
+              </div>
+              <Button size="sm" variant="outline" onClick={() => handleNavigateToSection('documents')}>Upload Documents</Button>
+            </div>
+          )) || null}
+
+          {(timesheetStatus.outstanding.length > 0 && (
+            <div className="flex items-center justify-between bg-orange-50 border border-orange-200 rounded-md p-3">
+              <div className="text-sm text-orange-800">
+                Upload timesheets for weeks: {timesheetStatus.outstanding.join(', ')}.
+              </div>
+              <Button size="sm" variant="outline" onClick={() => handleNavigateToSection('documents')}>Upload Now</Button>
+            </div>
+          )) || null}
+
+          {(hasCurrentMonthFeedback && timesheetStatus.outstanding.length === 0 && missingRequiredDocs.length === 0) && (
+            <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-md p-3">
+              Great job! You're on track for this month.
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Quick Actions */}
       <Card className="bg-white shadow-lg border-0">
