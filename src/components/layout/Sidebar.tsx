@@ -92,6 +92,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'learners', label: 'All Learners', icon: Users },
     { id: 'reports', label: 'Reports', icon: BarChart3 },
     { id: 'feedback-review', label: 'Manage Feedback', icon: FileText },
+    { id: 'comms', label: 'Communications', icon: FileText },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'account-settings', label: 'Account Settings', icon: Settings },
     { id: 'settings', label: 'System Settings', icon: Settings },

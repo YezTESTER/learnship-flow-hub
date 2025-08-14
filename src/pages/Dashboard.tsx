@@ -18,6 +18,7 @@ import NavigationWarningDialog from '@/components/ui/navigation-warning-dialog';
 import LearnersManagement from '@/components/admin/LearnersManagement';
 import Reports from '@/components/admin/Reports';
 import ManageFeedback from '@/components/admin/ManageFeedback';
+import Comms from '@/components/admin/Comms';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 
 const Dashboard = () => {
@@ -60,7 +61,7 @@ const Dashboard = () => {
   }
 
   // Redirect non-admin users away from admin sections
-  const adminOnlySections = ['reports', 'settings', 'learners'];
+  const adminOnlySections = ['reports', 'settings', 'learners', 'comms'];
   if (profile?.role !== 'admin' && adminOnlySections.includes(activeSection)) {
     setActiveSection('dashboard');
   }
@@ -109,6 +110,11 @@ const Dashboard = () => {
           return <ManageFeedback />;
         }
         return <Navigate to="/dashboard" replace />;
+      case 'comms':
+        if (profile?.role === 'admin') {
+          return <Comms />;
+        }
+        return <Navigate to="/dashboard" replace />;
       case 'settings':
         if (profile?.role === 'admin') {
           return <div className="text-center py-12">
@@ -152,6 +158,8 @@ const Dashboard = () => {
         return 'Compliance Reports';
       case 'feedback-review':
         return 'Feedback Review';
+      case 'comms':
+        return 'Communications';
       case 'settings':
         return 'System Settings';
       default:

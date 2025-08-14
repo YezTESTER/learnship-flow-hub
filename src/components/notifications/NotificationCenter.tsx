@@ -1,12 +1,15 @@
 import React from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/hooks/useNotifications';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Bell, Check, Trash2 } from 'lucide-react';
+import { Bell, Check, Trash2, MessageSquare } from 'lucide-react';
 import { NotificationItem } from '@/components/notifications/NotificationItem';
+import ContactManagementDialog from '@/components/learner/ContactManagementDialog';
 
 const NotificationCenter: React.FC = () => {
+  const { profile } = useAuth();
   const { loading, notifications, rawNotifications, unreadCount, filter, setFilter, actions } = useNotifications();
 
   const currentUnreadCount = rawNotifications.filter(n => !n.read_at).length;
@@ -88,6 +91,14 @@ const NotificationCenter: React.FC = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+              {profile?.role === 'learner' && (
+                <ContactManagementDialog>
+                  <Button variant="outline" size="sm" className="rounded-lg">
+                    <MessageSquare className="h-4 w-4 mr-1" />
+                    Contact Management
+                  </Button>
+                </ContactManagementDialog>
+              )}
               {currentUnreadCount > 0 && (
                 <Button variant="outline" size="sm" onClick={markAllAsRead} className="rounded-lg">
                   <Check className="h-4 w-4 mr-1" />
