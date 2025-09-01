@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "13.0.4"
@@ -57,6 +57,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      compliance_factors: {
+        Row: {
+          created_at: string | null
+          document_score: number | null
+          engagement_score: number | null
+          feedback_score: number | null
+          id: string
+          learner_id: string
+          month: number
+          overall_score: number | null
+          timesheet_score: number | null
+          updated_at: string | null
+          year: number
+        }
+        Insert: {
+          created_at?: string | null
+          document_score?: number | null
+          engagement_score?: number | null
+          feedback_score?: number | null
+          id?: string
+          learner_id: string
+          month: number
+          overall_score?: number | null
+          timesheet_score?: number | null
+          updated_at?: string | null
+          year: number
+        }
+        Update: {
+          created_at?: string | null
+          document_score?: number | null
+          engagement_score?: number | null
+          feedback_score?: number | null
+          id?: string
+          learner_id?: string
+          month?: number
+          overall_score?: number | null
+          timesheet_score?: number | null
+          updated_at?: string | null
+          year?: number
+        }
+        Relationships: []
       }
       cvs: {
         Row: {
@@ -311,6 +353,39 @@ export type Database = {
           },
         ]
       }
+      performance_metrics: {
+        Row: {
+          id: string
+          learner_id: string
+          metadata: Json | null
+          metric_type: string
+          metric_value: number
+          period_month: number
+          period_year: number
+          recorded_at: string | null
+        }
+        Insert: {
+          id?: string
+          learner_id: string
+          metadata?: Json | null
+          metric_type: string
+          metric_value: number
+          period_month: number
+          period_year: number
+          recorded_at?: string | null
+        }
+        Update: {
+          id?: string
+          learner_id?: string
+          metadata?: Json | null
+          metric_type?: string
+          metric_value?: number
+          period_month?: number
+          period_year?: number
+          recorded_at?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           address: string | null
@@ -430,11 +505,58 @@ export type Database = {
           },
         ]
       }
+      timesheet_schedules: {
+        Row: {
+          class_timesheet_uploaded: boolean | null
+          created_at: string | null
+          due_date: string
+          id: string
+          learner_id: string
+          month: number
+          period: number
+          uploaded_at: string | null
+          work_timesheet_uploaded: boolean | null
+          year: number
+        }
+        Insert: {
+          class_timesheet_uploaded?: boolean | null
+          created_at?: string | null
+          due_date: string
+          id?: string
+          learner_id: string
+          month: number
+          period: number
+          uploaded_at?: string | null
+          work_timesheet_uploaded?: boolean | null
+          year: number
+        }
+        Update: {
+          class_timesheet_uploaded?: boolean | null
+          created_at?: string | null
+          due_date?: string
+          id?: string
+          learner_id?: string
+          month?: number
+          period?: number
+          uploaded_at?: string | null
+          work_timesheet_uploaded?: boolean | null
+          year?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      award_performance_points: {
+        Args: { action_type: string; base_points: number; user_id: string }
+        Returns: number
+      }
+      calculate_comprehensive_compliance: {
+        Args: { target_month: number; target_year: number; user_id: string }
+        Returns: number
+      }
       check_missing_documents: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -445,16 +567,20 @@ export type Database = {
       }
       create_notification: {
         Args: {
-          target_user_id: string
-          notification_title: string
           notification_message: string
+          notification_title: string
           notification_type?: string
+          target_user_id: string
         }
         Returns: string
       }
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      initialize_biweekly_timesheets: {
+        Args: { target_month: number; target_year: number; user_id: string }
+        Returns: undefined
       }
       update_compliance_score: {
         Args: { user_id: string }

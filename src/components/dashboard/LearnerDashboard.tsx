@@ -5,16 +5,19 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { Calendar, FileText, Award, Bell, Settings, TrendingUp, Clock, CheckCircle, Target, Star, Upload, AlertCircle, User } from 'lucide-react';
+import { useComplianceSystem } from '@/hooks/useComplianceSystem';
+import { Calendar, FileText, Award, Bell, Settings, TrendingUp, Clock, CheckCircle, Target, Star, Upload, AlertCircle, User, BarChart3, Zap } from 'lucide-react';
+
 interface LearnerDashboardProps {
   setActiveSection?: (section: string) => void;
 }
+
 const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
   setActiveSection
 }) => {
-  const {
-    profile
-  } = useAuth();
+  const { profile } = useAuth();
+  const { compliance, timesheetPeriods, loading: complianceLoading } = useComplianceSystem();
+  
   const [stats, setStats] = useState({
     totalSubmissions: 0,
     completedSubmissions: 0,
@@ -26,13 +29,13 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
   const [profileCompletion, setProfileCompletion] = useState(0);
   const [loading, setLoading] = useState(true);
   const [hasCurrentMonthFeedback, setHasCurrentMonthFeedback] = useState(false);
-  const [timesheetStatus, setTimesheetStatus] = useState<{ weeks: Array<{week:number, work:boolean, class:boolean}>, outstanding: number[] }>({ weeks: [], outstanding: [] });
-  const [timesheetCompletion, setTimesheetCompletion] = useState(0);
   const [missingRequiredDocs, setMissingRequiredDocs] = useState<string[]>([]);
+
   useEffect(() => {
     fetchDashboardData();
     calculateProfileCompletion();
   }, [profile]);
+
   const calculateProfileCompletion = () => {
     if (!profile) return;
     const requiredFields = ['full_name', 'id_number', 'learnership_program', 'employer_name', 'phone_number', 'address', 'date_of_birth', 'emergency_contact', 'emergency_phone', 'start_date', 'end_date'];
@@ -43,25 +46,30 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
     const completion = Math.round(completedFields / requiredFields.length * 100);
     setProfileCompletion(completion);
   };
+
   const fetchDashboardData = async () => {
     if (!profile) return;
     try {
       // Fetch submission statistics
-      const {
-        data: submissions
-      } = await supabase.from('feedback_submissions').select('*').eq('learner_id', profile.id);
+      const { data: submissions } = await supabase
+        .from('feedback_submissions')
+        .select('*')
+        .eq('learner_id', profile.id);
 
       // Fetch documents
-      const {
-        data: documents
-      } = await supabase.from('documents').select('*').eq('learner_id', profile.id);
+      const { data: documents } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('learner_id', profile.id);
 
       // Fetch recent achievements
-      const {
-        data: achievements
-      } = await supabase.from('achievements').select('*').eq('learner_id', profile.id).order('earned_at', {
-        ascending: false
-      }).limit(3);
+      const { data: achievements } = await supabase
+        .from('achievements')
+        .select('*')
+        .eq('learner_id', profile.id)
+        .order('earned_at', { ascending: false })
+        .limit(3);
+
       if (submissions) {
         const completed = submissions.filter(s => s.status === 'submitted' || s.status === 'approved').length;
         const overdue = submissions.filter(s => s.status === 'overdue').length;
@@ -73,40 +81,16 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
         const current = submissions.find(s => s.month === currMonth && s.year === currYear && (s.status === 'submitted' || s.status === 'approved'));
         setHasCurrentMonthFeedback(!!current);
 
-        // Timesheet weekly compliance (4 weeks target)
-        const isInCurrentMonth = (d: any) => {
-          const dt = new Date(d.uploaded_at);
-          return dt.getFullYear() === currYear && dt.getMonth() + 1 === currMonth;
-        };
-        const weekIndex = (dateStr: string) => {
-          const d = new Date(dateStr);
-          return Math.min(4, Math.max(1, Math.ceil(d.getDate() / 7)));
-        };
-        const workWeeks = new Set<number>();
-        const classWeeks = new Set<number>();
-        (documents || []).forEach((doc: any) => {
-          if (!isInCurrentMonth(doc)) return;
-          const wk = weekIndex(doc.uploaded_at);
-          if (doc.document_type === 'work_attendance_log') workWeeks.add(wk);
-          if (doc.document_type === 'class_attendance_proof') classWeeks.add(wk);
-        });
-        const weeks = Array.from({ length: 4 }, (_, i) => ({
-          week: i + 1,
-          work: workWeeks.has(i + 1),
-          class: classWeeks.has(i + 1),
-        }));
-        const completeWeeks = weeks.filter(w => w.work && w.class).length;
-        setTimesheetStatus({ weeks, outstanding: weeks.filter(w => !(w.work && w.class)).map(w => w.week) });
-        setTimesheetCompletion(completeWeeks / 4);
-
-        // Required personal documents status
-        const requiredDocTypes = ['qualifications', 'certified_id', 'certified_proof_residence', 'cv_upload', 'popia_form'];
-        const presentTypes = new Set((documents || []).map((d: any) => d.document_type));
-        setMissingRequiredDocs(requiredDocTypes.filter(t => !presentTypes.has(t)));
+        // Check required documents compliance
+        const requiredDocs = ['id_document', 'cv', 'bank_letter'] as const;
+        const uploadedDocTypes = documents?.map(doc => doc.document_type) || [];
+        const missing = requiredDocs.filter(docType => !uploadedDocTypes.includes(docType as any));
+        setMissingRequiredDocs(missing);
 
         // Find next due submission
         const pendingSubmissions = submissions.filter(s => s.status === 'pending');
         const nextDue = pendingSubmissions.length > 0 ? pendingSubmissions.sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())[0] : null;
+        
         setStats({
           totalSubmissions: submissions.length,
           completedSubmissions: completed,
@@ -115,6 +99,7 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
           uploadedDocuments: documents?.length || 0
         });
       }
+
       if (achievements) {
         setRecentAchievements(achievements);
       }
@@ -125,28 +110,22 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
     }
   };
 
-  // Fix compliance calculation - should be based on actual performance, not just existence
-  const compliancePercentage = stats.totalSubmissions > 0 ? Math.round(stats.completedSubmissions / stats.totalSubmissions * 100) : 0; // Changed from 100 to 0 when no submissions exist
-
-  const docLabels: Record<string, string> = {
-    qualifications: 'Qualifications',
-    certified_id: 'Certified ID',
-    certified_proof_residence: 'Certified Proof of Residence',
-    cv_upload: 'CV',
-    popia_form: 'POPIA Form',
-  };
-
-  if (loading) {
-    return <div className="flex items-center justify-center h-64">
+  if (loading || complianceLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#122ec0]"></div>
-      </div>;
+      </div>
+    );
   }
+
   const handleNavigateToSection = (section: string) => {
     if (setActiveSection) {
       setActiveSection(section);
     }
   };
-  return <div className="space-y-6">
+
+  return (
+    <div className="space-y-6">
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-[#122ec0] to-blue-400 rounded-2xl p-6 text-white shadow-xl">
         <div className="flex items-center space-x-4">
@@ -161,7 +140,8 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
       </div>
 
       {/* Profile Completion Alert */}
-      {profileCompletion < 100 && <Card className="bg-yellow-50 border-yellow-200">
+      {profileCompletion < 100 && (
+        <Card className="bg-yellow-50 border-yellow-200">
           <CardContent className="p-4">
             <div className="flex items-center space-x-3">
               <AlertCircle className="h-8 w-8 text-yellow-600" />
@@ -177,114 +157,217 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
               </Button>
             </div>
           </CardContent>
-        </Card>}
+        </Card>
+      )}
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <CheckCircle className="h-8 w-8 text-green-600" />
-              <div>
-                <p className="text-sm font-medium text-green-800">Compliance Score</p>
-                <p className="text-2xl font-bold text-green-900">{compliancePercentage}%</p>
+      {/* Comprehensive Compliance Breakdown */}
+      {compliance && (
+        <Card className="mb-8 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-blue-600" />
+              Compliance Breakdown - {compliance.overall_score.toFixed(0)}%
+            </CardTitle>
+            <CardDescription>{compliance.status_message}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Monthly Feedback</span>
+                  <span className="font-medium">{compliance.feedback_score.toFixed(0)}%</span>
+                </div>
+                <Progress value={compliance.feedback_score} className="h-2" />
+                <p className="text-xs text-muted-foreground">40% of total score</p>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Bi-weekly Timesheets</span>
+                  <span className="font-medium">{compliance.timesheet_score.toFixed(0)}%</span>
+                </div>
+                <Progress value={compliance.timesheet_score} className="h-2" />
+                <p className="text-xs text-muted-foreground">35% of total score</p>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Documents</span>
+                  <span className="font-medium">{compliance.document_score.toFixed(0)}%</span>
+                </div>
+                <Progress value={compliance.document_score} className="h-2" />
+                <p className="text-xs text-muted-foreground">15% of total score</p>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Engagement</span>
+                  <span className="font-medium">{compliance.engagement_score.toFixed(0)}%</span>
+                </div>
+                <Progress value={compliance.engagement_score} className="h-2" />
+                <p className="text-xs text-muted-foreground">10% of total score</p>
               </div>
             </div>
+
+            {compliance.next_actions.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <h4 className="font-medium text-amber-800 mb-2 flex items-center gap-2">
+                  <Zap className="h-4 w-4" />
+                  Next Actions to Improve Score
+                </h4>
+                <ul className="space-y-1">
+                  {compliance.next_actions.map((action, index) => (
+                    <li key={index} className="text-sm text-amber-700 flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-amber-600 rounded-full"></div>
+                      {action}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Stats Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-blue-600">Compliance Score</p>
+                <p className="text-2xl font-bold text-blue-700">{compliance?.overall_score.toFixed(0) || 0}%</p>
+              </div>
+              <div className="p-3 bg-blue-200 rounded-full">
+                <Target className="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
+            <Progress value={compliance?.overall_score || 0} className="mt-3 h-2" />
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <Star className="h-8 w-8 text-blue-600" />
+        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-blue-800">Points Earned</p>
-                <p className="text-2xl font-bold text-blue-900">{profile?.points || 0}</p>
+                <p className="text-sm font-medium text-green-600">Points Earned</p>
+                <p className="text-2xl font-bold text-green-700">{profile?.points || 0}</p>
+              </div>
+              <div className="p-3 bg-green-200 rounded-full">
+                <Star className="h-6 w-6 text-green-600" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <FileText className="h-8 w-8 text-purple-600" />
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-purple-800">Submissions</p>
-                <p className="text-2xl font-bold text-purple-900">{stats.completedSubmissions}/{stats.totalSubmissions}</p>
+                <p className="text-sm font-medium text-purple-600">Submissions</p>
+                <p className="text-2xl font-bold text-purple-700">{stats.completedSubmissions}/{stats.totalSubmissions}</p>
+              </div>
+              <div className="p-3 bg-purple-200 rounded-full">
+                <FileText className="h-6 w-6 text-purple-600" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className={`bg-gradient-to-br ${stats.overdueSubmissions > 0 ? 'from-red-50 to-red-100 border-red-200' : 'from-gray-50 to-gray-100 border-gray-200'}`}>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <Clock className={`h-8 w-8 ${stats.overdueSubmissions > 0 ? 'text-red-600' : 'text-gray-600'}`} />
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
               <div>
-                <p className={`text-sm font-medium ${stats.overdueSubmissions > 0 ? 'text-red-800' : 'text-gray-800'}`}>Overdue</p>
-                <p className={`text-2xl font-bold ${stats.overdueSubmissions > 0 ? 'text-red-900' : 'text-gray-900'}`}>{stats.overdueSubmissions}</p>
+                <p className={`text-sm font-medium ${stats.overdueSubmissions > 0 ? 'text-red-600' : 'text-gray-600'}`}>Overdue Items</p>
+                <p className={`text-2xl font-bold ${stats.overdueSubmissions > 0 ? 'text-red-700' : 'text-gray-700'}`}>{stats.overdueSubmissions}</p>
+              </div>
+              <div className={`p-3 rounded-full ${stats.overdueSubmissions > 0 ? 'bg-red-200' : 'bg-gray-200'}`}>
+                <Clock className={`h-6 w-6 ${stats.overdueSubmissions > 0 ? 'text-red-600' : 'text-gray-600'}`} />
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Documents Overview */}
-      <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Upload className="h-8 w-8 text-indigo-600" />
-              <div>
-                <p className="text-sm font-medium text-indigo-800">Documents Uploaded</p>
-                <p className="text-2xl font-bold text-indigo-900">{stats.uploadedDocuments}</p>
-              </div>
-            </div>
-            <Button onClick={() => handleNavigateToSection('documents')} variant="outline" className="border-indigo-300 text-indigo-700 hover:bg-indigo-100 text-xs">
-              View Documents
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Progress Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="bg-white shadow-lg border-0">
+      {/* Bi-Weekly Timesheets */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <TrendingUp className="h-5 w-5 text-[#122ec0]" />
-              <span>Compliance Progress</span>
+            <CardTitle className="flex items-center justify-between">
+              <span>Bi-Weekly Timesheets (This Month)</span>
+              <Clock className="h-5 w-5 text-purple-600" />
             </CardTitle>
-            <CardDescription>Your overall performance this month</CardDescription>
+            <CardDescription>
+              {timesheetPeriods.length > 0 ? (
+                `${timesheetPeriods.filter(p => p.work_timesheet_uploaded && p.class_timesheet_uploaded).length} of ${timesheetPeriods.length} periods complete`
+              ) : (
+                'Loading timesheet schedule...'
+              )}
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Overall Compliance</span>
-                <span className="font-semibold">{compliancePercentage}%</span>
-              </div>
-              <Progress value={compliancePercentage} className="h-3" />
+          <CardContent>
+            <div className="space-y-3">
+              {timesheetPeriods.map((period) => {
+                const isComplete = period.work_timesheet_uploaded && period.class_timesheet_uploaded;
+                const dueDate = new Date(period.due_date);
+                const isOverdue = !isComplete && dueDate < new Date();
+                
+                return (
+                  <div 
+                    key={period.id} 
+                    className={`p-4 rounded-lg border ${
+                      isComplete 
+                        ? 'bg-green-50 border-green-300' 
+                        : isOverdue 
+                          ? 'bg-red-50 border-red-300' 
+                          : 'bg-amber-50 border-amber-300'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-medium text-sm">
+                          Period {period.period} ({period.period === 1 ? '1st-15th' : '16th-End'})
+                        </h4>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Due: {dueDate.toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Badge 
+                          variant={period.work_timesheet_uploaded ? "default" : "secondary"} 
+                          className="text-xs"
+                        >
+                          Work {period.work_timesheet_uploaded ? '✓' : '✗'}
+                        </Badge>
+                        <Badge 
+                          variant={period.class_timesheet_uploaded ? "default" : "secondary"} 
+                          className="text-xs"
+                        >
+                          Class {period.class_timesheet_uploaded ? '✓' : '✗'}
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    {!isComplete && (
+                      <div className="mt-3">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => handleNavigateToSection('documents')}
+                          className="text-xs"
+                        >
+                          Upload Missing Timesheets
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-            
-            <div className="grid grid-cols-2 gap-4 pt-4">
-              <div className="text-center p-3 bg-green-50 rounded-lg">
-                <p className="text-2xl font-bold text-green-600">{stats.completedSubmissions}</p>
-                <p className="text-sm text-green-800">Completed</p>
-              </div>
-              <div className="text-center p-3 bg-red-50 rounded-lg">
-                <p className="text-2xl font-bold text-red-600">{stats.overdueSubmissions}</p>
-                <p className="text-sm text-red-800">Overdue</p>
-              </div>
-            </div>
-
-            {stats.nextDueDate && <div className="bg-blue-50 p-3 rounded-lg">
-                <p className="text-sm font-medium text-blue-800">Next Due Date</p>
-                <p className="text-blue-700">{new Date(stats.nextDueDate).toLocaleDateString()}</p>
-              </div>}
           </CardContent>
         </Card>
 
+        {/* Recent Achievements */}
         <Card className="bg-white shadow-lg border-0">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
@@ -294,8 +377,10 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
             <CardDescription>Your latest badges and milestones</CardDescription>
           </CardHeader>
           <CardContent>
-            {recentAchievements.length > 0 ? <div className="space-y-3">
-                {recentAchievements.map((achievement: any) => <div key={achievement.id} className="flex items-center space-x-3 p-3 bg-gradient-to-r from-[#122ec0]/10 to-[#e16623]/10 rounded-lg">
+            {recentAchievements.length > 0 ? (
+              <div className="space-y-3">
+                {recentAchievements.map((achievement: any) => (
+                  <div key={achievement.id} className="flex items-center space-x-3 p-3 bg-gradient-to-r from-[#122ec0]/10 to-[#e16623]/10 rounded-lg">
                     <div className="h-8 w-8 rounded-full bg-gradient-to-r from-[#122ec0] to-[#e16623] flex items-center justify-center">
                       <Award className="h-4 w-4 text-white" />
                     </div>
@@ -304,54 +389,19 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
                       <p className="text-xs text-gray-600">{achievement.description}</p>
                     </div>
                     <Badge variant="secondary">+{achievement.points_awarded}</Badge>
-                  </div>)}
-              </div> : <div className="text-center py-8 text-gray-500">
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
                 <Award className="h-12 w-12 mx-auto mb-2 opacity-50" />
                 <p>No achievements yet</p>
                 <p className="text-sm">Complete your first feedback to earn badges!</p>
-              </div>}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
-
-      {/* Weekly Timesheets */}
-      <Card className="bg-white shadow-lg border-0">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Clock className="h-5 w-5 text-[#122ec0]" />
-            <span>Weekly Timesheets (This Month)</span>
-          </CardTitle>
-          <CardDescription>
-            {Math.round(timesheetCompletion * 100)}% complete · {timesheetStatus.outstanding.length} week{timesheetStatus.outstanding.length === 1 ? '' : 's'} outstanding
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex flex-wrap gap-2">
-            {timesheetStatus.weeks.map((w) => {
-              const complete = w.work && w.class;
-              const partial = !complete && (w.work || w.class);
-              return (
-                <div key={w.week} className={`px-3 py-1 rounded-full text-xs font-medium ${
-                  complete ? 'bg-green-50 text-green-700' : partial ? 'bg-yellow-50 text-yellow-700' : 'bg-red-50 text-red-700'
-                }`}>
-                  Week {w.week}: {complete ? 'Complete' : partial ? 'Partial' : 'Missing'}
-                </div>
-              );
-            })}
-          </div>
-          {timesheetStatus.outstanding.length > 0 && (
-            <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-md p-3">
-              <AlertCircle className="h-4 w-4 text-red-600 mt-0.5" />
-              <div className="text-sm text-red-700">
-                Outstanding weeks: {timesheetStatus.outstanding.join(', ')}. Upload both Work and Class timesheets.
-              </div>
-              <div className="ml-auto">
-                <Button size="sm" variant="outline" onClick={() => handleNavigateToSection('documents')}>Upload Timesheets</Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Action Center */}
       <Card className="bg-white shadow-lg border-0">
@@ -360,38 +410,27 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
             <Target className="h-5 w-5 text-[#e16623]" />
             <span>Action Center</span>
           </CardTitle>
-          <CardDescription>Focused tasks to boost your compliance and achievements</CardDescription>
+          <CardDescription>Priority tasks to improve your compliance score</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {(!hasCurrentMonthFeedback && (
-            <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-md p-3">
-              <div className="text-sm text-blue-800">Monthly feedback is pending.</div>
-              <Button size="sm" onClick={() => handleNavigateToSection('feedback')}>Open Feedback</Button>
+          {compliance && compliance.next_actions.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <h4 className="font-medium text-amber-800 mb-2">Priority Actions:</h4>
+              <ul className="space-y-1">
+                {compliance.next_actions.slice(0, 3).map((action, index) => (
+                  <li key={index} className="text-sm text-amber-700 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 bg-amber-600 rounded-full"></div>
+                    {action}
+                  </li>
+                ))}
+              </ul>
             </div>
-          )) || null}
-
-          {(missingRequiredDocs.length > 0 && (
-            <div className="flex items-center justify-between bg-yellow-50 border border-yellow-200 rounded-md p-3">
-              <div className="text-sm text-yellow-800">
-                Missing required documents: {missingRequiredDocs.slice(0,3).map(k => docLabels[k] || k).join(', ')}
-                {missingRequiredDocs.length > 3 ? ` +${missingRequiredDocs.length - 3} more` : ''}
-              </div>
-              <Button size="sm" variant="outline" onClick={() => handleNavigateToSection('documents')}>Upload Documents</Button>
-            </div>
-          )) || null}
-
-          {(timesheetStatus.outstanding.length > 0 && (
-            <div className="flex items-center justify-between bg-orange-50 border border-orange-200 rounded-md p-3">
-              <div className="text-sm text-orange-800">
-                Upload timesheets for weeks: {timesheetStatus.outstanding.join(', ')}.
-              </div>
-              <Button size="sm" variant="outline" onClick={() => handleNavigateToSection('documents')}>Upload Now</Button>
-            </div>
-          )) || null}
-
-          {(hasCurrentMonthFeedback && timesheetStatus.outstanding.length === 0 && missingRequiredDocs.length === 0) && (
+          )}
+          
+          {/* All Good Status */}
+          {compliance && compliance.overall_score >= 90 && compliance.next_actions.length === 0 && (
             <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-md p-3">
-              Great job! You're on track for this month.
+              🎉 Outstanding performance! You're exceeding all compliance requirements.
             </div>
           )}
         </CardContent>
@@ -408,28 +447,43 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Button onClick={() => handleNavigateToSection('feedback')} className="h-20 bg-gradient-to-r from-[#122ec0] to-blue-500 hover:from-[#0f2499] hover:to-blue-600 text-white rounded-xl transition-all duration-300 transform hover:scale-105">
+            <Button 
+              onClick={() => handleNavigateToSection('feedback')} 
+              className="h-20 bg-gradient-to-r from-[#122ec0] to-blue-500 hover:from-[#0f2499] hover:to-blue-600 text-white rounded-xl transition-all duration-300 transform hover:scale-105"
+            >
               <div className="text-center">
                 <FileText className="h-6 w-6 mx-auto mb-1" />
                 <span className="text-sm font-semibold">Submit Feedback</span>
               </div>
             </Button>
 
-            <Button onClick={() => handleNavigateToSection('documents')} variant="outline" className="h-20 border-2 border-[#e16623] text-[#e16623] hover:bg-[#e16623] hover:text-white rounded-xl transition-all duration-300 transform hover:scale-105">
+            <Button 
+              onClick={() => handleNavigateToSection('documents')} 
+              variant="outline" 
+              className="h-20 border-2 border-[#e16623] text-[#e16623] hover:bg-[#e16623] hover:text-white rounded-xl transition-all duration-300 transform hover:scale-105"
+            >
               <div className="text-center">
                 <Upload className="h-6 w-6 mx-auto mb-1" />
                 <span className="text-sm font-semibold">Upload Documents</span>
               </div>
             </Button>
 
-            <Button onClick={() => handleNavigateToSection('achievements')} variant="outline" className="h-20 border-2 border-green-500 text-green-600 hover:bg-green-500 hover:text-white rounded-xl transition-all duration-300 transform hover:scale-105">
+            <Button 
+              onClick={() => handleNavigateToSection('achievements')} 
+              variant="outline" 
+              className="h-20 border-2 border-green-500 text-green-600 hover:bg-green-500 hover:text-white rounded-xl transition-all duration-300 transform hover:scale-105"
+            >
               <div className="text-center">
                 <Award className="h-6 w-6 mx-auto mb-1" />
                 <span className="text-sm font-semibold">View Achievements</span>
               </div>
             </Button>
 
-            <Button onClick={() => handleNavigateToSection('profile')} variant="outline" className="h-20 border-2 border-purple-500 text-purple-600 hover:bg-purple-500 hover:text-white rounded-xl transition-all duration-300 transform hover:scale-105">
+            <Button 
+              onClick={() => handleNavigateToSection('profile')} 
+              variant="outline" 
+              className="h-20 border-2 border-purple-500 text-purple-600 hover:bg-purple-500 hover:text-white rounded-xl transition-all duration-300 transform hover:scale-105"
+            >
               <div className="text-center">
                 <Settings className="h-6 w-6 mx-auto mb-1" />
                 <span className="text-sm font-semibold">Profile Settings</span>
@@ -438,6 +492,8 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
           </div>
         </CardContent>
       </Card>
-    </div>;
+    </div>
+  );
 };
+
 export default LearnerDashboard;

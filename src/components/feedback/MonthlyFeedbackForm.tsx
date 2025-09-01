@@ -6,9 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { FileText, Send, Calendar, Star, User, MessageSquare, AlertTriangle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { usePerformancePoints } from '@/hooks/usePerformancePoints';
+import { Calendar, Clock, CheckCircle, Star, User, FileText, AlertTriangle, Send } from 'lucide-react';
 interface FeedbackSubmission {
   id: string;
   month: number;
@@ -21,10 +23,9 @@ interface FeedbackSubmission {
   mentor_rating?: number | null;
 }
 const MonthlyFeedbackForm = () => {
-  const {
-    user,
-    profile
-  } = useAuth();
+  const { user, profile } = useAuth();
+  const { toast } = useToast();
+  const { awardPoints } = usePerformancePoints();
   const [loading, setLoading] = useState(false);
   const [submissions, setSubmissions] = useState<FeedbackSubmission[]>([]);
   const [currentMonth] = useState(new Date().getMonth() + 1);
@@ -104,24 +105,25 @@ const MonthlyFeedbackForm = () => {
       }
       if (result.error) throw result.error;
 
-      // Award points for submission
-      await supabase.from('achievements').insert({
-        learner_id: user.id,
-        badge_type: 'monthly_submission',
-        badge_name: 'Monthly Report Submitted',
-        description: `Successfully submitted monthly report for ${new Date(currentYear, currentMonth - 1).toLocaleDateString('en-US', {
-          month: 'long',
-          year: 'numeric'
-        })}`,
-        points_awarded: 10,
-        badge_color: '#10B981',
-        badge_icon: 'file-text'
+      // Award performance-based points for submission
+      await awardPoints(
+        'feedback_submission',
+        10,
+        `Monthly Feedback - ${new Date(currentYear, currentMonth - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`
+      );
+
+      toast({
+        title: "Success",
+        description: "Monthly feedback submitted successfully!",
       });
-      toast.success('Monthly feedback submitted successfully!');
       fetchSubmissions();
       checkCurrentMonthSubmission();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to submit feedback');
+      toast({
+        title: "Error",
+        description: error.message || "Failed to submit feedback",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
