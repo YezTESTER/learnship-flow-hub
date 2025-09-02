@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useUnsavedChanges } from '@/contexts/UnsavedChangesContext';
+import { useUnsavedChanges } from '@/contexts/UnsavedChanges Context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { FileText, Download, Plus, Trash2, User, Award, Briefcase, GraduationCap, Eye, Edit, Save, Upload, AlertTriangle } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-interface CVData {
+import ModernCVPreview from './ModernCVPreview';
+export interface CVData {
   id?: string;
   title: string;
   is_published: boolean;
@@ -374,7 +375,43 @@ const CVBuilder = () => {
     cv
   }: {
     cv: CVData;
-  }) => <div className="bg-white p-4 sm:p-8 w-full max-w-4xl mx-auto">
+  }) => {
+    const [showModern, setShowModern] = useState(false);
+
+    if (showModern) {
+      const ModernCVPreview = React.lazy(() => import('./ModernCVPreview'));
+      return (
+        <React.Suspense fallback={<div className="animate-pulse bg-gray-200 h-96 rounded-lg"></div>}>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold">Modern CV Preview</h3>
+              <Button 
+                onClick={() => setShowModern(false)} 
+                variant="outline" 
+                size="sm"
+              >
+                Switch to Basic View
+              </Button>
+            </div>
+            <ModernCVPreview cv={cv} />
+          </div>
+        </React.Suspense>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-semibold">Basic CV Preview</h3>
+          <Button 
+            onClick={() => setShowModern(true)} 
+            variant="outline" 
+            size="sm"
+          >
+            Switch to Modern View
+          </Button>
+        </div>
+        <div className="bg-white p-4 sm:p-8 w-full max-w-4xl mx-auto">
       {/* Header with photo and contact info */}
       <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-6 mb-6 border-b pb-4">
         <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
@@ -436,10 +473,14 @@ const CVBuilder = () => {
                 <p className="text-gray-600">{ref.phone} | {ref.email}</p>
               </div>)}
           </div>
-        </div>}
-    </div>;
+        </div>
+      </div>
+    );
+  };
+
   if (showPreview && currentCV) {
-    return <div className="max-w-7xl mx-auto space-y-4 px-4 sm:px-6">
+    return (
+      <div className="max-w-7xl mx-auto space-y-4 px-4 sm:px-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
             CV Preview: {currentCV.title}
@@ -457,10 +498,13 @@ const CVBuilder = () => {
         <div className="overflow-x-auto">
           <CVPreview cv={currentCV} />
         </div>
-      </div>;
+      </div>
+    );
   }
+
   if (!isEditing) {
-    return <div className="max-w-6xl mx-auto space-y-4 px-4 sm:px-6">
+    return (
+      <div className="max-w-6xl mx-auto space-y-4 px-4 sm:px-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
             My CVs
@@ -572,9 +616,12 @@ const CVBuilder = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      </div>;
+      </div>
+    );
   }
-  return <div className="max-w-6xl mx-auto space-y-4 sm:px-6 px-0">
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-4 sm:px-6 px-0">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
           {currentCV?.id ? 'Edit CV' : 'Create New CV'}
@@ -1070,6 +1117,8 @@ const CVBuilder = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>;
+    </div>
+  );
 };
+
 export default CVBuilder;
