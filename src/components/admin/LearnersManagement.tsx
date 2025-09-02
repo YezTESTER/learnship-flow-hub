@@ -59,8 +59,10 @@ const LearnersManagement: React.FC = () => {
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
   const [showLearnerProfile, setShowLearnerProfile] = useState(false);
   const [showMessageDialog, setShowMessageDialog] = useState(false);
+  const [showPointsDialog, setShowPointsDialog] = useState(false);
   const [newCategory, setNewCategory] = useState({ name: '', color: '#3B82F6', description: '' });
   const [messageData, setMessageData] = useState({ title: '', message: '' });
+  const [pointsData, setPointsData] = useState({ points: 0, reason: '', category: 'manual_award' });
   const [messageHistory, setMessageHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -341,6 +343,78 @@ const LearnersManagement: React.FC = () => {
     setMessageHistory(messages);
   };
 
+  const awardPoints = async () => {
+    if (!selectedLearner || !pointsData.points || !pointsData.reason.trim()) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+
+      // Create achievement record with admin-awarded points
+      const { error: achievementError } = await supabase
+        .from('achievements')
+        .insert({
+          learner_id: selectedLearner.id,
+          badge_type: pointsData.category,
+          badge_name: `Admin Award: ${pointsData.category.replace('_', ' ').toUpperCase()}`,
+          description: pointsData.reason,
+          points_awarded: pointsData.points,
+          badge_color: '#FFD700',
+          badge_icon: 'crown'
+        });
+
+      if (achievementError) throw achievementError;
+
+      // Update learner's total points
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          points: (selectedLearner.points || 0) + pointsData.points
+        })
+        .eq('id', selectedLearner.id);
+
+      if (updateError) throw updateError;
+
+      // Create notification to learner
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: selectedLearner.id,
+          title: `🎉 You've been awarded ${pointsData.points} points!`,
+          message: `Admin awarded you ${pointsData.points} points for: ${pointsData.reason}`,
+          type: 'achievement',
+          message_type: 'admin_message',
+          sender_id: userData.user?.id
+        });
+
+      if (notificationError) throw notificationError;
+
+      toast({
+        title: "Success",
+        description: `Awarded ${pointsData.points} points to ${selectedLearner.full_name}!`
+      });
+
+      setPointsData({ points: 0, reason: '', category: 'manual_award' });
+      setShowPointsDialog(false);
+      
+      // Refresh data to show updated points
+      fetchData();
+    } catch (error) {
+      console.error('Error awarding points:', error);
+      toast({
+        title: "Error",
+        description: "Failed to award points",
+        variant: "destructive"
+      });
+    }
+  };
+
   const LearnerCard = ({ learner }: { learner: ExtendedProfile }) => (
     <Card className="cursor-pointer hover:shadow-lg transition-all duration-200 transform hover:scale-105">
       <CardContent className="p-4">
@@ -602,12 +676,13 @@ const LearnersManagement: React.FC = () => {
               </TabsList>
 
               <TabsContent value="profile" className="space-y-4">
+                {/* Personal Information */}
                 <Card>
                   <CardHeader>
                     <CardTitle>Personal Information</CardTitle>
                   </CardHeader>
-                  <CardContent className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
+                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
                       <div className="flex items-center space-x-2">
                         <Mail className="w-4 h-4 text-muted-foreground" />
                         <span className="text-sm">{selectedLearner.email}</span>
@@ -620,8 +695,36 @@ const LearnersManagement: React.FC = () => {
                         <MapPin className="w-4 h-4 text-muted-foreground" />
                         <span className="text-sm">{selectedLearner.address || 'N/A'}</span>
                       </div>
+                      <div>
+                        <span className="text-sm font-medium">Date of Birth:</span>
+                        <span className="text-sm ml-2">{selectedLearner.date_of_birth || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium">Gender:</span>
+                        <span className="text-sm ml-2">{selectedLearner.gender || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium">Race:</span>
+                        <span className="text-sm ml-2">{selectedLearner.race || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium">Nationality:</span>
+                        <span className="text-sm ml-2">{selectedLearner.nationality || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium">Area of Residence:</span>
+                        <span className="text-sm ml-2">{selectedLearner.area_of_residence || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium">Languages:</span>
+                        <span className="text-sm ml-2">
+                          {selectedLearner.languages && selectedLearner.languages.length > 0 
+                            ? selectedLearner.languages.join(', ') 
+                            : 'N/A'}
+                        </span>
+                      </div>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-4">
                       <div>
                         <span className="text-sm font-medium">ID Number:</span>
                         <span className="text-sm ml-2">{selectedLearner.id_number || 'N/A'}</span>
@@ -633,6 +736,123 @@ const LearnersManagement: React.FC = () => {
                       <div>
                         <span className="text-sm font-medium">Employer:</span>
                         <span className="text-sm ml-2">{selectedLearner.employer_name || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium">Start Date:</span>
+                        <span className="text-sm ml-2">{selectedLearner.start_date || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium">End Date:</span>
+                        <span className="text-sm ml-2">{selectedLearner.end_date || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium">Has Disability:</span>
+                        <span className="text-sm ml-2">{selectedLearner.has_disability ? 'Yes' : 'No'}</span>
+                      </div>
+                      {selectedLearner.has_disability && selectedLearner.disability_description && (
+                        <div>
+                          <span className="text-sm font-medium">Disability Description:</span>
+                          <span className="text-sm ml-2">{selectedLearner.disability_description}</span>
+                        </div>
+                      )}
+                      <div>
+                        <span className="text-sm font-medium">Has Driver's License:</span>
+                        <span className="text-sm ml-2">{selectedLearner.has_drivers_license ? 'Yes' : 'No'}</span>
+                      </div>
+                      {selectedLearner.has_drivers_license && selectedLearner.license_codes && selectedLearner.license_codes.length > 0 && (
+                        <div>
+                          <span className="text-sm font-medium">License Codes:</span>
+                          <span className="text-sm ml-2">{selectedLearner.license_codes.join(', ')}</span>
+                        </div>
+                      )}
+                      <div>
+                        <span className="text-sm font-medium">Has Own Transport:</span>
+                        <span className="text-sm ml-2">{selectedLearner.has_own_transport ? 'Yes' : 'No'}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Emergency Contact */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Emergency Contact</CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-sm font-medium">Emergency Contact:</span>
+                      <span className="text-sm ml-2">{selectedLearner.emergency_contact || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium">Emergency Phone:</span>
+                      <span className="text-sm ml-2">{selectedLearner.emergency_phone || 'N/A'}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Transport Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Transport Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div>
+                      <span className="text-sm font-medium">Has Own Transport:</span>
+                      <span className="text-sm ml-2">{selectedLearner.has_own_transport ? 'Yes' : 'No'}</span>
+                    </div>
+                    {!selectedLearner.has_own_transport && selectedLearner.public_transport_types && selectedLearner.public_transport_types.length > 0 && (
+                      <div>
+                        <span className="text-sm font-medium">Public Transport Types:</span>
+                        <span className="text-sm ml-2">{selectedLearner.public_transport_types.join(', ')}</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Financial Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Financial Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-sm font-medium">Receives Stipend:</span>
+                      <span className="text-sm ml-2">{selectedLearner.receives_stipend ? 'Yes' : 'No'}</span>
+                    </div>
+                    {selectedLearner.receives_stipend && selectedLearner.stipend_amount && (
+                      <div>
+                        <span className="text-sm font-medium">Stipend Amount:</span>
+                        <span className="text-sm ml-2">R{selectedLearner.stipend_amount}</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Compliance Status */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Compliance Status</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Overall Compliance Score:</span>
+                        <span className="text-lg font-bold text-primary">{(selectedLearner.compliance_score || 0).toFixed(1)}%</span>
+                      </div>
+                      <Progress value={selectedLearner.compliance_score || 0} className="h-2" />
+                      <div className="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                          <div className="text-2xl font-bold text-blue-600">{selectedLearner.feedback_submissions?.length || 0}</div>
+                          <div className="text-xs text-muted-foreground">Feedback Forms</div>
+                        </div>
+                        <div>
+                          <div className="text-2xl font-bold text-green-600">{selectedLearner.documents?.length || 0}</div>
+                          <div className="text-xs text-muted-foreground">Documents</div>
+                        </div>
+                        <div>
+                          <div className="text-2xl font-bold text-purple-600">{selectedLearner.achievements?.length || 0}</div>
+                          <div className="text-xs text-muted-foreground">Achievements</div>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -704,14 +924,26 @@ const LearnersManagement: React.FC = () => {
               <TabsContent value="achievements" className="space-y-4">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Achievements & Points</CardTitle>
+                    <CardTitle className="flex items-center justify-between">
+                      Achievements & Points
+                      <Button
+                        size="sm"
+                        onClick={() => setShowPointsDialog(true)}
+                        className="ml-auto"
+                      >
+                        <Award className="w-4 h-4 mr-2" />
+                        Award Points
+                      </Button>
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="mb-4">
-                      <div className="flex items-center justify-between">
+                    <div className="mb-6">
+                      <div className="flex items-center justify-between mb-2">
                         <span className="text-lg font-semibold">Total Points</span>
-                        <span className="text-2xl font-bold text-primary">{selectedLearner.points || 0}</span>
+                        <span className="text-3xl font-bold text-primary">{selectedLearner.points || 0}</span>
                       </div>
+                      <Progress value={(selectedLearner.points || 0) / 10} className="h-2" />
+                      <p className="text-xs text-muted-foreground mt-1">Points reflect performance and compliance</p>
                     </div>
                     <div className="space-y-3">
                       {selectedLearner.achievements?.map(achievement => (
@@ -873,6 +1105,62 @@ const LearnersManagement: React.FC = () => {
               <Button onClick={sendMessage}>
                 <MessageCircle className="w-4 h-4 mr-2" />
                 Send Message
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Award Points Dialog */}
+      <Dialog open={showPointsDialog} onOpenChange={setShowPointsDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Award Points to {selectedLearner?.full_name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Points to Award</label>
+              <Input
+                type="number"
+                min="1"
+                max="1000"
+                value={pointsData.points}
+                onChange={(e) => setPointsData(prev => ({ ...prev, points: parseInt(e.target.value) || 0 }))}
+                placeholder="Enter points amount"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Category</label>
+              <Select value={pointsData.category} onValueChange={(value) => setPointsData(prev => ({ ...prev, category: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manual_award">Manual Award</SelectItem>
+                  <SelectItem value="exceptional_performance">Exceptional Performance</SelectItem>
+                  <SelectItem value="early_submission">Early Submission</SelectItem>
+                  <SelectItem value="leadership">Leadership</SelectItem>
+                  <SelectItem value="initiative">Initiative</SelectItem>
+                  <SelectItem value="compliance_bonus">Compliance Bonus</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Reason</label>
+              <Textarea
+                value={pointsData.reason}
+                onChange={(e) => setPointsData(prev => ({ ...prev, reason: e.target.value }))}
+                placeholder="Explain why these points are being awarded"
+                rows={3}
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setShowPointsDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={awardPoints}>
+                <Award className="w-4 h-4 mr-2" />
+                Award Points
               </Button>
             </div>
           </div>
