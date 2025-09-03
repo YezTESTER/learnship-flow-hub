@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { User, Mail, Phone, MapPin, Calendar, Award, Briefcase, GraduationCap, Palette } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Calendar, Award, Briefcase, GraduationCap, Palette, Download } from 'lucide-react';
 import { CVData } from './CVBuilder';
+import { PDFDownloadDialog } from './PDFDownloadDialog';
+import { CVTemplate } from '@/lib/pdfGenerator';
 
 interface ModernCVPreviewProps {
   cv: CVData;
@@ -11,6 +13,7 @@ type TemplateType = 'professional' | 'modern' | 'creative' | 'minimal';
 
 export const ModernCVPreview: React.FC<ModernCVPreviewProps> = ({ cv }) => {
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateType>('professional');
+  const [showPDFDialog, setShowPDFDialog] = useState(false);
 
   const templates = [
     { id: 'professional', name: 'Professional', color: 'blue' },
@@ -485,26 +488,36 @@ export const ModernCVPreview: React.FC<ModernCVPreviewProps> = ({ cv }) => {
   return (
     <div className="space-y-6">
       {/* Template Selector */}
-      <div className="flex justify-center space-x-4 p-4 bg-gray-50 rounded-lg">
-        <div className="flex items-center space-x-2 mr-4">
-          <Palette className="h-5 w-5 text-gray-600" />
-          <span className="text-sm font-medium text-gray-700">Choose Template:</span>
+      <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <Palette className="h-5 w-5 text-gray-600" />
+            <span className="text-sm font-medium text-gray-700">Choose Template:</span>
+          </div>
+          {templates.map((template) => (
+            <Button
+              key={template.id}
+              variant={selectedTemplate === template.id ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedTemplate(template.id as TemplateType)}
+              className={`text-xs ${
+                selectedTemplate === template.id 
+                  ? `bg-${template.color}-600 hover:bg-${template.color}-700` 
+                  : ""
+              }`}
+            >
+              {template.name}
+            </Button>
+          ))}
         </div>
-        {templates.map((template) => (
-          <Button
-            key={template.id}
-            variant={selectedTemplate === template.id ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedTemplate(template.id as TemplateType)}
-            className={`text-xs ${
-              selectedTemplate === template.id 
-                ? `bg-${template.color}-600 hover:bg-${template.color}-700` 
-                : ""
-            }`}
-          >
-            {template.name}
-          </Button>
-        ))}
+        <Button
+          onClick={() => setShowPDFDialog(true)}
+          className="bg-green-600 hover:bg-green-700 text-sm"
+          size="sm"
+        >
+          <Download className="mr-2 h-4 w-4" />
+          Download PDF
+        </Button>
       </div>
 
       {/* CV Preview */}
@@ -558,6 +571,14 @@ export const ModernCVPreview: React.FC<ModernCVPreviewProps> = ({ cv }) => {
           }
         `
       }} />
+
+      {/* PDF Download Dialog */}
+      <PDFDownloadDialog
+        open={showPDFDialog}
+        onOpenChange={setShowPDFDialog}
+        cv={cv}
+        currentTemplate={selectedTemplate as CVTemplate}
+      />
     </div>
   );
 };

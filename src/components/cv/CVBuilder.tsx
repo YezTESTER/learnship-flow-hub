@@ -11,6 +11,8 @@ import { toast } from 'sonner';
 import { FileText, Download, Plus, Trash2, User, Award, Briefcase, GraduationCap, Eye, Edit, Save, Upload, AlertTriangle } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import ModernCVPreview from './ModernCVPreview';
+import { PDFDownloadDialog } from './PDFDownloadDialog';
+import { CVTemplate } from '@/lib/pdfGenerator';
 export interface CVData {
   id?: string;
   title: string;
@@ -80,6 +82,9 @@ const CVBuilder = () => {
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
+  const [showPDFDialog, setShowPDFDialog] = useState(false);
+  const [selectedCVForPDF, setSelectedCVForPDF] = useState<CVData | null>(null);
+  const [currentTemplate, setCurrentTemplate] = useState<CVTemplate>('basic');
   const defaultCVData: CVData = {
     title: 'My CV',
     is_published: false,
@@ -511,7 +516,12 @@ const CVBuilder = () => {
             CV Preview: {currentCV.title}
           </h1>
           <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
-            <Button onClick={() => toast.info('PDF download coming soon!')} className="bg-green-600 hover:bg-green-700 text-sm">
+            <Button onClick={() => {
+              if (currentCV) {
+                setSelectedCVForPDF(currentCV);
+                setShowPDFDialog(true);
+              }
+            }} className="bg-green-600 hover:bg-green-700 text-sm">
               <Download className="mr-2 h-4 w-4" />
               Download PDF
             </Button>
@@ -564,7 +574,10 @@ const CVBuilder = () => {
                     <Eye className="mr-2 h-4 w-4" />
                     Preview
                   </Button>
-                  <Button onClick={() => toast.info('PDF download coming soon!')} variant="outline" className="flex-1 text-sm">
+                  <Button onClick={() => {
+                    setSelectedCVForPDF(cv);
+                    setShowPDFDialog(true);
+                  }} variant="outline" className="flex-1 text-sm">
                     <Download className="mr-2 h-4 w-4" />
                     PDF
                   </Button>
@@ -1142,6 +1155,16 @@ const CVBuilder = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* PDF Download Dialog */}
+      {selectedCVForPDF && (
+        <PDFDownloadDialog
+          open={showPDFDialog}
+          onOpenChange={setShowPDFDialog}
+          cv={selectedCVForPDF}
+          currentTemplate={currentTemplate}
+        />
+      )}
     </div>
   );
 };
