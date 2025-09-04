@@ -486,48 +486,46 @@ export const ModernCVPreview: React.FC<ModernCVPreviewProps> = ({ cv }) => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Template Selector */}
-      <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <Palette className="h-5 w-5 text-gray-600" />
-            <span className="text-sm font-medium text-gray-700">Choose Template:</span>
-          </div>
-          {templates.map((template) => (
+    <div className="w-full mx-auto space-y-6">
+      {/* Template Selection & Preview */}
+      <div className="flex flex-col xl:flex-row gap-6">
+        {/* Template Selector */}
+        <div className="xl:w-80 flex-shrink-0 p-4 bg-gray-50 rounded-lg">
+          <div className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <Palette className="h-5 w-5 text-gray-600" />
+              <span className="text-sm font-medium text-gray-700">Choose Template:</span>
+            </div>
+            <div className="space-y-2">
+              {templates.map((template) => (
+                <Button
+                  key={template.id}
+                  variant={selectedTemplate === template.id ? "default" : "outline"}
+                  onClick={() => setSelectedTemplate(template.id as TemplateType)}
+                  className="w-full justify-start"
+                >
+                  {template.name}
+                </Button>
+              ))}
+            </div>
             <Button
-              key={template.id}
-              variant={selectedTemplate === template.id ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedTemplate(template.id as TemplateType)}
-              className={`text-xs ${
-                selectedTemplate === template.id 
-                  ? `bg-${template.color}-600 hover:bg-${template.color}-700` 
-                  : ""
-              }`}
+              onClick={() => setShowPDFDialog(true)}
+              className="w-full bg-green-600 hover:bg-green-700 mt-4"
             >
-              {template.name}
+              <Download className="mr-2 h-4 w-4" />
+              Download PDF
             </Button>
-          ))}
+          </div>
         </div>
-        <Button
-          onClick={() => setShowPDFDialog(true)}
-          className="bg-green-600 hover:bg-green-700 text-sm"
-          size="sm"
-        >
-          <Download className="mr-2 h-4 w-4" />
-          Download PDF
-        </Button>
-      </div>
 
-      {/* CV Preview */}
-      <div className="cv-container" style={{ 
-        transform: 'scale(0.7)', 
-        transformOrigin: 'top center',
-        margin: '0 auto',
-        width: 'fit-content'
-      }}>
-        {renderTemplate()}
+        {/* CV Preview - Now takes remaining space and shows at readable size */}
+        <div className="flex-1 min-w-0">
+          <div className="w-full overflow-auto bg-gray-50 p-4 rounded-lg">
+            <div className="mx-auto" style={{ width: '210mm', backgroundColor: 'white', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+              {renderTemplate()}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Print Styles */}

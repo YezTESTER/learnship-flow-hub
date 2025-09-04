@@ -65,8 +65,8 @@ class PDFGenerator {
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; line-height: 1.5; color: #1f2937; }
-        .container { width: 210mm; min-height: 297mm; margin: 0 auto; background: white; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        body { font-family: 'Inter', sans-serif; line-height: 1.5; color: #1f2937; background: white; }
+        .container { width: 210mm; min-height: 297mm; margin: 0; padding: 0; background: white; }
         .flex { display: flex; }
         .items-center { align-items: center; }
         .items-start { align-items: flex-start; }
