@@ -113,19 +113,74 @@ class PDFGenerator {
         return `
           ${baseStyles}
           <style>
-            .prof-header { background: linear-gradient(to right, #2563eb, #1d4ed8); color: white; padding: 32px; }
-            .prof-avatar { width: 96px; height: 96px; border-radius: 50%; background: rgba(255, 255, 255, 0.2); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
+            .prof-header { 
+              background: linear-gradient(to right, #2563eb, #1d4ed8); 
+              color: white; 
+              padding: 32px; 
+            }
+            .prof-avatar { 
+              width: 96px; 
+              height: 96px; 
+              border-radius: 50%; 
+              background: rgba(255, 255, 255, 0.2); 
+              display: flex; 
+              align-items: center; 
+              justify-content: center; 
+              overflow: hidden; 
+              flex-shrink: 0; 
+            }
             .prof-avatar img { width: 100%; height: 100%; object-fit: cover; }
             .prof-text-blue { color: #bfdbfe; }
-            .prof-main { display: flex; }
-            .prof-content { flex: 1; padding: 32px; }
-            .prof-sidebar { width: 320px; background: #f9fafb; padding: 32px; }
-            .prof-section-title { font-size: 24px; font-weight: 700; color: #1f2937; margin-bottom: 24px; border-bottom: 2px solid #2563eb; padding-bottom: 8px; }
-            .prof-sidebar-title { font-size: 18px; font-weight: 700; color: #1f2937; margin-bottom: 16px; display: flex; align-items: center; }
-            .prof-sidebar-icon { width: 20px; height: 20px; margin-right: 8px; color: #2563eb; }
+            .prof-main { display: flex; background: white; }
+            .prof-content { 
+              flex: 1; 
+              padding: 32px; 
+              background: white; 
+            }
+            .prof-sidebar { 
+              width: 320px; 
+              background: #f9fafb; 
+              padding: 32px; 
+            }
+            .prof-section-title { 
+              font-size: 24px; 
+              font-weight: 700; 
+              color: #1f2937; 
+              margin-bottom: 24px; 
+              border-bottom: 2px solid #2563eb; 
+              padding-bottom: 8px; 
+            }
+            .prof-sidebar-title { 
+              font-size: 18px; 
+              font-weight: 700; 
+              color: #1f2937; 
+              margin-bottom: 16px; 
+              display: flex; 
+              align-items: center; 
+            }
+            .prof-sidebar-icon { 
+              width: 20px; 
+              height: 20px; 
+              margin-right: 8px; 
+              color: #2563eb; 
+            }
             .prof-company { color: #2563eb; font-weight: 500; }
-            .prof-date { font-size: 14px; color: #6b7280; display: flex; align-items: center; }
-            .prof-skill { display: inline-block; background: #dbeafe; color: #1e40af; padding: 4px 12px; margin: 2px; border-radius: 16px; font-size: 12px; font-weight: 500; }
+            .prof-date { 
+              font-size: 14px; 
+              color: #6b7280; 
+              display: flex; 
+              align-items: center; 
+            }
+            .prof-skill { 
+              display: inline-block; 
+              background: #dbeafe; 
+              color: #1e40af; 
+              padding: 4px 12px; 
+              margin: 2px; 
+              border-radius: 16px; 
+              font-size: 12px; 
+              font-weight: 500; 
+            }
           </style>
           <div class="container">
             <div class="prof-header">
