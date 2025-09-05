@@ -390,7 +390,7 @@ const CVBuilder = () => {
 
   if (showPreview && currentCV) {
     return (
-      <div className="max-w-6xl mx-auto space-y-3 px-2 sm:px-4">
+      <div className="max-w-6xl ml-0 space-y-3 px-2 sm:px-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-2">
           <h1 className="text-base sm:text-lg font-medium bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
             CV Preview: {currentCV.title}
