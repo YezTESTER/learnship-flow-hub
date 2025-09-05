@@ -381,16 +381,12 @@ const CVBuilder = () => {
   }: {
     cv: CVData;
   }) => {
-    return (
-      <div className="w-full">
+    return <div className="w-full">
         <ModernCVPreview cv={cv} />
-      </div>
-    );
+      </div>;
   };
-
   if (showPreview && currentCV) {
-    return (
-      <div className="max-w-6xl ml-0 space-y-3 px-2 sm:px-4">
+    return <div className="max-w-6xl ml-0 space-y-3 px-2 sm:px-0">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-2">
           <h1 className="text-base sm:text-lg font-medium bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
             CV Preview: {currentCV.title}
@@ -404,13 +400,10 @@ const CVBuilder = () => {
         <div className="w-full">
           <CVPreview cv={currentCV} />
         </div>
-      </div>
-    );
+      </div>;
   }
-
   if (!isEditing) {
-    return (
-      <div className="max-w-6xl mx-auto space-y-4 px-4 sm:px-6">
+    return <div className="max-w-6xl mx-auto space-y-4 px-4 sm:px-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
             My CVs
@@ -446,9 +439,9 @@ const CVBuilder = () => {
                     Preview
                   </Button>
                   <Button onClick={() => {
-                    setSelectedCVForPDF(cv);
-                    setShowPDFDialog(true);
-                  }} variant="outline" className="flex-1 text-sm">
+                setSelectedCVForPDF(cv);
+                setShowPDFDialog(true);
+              }} variant="outline" className="flex-1 text-sm">
                     <Download className="mr-2 h-4 w-4" />
                     PDF
                   </Button>
@@ -525,12 +518,9 @@ const CVBuilder = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      </div>
-    );
+      </div>;
   }
-
-  return (
-    <div className="max-w-6xl mx-auto space-y-4 sm:px-6 px-0">
+  return <div className="max-w-6xl mx-auto space-y-4 sm:px-6 px-0">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
           {currentCV?.id ? 'Edit CV' : 'Create New CV'}
@@ -1028,16 +1018,7 @@ const CVBuilder = () => {
       </AlertDialog>
 
       {/* PDF Download Dialog */}
-      {selectedCVForPDF && (
-        <PDFDownloadDialog
-          open={showPDFDialog}
-          onOpenChange={setShowPDFDialog}
-          cv={selectedCVForPDF}
-          currentTemplate={currentTemplate}
-        />
-      )}
-    </div>
-  );
+      {selectedCVForPDF && <PDFDownloadDialog open={showPDFDialog} onOpenChange={setShowPDFDialog} cv={selectedCVForPDF} currentTemplate={currentTemplate} />}
+    </div>;
 };
-
 export default CVBuilder;
