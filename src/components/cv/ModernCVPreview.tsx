@@ -486,23 +486,23 @@ export const ModernCVPreview: React.FC<ModernCVPreviewProps> = ({ cv }) => {
   };
 
   return (
-    <div className="w-full mx-auto space-y-6">
+    <div className="w-full mx-auto space-y-4">
       {/* Template Selection & Preview */}
-      <div className="flex flex-col xl:flex-row gap-6">
+      <div className="flex flex-col xl:flex-row gap-4">
         {/* Template Selector */}
-        <div className="xl:w-64 flex-shrink-0 p-4 bg-gray-50 rounded-lg">
-          <div className="space-y-4">
+        <div className="xl:w-56 flex-shrink-0 p-3 bg-gray-50 rounded-lg">
+          <div className="space-y-3">
             <div className="flex items-center space-x-2">
-              <Palette className="h-5 w-5 text-gray-600" />
-              <span className="text-sm font-medium text-gray-700">Choose Template:</span>
+              <Palette className="h-4 w-4 text-gray-600" />
+              <span className="text-xs font-medium text-gray-700">Choose Template:</span>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {templates.map((template) => (
                 <Button
                   key={template.id}
                   variant={selectedTemplate === template.id ? "default" : "outline"}
                   onClick={() => setSelectedTemplate(template.id as TemplateType)}
-                  className="w-full justify-start text-sm px-3 py-2"
+                  className="w-full justify-start text-xs px-2 py-1.5 h-auto"
                 >
                   {template.name}
                 </Button>
@@ -510,9 +510,9 @@ export const ModernCVPreview: React.FC<ModernCVPreviewProps> = ({ cv }) => {
             </div>
             <Button
               onClick={() => setShowPDFDialog(true)}
-              className="w-full bg-green-600 hover:bg-green-700 mt-4"
+              className="w-full bg-green-600 hover:bg-green-700 mt-3 text-xs py-1.5"
             >
-              <Download className="mr-2 h-4 w-4" />
+              <Download className="mr-1.5 h-3 w-3" />
               Download PDF
             </Button>
           </div>

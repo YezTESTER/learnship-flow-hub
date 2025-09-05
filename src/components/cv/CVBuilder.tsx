@@ -390,18 +390,18 @@ const CVBuilder = () => {
 
   if (showPreview && currentCV) {
     return (
-      <div className="max-w-7xl mx-auto space-y-4 px-4 sm:px-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <h1 className="text-lg sm:text-xl font-semibold bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
+      <div className="max-w-6xl mx-auto space-y-3 px-2 sm:px-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-2">
+          <h1 className="text-base sm:text-lg font-medium bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
             CV Preview: {currentCV.title}
           </h1>
           <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
-            <Button onClick={() => setShowPreview(false)} variant="outline" className="text-sm">
+            <Button onClick={() => setShowPreview(false)} variant="outline" className="text-xs px-3 py-1.5">
               Back to Edit
             </Button>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className="w-full">
           <CVPreview cv={currentCV} />
         </div>
       </div>
