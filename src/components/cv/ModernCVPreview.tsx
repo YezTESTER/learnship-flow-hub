@@ -490,7 +490,7 @@ export const ModernCVPreview: React.FC<ModernCVPreviewProps> = ({ cv }) => {
       {/* Template Selection & Preview */}
       <div className="flex flex-col xl:flex-row gap-6">
         {/* Template Selector */}
-        <div className="xl:w-80 flex-shrink-0 p-4 bg-gray-50 rounded-lg">
+        <div className="xl:w-64 flex-shrink-0 p-4 bg-gray-50 rounded-lg">
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
               <Palette className="h-5 w-5 text-gray-600" />
@@ -502,7 +502,7 @@ export const ModernCVPreview: React.FC<ModernCVPreviewProps> = ({ cv }) => {
                   key={template.id}
                   variant={selectedTemplate === template.id ? "default" : "outline"}
                   onClick={() => setSelectedTemplate(template.id as TemplateType)}
-                  className="w-full justify-start"
+                  className="w-full justify-start text-sm px-3 py-2"
                 >
                   {template.name}
                 </Button>

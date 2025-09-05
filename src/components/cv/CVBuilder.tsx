@@ -392,19 +392,10 @@ const CVBuilder = () => {
     return (
       <div className="max-w-7xl mx-auto space-y-4 px-4 sm:px-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
+          <h1 className="text-lg sm:text-xl font-semibold bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
             CV Preview: {currentCV.title}
           </h1>
           <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
-            <Button onClick={() => {
-              if (currentCV) {
-                setSelectedCVForPDF(currentCV);
-                setShowPDFDialog(true);
-              }
-            }} className="bg-green-600 hover:bg-green-700 text-sm">
-              <Download className="mr-2 h-4 w-4" />
-              Download PDF
-            </Button>
             <Button onClick={() => setShowPreview(false)} variant="outline" className="text-sm">
               Back to Edit
             </Button>
