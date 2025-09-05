@@ -168,7 +168,7 @@ const Dashboard = () => {
         <Sidebar activeSection={activeSection} setActiveSection={setActiveSection} />
         
         <main className="flex-1 md:ml-64 pt-16">
-          <div className="pb-4 md:pb-8 px-[17px] pt-2">
+          <div className="pb-4 md:pb-8 px-[17px] pt-0">
             <div className="mb-8">
               <h1 className="text-3xl font-bold bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
                 {getSectionTitle()}
