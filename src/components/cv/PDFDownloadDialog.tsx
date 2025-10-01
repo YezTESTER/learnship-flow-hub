@@ -27,13 +27,6 @@ export const PDFDownloadDialog: React.FC<PDFDownloadDialogProps> = ({
 
   const templates = [
     {
-      id: 'basic' as CVTemplate,
-      name: 'Basic',
-      description: 'Clean and simple layout',
-      icon: FileText,
-      preview: 'Simple header with sections below'
-    },
-    {
       id: 'professional' as CVTemplate,
       name: 'Professional',
       description: 'Blue gradient header, structured layout',

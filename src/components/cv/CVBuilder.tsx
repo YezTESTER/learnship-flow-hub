@@ -430,22 +430,13 @@ const CVBuilder = () => {
                   <Edit className="mr-2 h-4 w-4" />
                   Edit CV
                 </Button>
-                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-                  <Button onClick={() => {
+                <Button onClick={() => {
                 setCurrentCV(cv);
                 setShowPreview(true);
-              }} variant="outline" className="flex-1 text-sm">
-                    <Eye className="mr-2 h-4 w-4" />
-                    Preview
-                  </Button>
-                  <Button onClick={() => {
-                setSelectedCVForPDF(cv);
-                setShowPDFDialog(true);
-              }} variant="outline" className="flex-1 text-sm">
-                    <Download className="mr-2 h-4 w-4" />
-                    PDF
-                  </Button>
-                </div>
+              }} variant="outline" className="w-full text-sm">
+                  <Eye className="mr-2 h-4 w-4" />
+                  Preview
+                </Button>
                 <Button onClick={() => cv.id && publishCV(cv.id)} variant={cv.is_published ? "secondary" : "default"} className="w-full text-sm">
                   <Upload className="mr-2 h-4 w-4" />
                   {cv.is_published ? 'Unpublish CV' : 'Publish CV'}

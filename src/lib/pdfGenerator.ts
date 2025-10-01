@@ -65,10 +65,10 @@ class PDFGenerator {
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; line-height: 1.5; color: #1f2937; background: white; }
+        body { font-family: 'Inter', sans-serif; line-height: 1.6; color: #1f2937; background: white; }
         .container { width: 210mm; min-height: 297mm; margin: 0; padding: 0; background: white; }
-        svg { vertical-align: middle; display: inline-block; }
-        img { vertical-align: middle; }
+        svg { display: inline-block; vertical-align: -0.125em; }
+        img { display: inline-block; vertical-align: middle; }
         .flex { display: flex; }
         .items-center { align-items: center; }
         .items-start { align-items: flex-start; }
@@ -165,8 +165,9 @@ class PDFGenerator {
               height: 20px; 
               margin-right: 8px; 
               color: #2563eb; 
-              vertical-align: middle;
               display: inline-block;
+              vertical-align: -0.15em;
+              flex-shrink: 0;
             }
             .prof-company { color: #2563eb; font-weight: 500; }
             .prof-date { 
@@ -277,7 +278,7 @@ class PDFGenerator {
             .modern-avatar { width: 128px; height: 128px; border-radius: 8px; background: linear-gradient(to bottom right, #e0e7ff, #c7d2fe); display: flex; align-items: center; justify-content: center; overflow: hidden; }
             .modern-avatar img { width: 100%; height: 100%; object-fit: cover; }
             .modern-contact { color: #6b7280; }
-            .modern-icon { width: 16px; height: 16px; color: #6366f1; vertical-align: middle; display: inline-block; }
+            .modern-icon { width: 16px; height: 16px; color: #6366f1; display: inline-block; vertical-align: -0.125em; flex-shrink: 0; }
             .modern-section-header { display: flex; align-items: center; margin-bottom: 24px; }
             .modern-section-icon { width: 32px; height: 32px; background: #6366f1; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 12px; }
             .modern-section-title { font-size: 24px; font-weight: 300; color: #111827; }
