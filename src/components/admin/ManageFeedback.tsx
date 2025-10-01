@@ -5,14 +5,15 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar as CalendarIcon, Check, Star } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
+import { Calendar as CalendarIcon, Check, Star, Download, FileText } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { YearlyFeedbackOverview } from "./YearlyFeedbackOverview";
+import { adminPdfGenerator } from "@/lib/adminPdfGenerator";
 
 interface Profile {
   id: string;
@@ -43,14 +44,17 @@ const ManageFeedback: React.FC = () => {
   const [learners, setLearners] = useState<Profile[]>([]);
   const [search, setSearch] = useState("");
   const [selectedLearner, setSelectedLearner] = useState<Profile | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [open, setOpen] = useState(false);
   const [submission, setSubmission] = useState<FeedbackSubmission | null>(null);
   const [comments, setComments] = useState("");
   const [acknowledged, setAcknowledged] = useState(false);
   const [rating, setRating] = useState<number | null>(null);
-const [hoverRating, setHoverRating] = useState<number | null>(null);
-const [loading, setLoading] = useState(false);
+  const [hoverRating, setHoverRating] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [monthStatuses, setMonthStatuses] = useState<any[]>([]);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   useEffect(() => {
     const loadLearners = async () => {
@@ -80,12 +84,33 @@ const [loading, setLoading] = useState(false);
     );
   }, [learners, search]);
 
-  const month = selectedDate ? selectedDate.getMonth() + 1 : new Date().getMonth() + 1;
-  const year = selectedDate ? selectedDate.getFullYear() : new Date().getFullYear();
+  const month = selectedMonth;
+  const year = selectedYear;
 
-  const openLearner = (l: Profile) => {
+  const openLearner = async (l: Profile) => {
     setSelectedLearner(l);
     setOpen(true);
+    
+    // Fetch all submissions for the current year
+    const { data: yearSubmissions } = await supabase
+      .from("feedback_submissions")
+      .select("*")
+      .eq("learner_id", l.id)
+      .eq("year", selectedYear)
+      .order("month");
+
+    const statuses = Array.from({ length: 12 }, (_, i) => {
+      const monthNum = i + 1;
+      const submission = yearSubmissions?.find(s => s.month === monthNum);
+      return {
+        month: monthNum,
+        hasSubmission: !!submission,
+        status: submission?.status,
+        submittedAt: submission?.submitted_at
+      };
+    });
+
+    setMonthStatuses(statuses);
     setTimeout(fetchSubmission, 0);
   };
 
@@ -112,7 +137,32 @@ const [loading, setLoading] = useState(false);
   useEffect(() => {
     if (open) fetchSubmission();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate]);
+  }, [selectedMonth, selectedYear]);
+
+  const handleDownloadFeedbackPDF = async () => {
+    if (!submission || !selectedLearner) return;
+
+    setIsGeneratingPDF(true);
+    try {
+      await adminPdfGenerator.generateFeedbackPDF({
+        learnerName: selectedLearner.full_name,
+        month: submission.month,
+        year: submission.year,
+        status: submission.status,
+        submittedAt: submission.submitted_at,
+        dueDate: submission.due_date,
+        submissionData: submission.submission_data,
+        mentorRating: submission.mentor_rating,
+        mentorComments: submission.mentor_comments
+      });
+      toast.success('Feedback PDF downloaded successfully!');
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      toast.error('Failed to generate PDF');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
 
   const notifyLearner = async (learnerId: string, title: string, message: string, type: string = "info") => {
     const { error } = await supabase.rpc("create_notification", {
@@ -293,48 +343,65 @@ const [loading, setLoading] = useState(false);
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-5xl w-[95vw] max-h-[85vh] overflow-hidden">
+        <DialogContent className="max-w-6xl w-[95vw] max-h-[90vh] overflow-hidden">
           <DialogHeader>
-            <DialogTitle>
-              {selectedLearner ? `Feedback for ${selectedLearner.full_name}` : "Feedback"}
-            </DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle>
+                {selectedLearner ? `Feedback for ${selectedLearner.full_name}` : "Feedback"}
+              </DialogTitle>
+              {submission && (
+                <Button 
+                  onClick={handleDownloadFeedbackPDF} 
+                  disabled={isGeneratingPDF}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  {isGeneratingPDF ? 'Generating...' : 'Download PDF'}
+                </Button>
+              )}
+            </div>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="space-y-4">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {selectedDate
-                      ? selectedDate.toLocaleString("en-US", { month: "long", year: "numeric" })
-                      : "Pick month"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 z-50 bg-background shadow-lg border rounded-md" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={setSelectedDate}
-                    className="p-3 pointer-events-auto"
-                    captionLayout="dropdown"
-                  />
-                </PopoverContent>
-              </Popover>
-
-              <div className="mt-2 space-y-3 rounded-md border p-3">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm">Feedback received</div>
-                  <Switch checked={acknowledged} onCheckedChange={() => handleAcknowledge()} disabled={!submission || loading} />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Toggle to acknowledge and notify the learner.
-                </p>
-              </div>
+          <div className="space-y-4">
+            {/* Year Selection */}
+            <div className="flex items-center gap-4">
+              <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Year" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => (
+                    <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            <div className="lg:col-span-2">
-              <ScrollArea className="h-[60vh] pr-2">
+            {/* Yearly Overview */}
+            <YearlyFeedbackOverview
+              year={selectedYear}
+              monthStatuses={monthStatuses}
+              onMonthClick={setSelectedMonth}
+              selectedMonth={selectedMonth}
+            />
+
+            {/* Acknowledgement Switch */}
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Mark feedback as received</span>
+              </div>
+              <Switch 
+                checked={acknowledged} 
+                onCheckedChange={() => handleAcknowledge()} 
+                disabled={!submission || loading} 
+              />
+            </div>
+
+            {/* Feedback Details */}
+            <div>
+              <ScrollArea className="h-[45vh] pr-2">
                 <Card>
                   <CardHeader>
                     <CardTitle>

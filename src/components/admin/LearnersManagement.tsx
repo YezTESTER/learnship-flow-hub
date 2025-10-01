@@ -28,8 +28,13 @@ import {
   Phone,
   MapPin,
   CheckCircle,
-  Clock
+  Clock,
+  Download,
+  Eye
 } from 'lucide-react';
+import { AdminCVPreviewDialog } from './AdminCVPreviewDialog';
+import { adminPdfGenerator } from '@/lib/adminPdfGenerator';
+import { CVData } from '../cv/CVBuilder';
 
 type Profile = Tables<'profiles'>;
 type FeedbackSubmission = Tables<'feedback_submissions'>;
@@ -66,6 +71,9 @@ const LearnersManagement: React.FC = () => {
   const [messageHistory, setMessageHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const [showCVPreview, setShowCVPreview] = useState(false);
+  const [selectedCV, setSelectedCV] = useState<CVData | null>(null);
+  const [isGeneratingProfilePDF, setIsGeneratingProfilePDF] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -415,6 +423,93 @@ const LearnersManagement: React.FC = () => {
     }
   };
 
+  const handleDownloadProfilePDF = async () => {
+    if (!selectedLearner) return;
+
+    setIsGeneratingProfilePDF(true);
+    try {
+      await adminPdfGenerator.generateProfilePDF({
+        full_name: selectedLearner.full_name,
+        email: selectedLearner.email,
+        phone_number: selectedLearner.phone_number,
+        id_number: selectedLearner.id_number,
+        date_of_birth: selectedLearner.date_of_birth,
+        gender: selectedLearner.gender,
+        race: selectedLearner.race,
+        nationality: selectedLearner.nationality,
+        employer_name: selectedLearner.employer_name,
+        learnership_program: selectedLearner.learnership_program,
+        start_date: selectedLearner.start_date,
+        end_date: selectedLearner.end_date,
+        compliance_score: selectedLearner.compliance_score,
+        points: selectedLearner.points,
+        status: selectedLearner.status,
+        address: selectedLearner.address,
+        emergency_contact: selectedLearner.emergency_contact,
+        emergency_phone: selectedLearner.emergency_phone
+      });
+      toast({
+        title: "Success",
+        description: "Profile PDF downloaded successfully!"
+      });
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate PDF",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingProfilePDF(false);
+    }
+  };
+
+  const handleViewCV = (cv: CV) => {
+    // Convert CV from database format to CVData format
+    const cvData: CVData = {
+      title: cv.cv_name,
+      is_published: cv.is_published,
+      personal_info: cv.personal_info as any || {},
+      experience: cv.work_experience as any || [],
+      education: cv.education as any || [],
+      skills: cv.skills || [],
+      references: []
+    };
+    setSelectedCV(cvData);
+    setShowCVPreview(true);
+  };
+
+  const handleDownloadDocument = async (filePath: string, fileName: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from(filePath.split('/')[0])
+        .download(filePath.split('/').slice(1).join('/'));
+
+      if (error) throw error;
+
+      const url = URL.createObjectURL(data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Success",
+        description: "Document downloaded successfully"
+      });
+    } catch (error) {
+      console.error('Download error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to download document",
+        variant: "destructive"
+      });
+    }
+  };
+
   const LearnerCard = ({ learner }: { learner: ExtendedProfile }) => (
     <Card className="cursor-pointer hover:shadow-lg transition-all duration-200 transform hover:scale-105">
       <CardContent className="p-4">
@@ -640,28 +735,40 @@ const LearnersManagement: React.FC = () => {
       <Dialog open={showLearnerProfile} onOpenChange={setShowLearnerProfile}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center space-x-3">
-              <Avatar className="w-12 h-12">
-                <AvatarImage src={selectedLearner?.avatar_url || ''} alt={selectedLearner?.full_name} />
-                <AvatarFallback>
-                  {selectedLearner?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'L'}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <h3 className="text-xl font-bold">{selectedLearner?.full_name}</h3>
-                <p className="text-sm text-muted-foreground">{selectedLearner?.email}</p>
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center space-x-3">
+                <Avatar className="w-12 h-12">
+                  <AvatarImage src={selectedLearner?.avatar_url || ''} alt={selectedLearner?.full_name} />
+                  <AvatarFallback>
+                    {selectedLearner?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'L'}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <DialogTitle className="text-xl font-bold">{selectedLearner?.full_name}</DialogTitle>
+                  <p className="text-sm text-muted-foreground">{selectedLearner?.email}</p>
+                </div>
               </div>
-              <Button
-                size="sm"
-                onClick={() => {
-                  setShowMessageDialog(true);
-                }}
-                className="ml-auto"
-              >
-                <MessageCircle className="w-4 h-4 mr-2" />
-                Send Message
-              </Button>
-            </DialogTitle>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleDownloadProfilePDF}
+                  disabled={isGeneratingProfilePDF}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  {isGeneratingProfilePDF ? 'Generating...' : 'Download Profile'}
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setShowMessageDialog(true);
+                  }}
+                >
+                  <MessageCircle className="w-4 h-4 mr-2" />
+                  Send Message
+                </Button>
+              </div>
+            </div>
           </DialogHeader>
 
           {selectedLearner && (
@@ -911,11 +1018,19 @@ const LearnersManagement: React.FC = () => {
                               {document.uploaded_at && new Date(document.uploaded_at).toLocaleDateString()}
                             </p>
                           </div>
-                          <Button size="sm" variant="outline">
-                            View
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleDownloadDocument(document.file_path, document.file_name)}
+                          >
+                            <Download className="w-4 h-4 mr-1" />
+                            Download
                           </Button>
                         </div>
                       ))}
+                      {(!selectedLearner.documents || selectedLearner.documents.length === 0) && (
+                        <p className="text-sm text-muted-foreground text-center py-4">No documents uploaded yet</p>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -986,11 +1101,19 @@ const LearnersManagement: React.FC = () => {
                               Updated: {new Date(cv.updated_at).toLocaleDateString()}
                             </p>
                           </div>
-                          <Button size="sm" variant="outline">
-                            View CV
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleViewCV(cv)}
+                          >
+                            <Eye className="w-4 h-4 mr-1" />
+                            View
                           </Button>
                         </div>
                       ))}
+                      {(!selectedLearner.cvs || selectedLearner.cvs.filter(cv => cv.is_published).length === 0) && (
+                        <p className="text-sm text-muted-foreground text-center py-4">No published CVs yet</p>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -1166,6 +1289,16 @@ const LearnersManagement: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* CV Preview Dialog */}
+      {selectedCV && (
+        <AdminCVPreviewDialog
+          open={showCVPreview}
+          onOpenChange={setShowCVPreview}
+          cv={selectedCV}
+          learnerName={selectedLearner?.full_name || ''}
+        />
+      )}
     </div>
   );
 };
