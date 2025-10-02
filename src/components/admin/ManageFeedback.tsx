@@ -343,7 +343,7 @@ const ManageFeedback: React.FC = () => {
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-6xl w-[95vw] max-h-[90vh] overflow-hidden">
+        <DialogContent className="max-w-7xl w-[95vw] max-h-[90vh] overflow-hidden">
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle>
@@ -363,133 +363,133 @@ const ManageFeedback: React.FC = () => {
             </div>
           </DialogHeader>
 
-          <div className="space-y-4">
-            {/* Year Selection */}
-            <div className="flex items-center gap-4">
-              <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Year" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => (
-                    <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Yearly Overview */}
-            <YearlyFeedbackOverview
-              year={selectedYear}
-              monthStatuses={monthStatuses}
-              onMonthClick={setSelectedMonth}
-              selectedMonth={selectedMonth}
-            />
-
-            {/* Acknowledgement Switch */}
-            <div className="flex items-center justify-between rounded-md border p-3">
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Mark feedback as received</span>
+          <div className="grid grid-cols-12 gap-6 h-[75vh]">
+            {/* Left Side - Year Selection & Monthly Overview */}
+            <div className="col-span-4 space-y-4 overflow-y-auto pr-2">
+              <div className="flex items-center gap-4">
+                <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Year" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => (
+                      <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <Switch 
-                checked={acknowledged} 
-                onCheckedChange={() => handleAcknowledge()} 
-                disabled={!submission || loading} 
+
+              <YearlyFeedbackOverview
+                year={selectedYear}
+                monthStatuses={monthStatuses}
+                onMonthClick={setSelectedMonth}
+                selectedMonth={selectedMonth}
               />
             </div>
 
-            {/* Feedback Details */}
-            <div>
-              <ScrollArea className="h-[45vh] pr-2">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>
-                      {new Date(year, month - 1).toLocaleString("en-US", { month: "long", year: "numeric" })}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {!submission && (
-                      <p className="text-sm text-muted-foreground">No submission found for this month.</p>
-                    )}
+            {/* Right Side - Feedback Details */}
+            <div className="col-span-8 flex flex-col gap-4 overflow-y-auto pr-2">
+              {/* Acknowledgement Switch */}
+              <div className="flex items-center justify-between rounded-md border p-3 bg-card">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Mark feedback as received</span>
+                </div>
+                <Switch 
+                  checked={acknowledged} 
+                  onCheckedChange={() => handleAcknowledge()} 
+                  disabled={!submission || loading} 
+                />
+              </div>
 
-                    {submission && (
-                      <>
-                        <div className="text-sm grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <div>
-                            <span className="text-muted-foreground">Status:</span>{" "}
-                            <span className="font-medium">{submission.status}</span>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Submitted:</span>{" "}
-                            <span className="font-medium">
-                              {submission.submitted_at ? new Date(submission.submitted_at).toLocaleDateString() : "—"}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Due:</span>{" "}
-                            <span className="font-medium">{new Date(submission.due_date).toLocaleDateString()}</span>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Rating:</span>{" "}
-                            <span className="font-medium">{rating || "—"}</span>
+              {/* Feedback Content */}
+              <Card className="flex-1">
+                <CardHeader>
+                  <CardTitle>
+                    {new Date(year, month - 1).toLocaleString("en-US", { month: "long", year: "numeric" })}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {!submission && (
+                    <p className="text-sm text-muted-foreground">No submission found for this month.</p>
+                  )}
+
+                  {submission && (
+                    <>
+                      <div className="text-sm grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <span className="text-muted-foreground">Status:</span>{" "}
+                          <span className="font-medium">{submission.status}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Submitted:</span>{" "}
+                          <span className="font-medium">
+                            {submission.submitted_at ? new Date(submission.submitted_at).toLocaleDateString() : "—"}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Due:</span>{" "}
+                          <span className="font-medium">{new Date(submission.due_date).toLocaleDateString()}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Rating:</span>{" "}
+                          <span className="font-medium">{rating || "—"}</span>
+                        </div>
+                      </div>
+
+                      {submission.submission_data && (
+                        <div className="border rounded-md p-3 bg-muted/30">
+                          <p className="text-sm font-medium mb-2">Learner Responses</p>
+                          <div className="space-y-1 text-sm">
+                            {Object.entries(submission.submission_data).map(([key, value]) => (
+                              <div key={key} className="flex items-start gap-2">
+                                <span className="text-muted-foreground capitalize min-w-44">{key.replace(/_/g, " ")}</span>
+                                <span className="font-medium break-words">{String(value ?? "")}</span>
+                              </div>
+                            ))}
                           </div>
                         </div>
+                      )}
 
-                        {submission.submission_data && (
-                          <div className="border rounded-md p-3 bg-muted/30">
-                            <p className="text-sm font-medium mb-2">Learner Responses</p>
-                            <div className="space-y-1 text-sm">
-                              {Object.entries(submission.submission_data).map(([key, value]) => (
-                                <div key={key} className="flex items-start gap-2">
-                                  <span className="text-muted-foreground capitalize min-w-44">{key.replace(/_/g, " ")}</span>
-                                  <span className="font-medium break-words">{String(value ?? "")}</span>
-                                </div>
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">Manager Comment</p>
+                        <Textarea
+                          value={comments}
+                          onChange={(e) => setComments(e.target.value)}
+                          placeholder="Add notes or guidance for the learner"
+                          rows={4}
+                        />
+                        <div className="flex items-center justify-between">
+                          <TooltipProvider>
+                            <div className="flex items-center gap-1">
+                              {[1, 2, 3].map((v) => (
+                                <Tooltip key={v}>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      size="icon"
+                                      variant={rating === v ? "default" : "outline"}
+                                      onClick={() => handleSetRating(v)}
+                                      onMouseEnter={() => setHoverRating(v)}
+                                      onMouseLeave={() => setHoverRating(null)}
+                                      disabled={loading || !submission}
+                                      className="h-9 w-9"
+                                      aria-label={`Rate ${v} star`}
+                                    >
+                                      <Star className={`h-4 w-4 ${((hoverRating ?? rating) || 0) >= v ? "fill-current text-yellow-500" : ""}`} />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>+{pointsForRating[v]} pts</TooltipContent>
+                                </Tooltip>
                               ))}
                             </div>
-                          </div>
-                        )}
-
-                        <div className="space-y-2">
-                          <p className="text-sm font-medium">Manager Comment</p>
-                          <Textarea
-                            value={comments}
-                            onChange={(e) => setComments(e.target.value)}
-                            placeholder="Add notes or guidance for the learner"
-                            rows={4}
-                          />
-                          <div className="flex items-center justify-between">
-                            <TooltipProvider>
-                              <div className="flex items-center gap-1">
-                                {[1, 2, 3].map((v) => (
-                                  <Tooltip key={v}>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        size="icon"
-                                        variant={rating === v ? "default" : "outline"}
-                                        onClick={() => handleSetRating(v)}
-                                        onMouseEnter={() => setHoverRating(v)}
-                                        onMouseLeave={() => setHoverRating(null)}
-                                        disabled={loading || !submission}
-                                        className="h-9 w-9"
-                                        aria-label={`Rate ${v} star`}
-                                      >
-                                        <Star className={`h-4 w-4 ${((hoverRating ?? rating) || 0) >= v ? "fill-current text-yellow-500" : ""}`} />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>+{pointsForRating[v]} pts</TooltipContent>
-                                  </Tooltip>
-                                ))}
-                              </div>
-                            </TooltipProvider>
-                            <Button onClick={handleSaveComments} disabled={loading || !submission}>Save Comment</Button>
-                          </div>
+                          </TooltipProvider>
+                          <Button onClick={handleSaveComments} disabled={loading || !submission}>Save Comment</Button>
                         </div>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-              </ScrollArea>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           </div>
         </DialogContent>
