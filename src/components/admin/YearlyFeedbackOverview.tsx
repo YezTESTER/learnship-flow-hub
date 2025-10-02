@@ -70,31 +70,30 @@ export const YearlyFeedbackOverview: React.FC<YearlyFeedbackOverviewProps> = ({
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
+    <Card className="border-0 shadow-none">
+      <CardHeader className="pb-3">
+        <div className="space-y-3">
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
             {year} Monthly Feedback Overview
           </CardTitle>
-          <div className="flex items-center gap-4 text-sm">
-            <div className="flex items-center gap-1">
-              <CheckCircle className="h-4 w-4 text-green-600" />
+          <div className="flex items-center gap-4 text-xs">
+            <div className="flex items-center gap-1.5">
+              <CheckCircle className="h-3.5 w-3.5 text-green-600" />
               <span className="text-muted-foreground">Submitted</span>
             </div>
-            <div className="flex items-center gap-1">
-              <Clock className="h-4 w-4 text-yellow-600" />
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5 text-yellow-600" />
               <span className="text-muted-foreground">Pending</span>
             </div>
-            <div className="flex items-center gap-1">
-              <XCircle className="h-4 w-4 text-destructive" />
+            <div className="flex items-center gap-1.5">
+              <XCircle className="h-3.5 w-3.5 text-destructive" />
               <span className="text-muted-foreground">Missing</span>
             </div>
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+      <CardContent className="pt-0">
+        <div className="grid grid-cols-3 gap-2.5">
           {months.map((monthName, index) => {
             const monthNum = index + 1;
             const status = getMonthStatus(monthNum);
@@ -105,19 +104,19 @@ export const YearlyFeedbackOverview: React.FC<YearlyFeedbackOverviewProps> = ({
                 key={monthNum}
                 onClick={() => onMonthClick(monthNum)}
                 className={cn(
-                  "relative p-4 rounded-lg border-2 transition-all duration-200",
-                  "flex flex-col items-center justify-center gap-2",
-                  "hover:scale-105 hover:shadow-md",
+                  "relative px-3 py-3.5 rounded-md border transition-all duration-200",
+                  "flex flex-col items-start justify-center gap-1",
+                  "hover:shadow-sm active:scale-[0.98]",
                   getStatusColor(status),
-                  isSelected && "ring-2 ring-primary ring-offset-2"
+                  isSelected && "ring-2 ring-primary shadow-sm scale-[1.02]"
                 )}
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full">
                   {getStatusIcon(status)}
                   <span className="font-medium text-sm">{monthName}</span>
                 </div>
                 {status?.hasSubmission && status.submittedAt && (
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-xs text-muted-foreground ml-7">
                     {new Date(status.submittedAt).toLocaleDateString('en-US', { 
                       month: 'short', 
                       day: 'numeric' 
@@ -125,9 +124,9 @@ export const YearlyFeedbackOverview: React.FC<YearlyFeedbackOverviewProps> = ({
                   </span>
                 )}
                 {isSelected && (
-                  <Badge variant="default" className="absolute -top-2 -right-2 text-xs">
+                  <div className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[10px] font-medium shadow-sm">
                     Selected
-                  </Badge>
+                  </div>
                 )}
               </button>
             );
