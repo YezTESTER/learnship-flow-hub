@@ -82,7 +82,7 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
         setHasCurrentMonthFeedback(!!current);
 
         // Check required documents compliance
-        const requiredDocs = ['id_document', 'cv', 'bank_letter'] as const;
+        const requiredDocs = ['certified_id', 'cv_upload', 'proof_bank_account'] as const;
         const uploadedDocTypes = documents?.map(doc => doc.document_type) || [];
         const missing = requiredDocs.filter(docType => !uploadedDocTypes.includes(docType as any));
         setMissingRequiredDocs(missing);
