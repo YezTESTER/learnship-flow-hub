@@ -479,21 +479,42 @@ const LearnersManagement: React.FC = () => {
     setShowCVPreview(true);
   };
 
-  const handleDownloadDocument = async (filePath: string, fileName: string) => {
+  // Helper function to map document types to bucket IDs (matches DocumentUpload.tsx logic)
+  const getBucketForDocumentType = (docType: string): string => {
+    const documentCategories = {
+      personal: ['qualifications', 'certified_id', 'certified_proof_residence', 'proof_bank_account', 'drivers_license', 'cv_upload'],
+      office: ['work_attendance_log', 'class_attendance_proof'],
+      contracts: ['induction_form', 'popia_form', 'learner_consent_policy', 'employment_contract', 'learnership_contract']
+    };
+
+    if (documentCategories.personal.includes(docType)) {
+      return 'personal-documents';
+    } else if (documentCategories.office.includes(docType)) {
+      return 'office-documents';
+    } else if (documentCategories.contracts.includes(docType)) {
+      return 'contracts';
+    }
+    return 'personal-documents'; // default
+  };
+
+  const handleDownloadDocument = async (doc: Document) => {
     try {
+      // Determine the correct bucket from document type
+      const bucketName = getBucketForDocumentType(doc.document_type);
+
       const { data, error } = await supabase.storage
-        .from(filePath.split('/')[0])
-        .download(filePath.split('/').slice(1).join('/'));
+        .from(bucketName)
+        .download(doc.file_path);
 
       if (error) throw error;
 
       const url = URL.createObjectURL(data);
-      const link = document.createElement('a');
+      const link = window.document.createElement('a');
       link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
+      link.download = doc.file_name;
+      window.document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
+      window.document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
       toast({
@@ -1021,7 +1042,7 @@ const LearnersManagement: React.FC = () => {
                           <Button 
                             size="sm" 
                             variant="outline"
-                            onClick={() => handleDownloadDocument(document.file_path, document.file_name)}
+                            onClick={() => handleDownloadDocument(document)}
                           >
                             <Download className="w-4 h-4 mr-1" />
                             Download
