@@ -479,6 +479,41 @@ const LearnersManagement: React.FC = () => {
     setShowCVPreview(true);
   };
 
+  const handleViewCVFromDocument = (document: Document) => {
+    try {
+      // Parse CV data from the file_path column (which contains the JSON)
+      const cvData = typeof document.file_path === 'string' 
+        ? JSON.parse(document.file_path) 
+        : document.file_path;
+      
+      setSelectedCV(cvData);
+      setShowCVPreview(true);
+    } catch (error) {
+      console.error('Error parsing CV data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load CV data",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const isCVDocument = (document: Document): boolean => {
+    return document.file_name.startsWith('cv_') && document.file_name.endsWith('.json');
+  };
+
+  const isPublishedCVDocument = (document: Document): boolean => {
+    if (!isCVDocument(document)) return false;
+    try {
+      const cvData = typeof document.file_path === 'string' 
+        ? JSON.parse(document.file_path) 
+        : document.file_path;
+      return cvData?.is_published === true;
+    } catch {
+      return false;
+    }
+  };
+
   // Helper function to map document types to bucket IDs (matches DocumentUpload.tsx logic)
   const getBucketForDocumentType = (docType: string): string => {
     const documentCategories = {
@@ -1030,50 +1065,55 @@ const LearnersManagement: React.FC = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {/* Regular Documents */}
-                      {selectedLearner.documents?.map(document => (
-                        <div key={document.id} className="flex items-center justify-between border rounded-lg p-3">
-                          <div>
-                            <p className="font-medium text-sm">{document.file_name}</p>
-                            <p className="text-xs text-muted-foreground">{document.document_type}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {document.uploaded_at && new Date(document.uploaded_at).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleDownloadDocument(document)}
+                      {/* Regular Documents & CV Files */}
+                      {selectedLearner.documents?.map(document => {
+                        const isCVFile = isCVDocument(document);
+                        const isPublishedCV = isPublishedCVDocument(document);
+                        
+                        // Skip unpublished CV files in documents view
+                        if (isCVFile && !isPublishedCV) return null;
+                        
+                        return (
+                          <div 
+                            key={document.id} 
+                            className={`flex items-center justify-between border rounded-lg p-3 ${isCVFile ? 'bg-blue-50' : ''}`}
                           >
-                            <Download className="w-4 h-4 mr-1" />
-                            Download
-                          </Button>
-                        </div>
-                      ))}
-                      
-                      {/* Published CVs */}
-                      {selectedLearner.cvs?.filter(cv => cv.is_published).map(cv => (
-                        <div key={cv.id} className="flex items-center justify-between border rounded-lg p-3 bg-blue-50">
-                          <div>
-                            <p className="font-medium text-sm">{cv.cv_name}</p>
-                            <p className="text-xs text-muted-foreground">CV Document (Published)</p>
-                            <p className="text-xs text-muted-foreground">
-                              Updated: {new Date(cv.updated_at).toLocaleDateString()}
-                            </p>
+                            <div>
+                              <p className="font-medium text-sm">{document.file_name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {isCVFile ? 'CV Document (Published)' : document.document_type}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {document.uploaded_at && new Date(document.uploaded_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <div className="flex gap-2">
+                              {isCVFile && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => handleViewCVFromDocument(document)}
+                                >
+                                  <Eye className="w-4 h-4 mr-1" />
+                                  View
+                                </Button>
+                              )}
+                              {!isCVFile && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => handleDownloadDocument(document)}
+                                >
+                                  <Download className="w-4 h-4 mr-1" />
+                                  Download
+                                </Button>
+                              )}
+                            </div>
                           </div>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleViewCV(cv)}
-                          >
-                            <Eye className="w-4 h-4 mr-1" />
-                            View
-                          </Button>
-                        </div>
-                      ))}
+                        );
+                      })}
                       
-                      {(!selectedLearner.documents || selectedLearner.documents.length === 0) && 
-                       (!selectedLearner.cvs || selectedLearner.cvs.filter(cv => cv.is_published).length === 0) && (
+                      {(!selectedLearner.documents || selectedLearner.documents.length === 0) && (
                         <p className="text-sm text-muted-foreground text-center py-4">No documents uploaded yet</p>
                       )}
                     </div>
@@ -1138,6 +1178,27 @@ const LearnersManagement: React.FC = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
+                      {/* Published CV files from documents table */}
+                      {selectedLearner.documents?.filter(doc => isPublishedCVDocument(doc)).map(document => (
+                        <div key={document.id} className="flex items-center justify-between border rounded-lg p-3 bg-blue-50">
+                          <div>
+                            <p className="font-medium text-sm">{document.file_name.replace('.json', '')}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Updated: {new Date(document.uploaded_at || '').toLocaleDateString()}
+                            </p>
+                          </div>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleViewCVFromDocument(document)}
+                          >
+                            <Eye className="w-4 h-4 mr-1" />
+                            View
+                          </Button>
+                        </div>
+                      ))}
+                      
+                      {/* Published CVs from cvs table */}
                       {selectedLearner.cvs?.filter(cv => cv.is_published).map(cv => (
                         <div key={cv.id} className="flex items-center justify-between border rounded-lg p-3">
                           <div>
@@ -1156,7 +1217,9 @@ const LearnersManagement: React.FC = () => {
                           </Button>
                         </div>
                       ))}
-                      {(!selectedLearner.cvs || selectedLearner.cvs.filter(cv => cv.is_published).length === 0) && (
+                      
+                      {(!selectedLearner.documents?.some(doc => isPublishedCVDocument(doc)) && 
+                        (!selectedLearner.cvs || selectedLearner.cvs.filter(cv => cv.is_published).length === 0)) && (
                         <p className="text-sm text-muted-foreground text-center py-4">No published CVs yet</p>
                       )}
                     </div>
