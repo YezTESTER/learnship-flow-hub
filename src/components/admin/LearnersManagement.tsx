@@ -1030,6 +1030,7 @@ const LearnersManagement: React.FC = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
+                      {/* Regular Documents */}
                       {selectedLearner.documents?.map(document => (
                         <div key={document.id} className="flex items-center justify-between border rounded-lg p-3">
                           <div>
@@ -1049,7 +1050,30 @@ const LearnersManagement: React.FC = () => {
                           </Button>
                         </div>
                       ))}
-                      {(!selectedLearner.documents || selectedLearner.documents.length === 0) && (
+                      
+                      {/* Published CVs */}
+                      {selectedLearner.cvs?.filter(cv => cv.is_published).map(cv => (
+                        <div key={cv.id} className="flex items-center justify-between border rounded-lg p-3 bg-blue-50">
+                          <div>
+                            <p className="font-medium text-sm">{cv.cv_name}</p>
+                            <p className="text-xs text-muted-foreground">CV Document (Published)</p>
+                            <p className="text-xs text-muted-foreground">
+                              Updated: {new Date(cv.updated_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleViewCV(cv)}
+                          >
+                            <Eye className="w-4 h-4 mr-1" />
+                            View
+                          </Button>
+                        </div>
+                      ))}
+                      
+                      {(!selectedLearner.documents || selectedLearner.documents.length === 0) && 
+                       (!selectedLearner.cvs || selectedLearner.cvs.filter(cv => cv.is_published).length === 0) && (
                         <p className="text-sm text-muted-foreground text-center py-4">No documents uploaded yet</p>
                       )}
                     </div>
