@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar as CalendarIcon, Check, Star, Download, FileText } from "lucide-react";
+import { Calendar as CalendarIcon, Check, Star, Download, FileText, Lock, Unlock } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -36,6 +36,7 @@ interface FeedbackSubmission {
   mentor_comments: string | null;
   mentor_approved_at: string | null;
   needs_mentor_review: boolean | null;
+  is_editable_by_learner?: boolean;
 }
 
 const pointsForRating: Record<number, number> = { 1: 1, 2: 5, 3: 10 };
@@ -58,6 +59,7 @@ const ManageFeedback: React.FC = () => {
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [supervisorName, setSupervisorName] = useState("");
   const [supervisorFeedback, setSupervisorFeedback] = useState("");
+  const [isEditableByLearner, setIsEditableByLearner] = useState(false);
 
   useEffect(() => {
     const loadLearners = async () => {
@@ -135,7 +137,8 @@ const ManageFeedback: React.FC = () => {
     setComments((data?.mentor_comments as string) || "");
     setAcknowledged(Boolean(data?.mentor_approved_at));
     setRating((data?.mentor_rating as number) || null);
-    const submissionData = (data?.submission_data as Record<string, any>) || {};
+    setIsEditableByLearner(Boolean((data as FeedbackSubmission)?.is_editable_by_learner));
+    const submissionData = ((data as FeedbackSubmission)?.submission_data as Record<string, any>) || {};
     setSupervisorName((submissionData.supervisor_name as string) || "");
     setSupervisorFeedback((submissionData.supervisor_feedback as string) || "");
   };
@@ -223,7 +226,8 @@ const ManageFeedback: React.FC = () => {
       .from("feedback_submissions")
       .update({ 
         mentor_comments: comments,
-        submission_data: updatedSubmissionData
+        submission_data: updatedSubmissionData,
+        is_editable_by_learner: isEditableByLearner
       })
       .eq("id", submission.id);
     if (error) {
@@ -471,7 +475,27 @@ const ManageFeedback: React.FC = () => {
                       )}
 
                       <div className="space-y-4 border rounded-md p-4 bg-card">
-                        <p className="text-sm font-medium">Supervisor Information</p>
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="text-sm font-medium">Supervisor Information</p>
+                          <div className="flex items-center gap-3">
+                            {isEditableByLearner ? (
+                              <Unlock className="h-4 w-4 text-green-600" />
+                            ) : (
+                              <Lock className="h-4 w-4 text-gray-600" />
+                            )}
+                            <div className="flex items-center gap-2">
+                              <Label htmlFor="editable-toggle" className="cursor-pointer text-xs">
+                                Allow Learner to Edit
+                              </Label>
+                              <Switch
+                                id="editable-toggle"
+                                checked={isEditableByLearner}
+                                onCheckedChange={setIsEditableByLearner}
+                                disabled={loading || !submission}
+                              />
+                            </div>
+                          </div>
+                        </div>
                         <div className="space-y-3">
                           <div className="space-y-2">
                             <Label htmlFor="supervisor_name">Supervisor Name</Label>

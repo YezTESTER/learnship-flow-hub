@@ -196,6 +196,7 @@ export type Database = {
           due_date: string
           edited_at: string | null
           id: string
+          is_editable_by_learner: boolean | null
           learner_id: string
           mentor_approved_at: string | null
           mentor_comments: string | null
@@ -213,6 +214,7 @@ export type Database = {
           due_date: string
           edited_at?: string | null
           id?: string
+          is_editable_by_learner?: boolean | null
           learner_id: string
           mentor_approved_at?: string | null
           mentor_comments?: string | null
@@ -230,6 +232,7 @@ export type Database = {
           due_date?: string
           edited_at?: string | null
           id?: string
+          is_editable_by_learner?: boolean | null
           learner_id?: string
           mentor_approved_at?: string | null
           mentor_comments?: string | null
