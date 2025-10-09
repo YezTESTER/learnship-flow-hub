@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { YearlyFeedbackOverview } from "./YearlyFeedbackOverview";
 import { adminPdfGenerator } from "@/lib/adminPdfGenerator";
+import { Label } from "@/components/ui/label";
 
 interface Profile {
   id: string;
@@ -55,6 +56,8 @@ const ManageFeedback: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [monthStatuses, setMonthStatuses] = useState<any[]>([]);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [supervisorName, setSupervisorName] = useState("");
+  const [supervisorFeedback, setSupervisorFeedback] = useState("");
 
   useEffect(() => {
     const loadLearners = async () => {
@@ -132,6 +135,9 @@ const ManageFeedback: React.FC = () => {
     setComments((data?.mentor_comments as string) || "");
     setAcknowledged(Boolean(data?.mentor_approved_at));
     setRating((data?.mentor_rating as number) || null);
+    const submissionData = (data?.submission_data as Record<string, any>) || {};
+    setSupervisorName((submissionData.supervisor_name as string) || "");
+    setSupervisorFeedback((submissionData.supervisor_feedback as string) || "");
   };
 
   useEffect(() => {
@@ -205,18 +211,29 @@ const ManageFeedback: React.FC = () => {
   const handleSaveComments = async () => {
     if (!submission || !selectedLearner) return;
     setLoading(true);
+    
+    // Update both mentor comments and supervisor information
+    const updatedSubmissionData = {
+      ...(submission.submission_data || {}),
+      supervisor_name: supervisorName,
+      supervisor_feedback: supervisorFeedback
+    };
+    
     const { error } = await supabase
       .from("feedback_submissions")
-      .update({ mentor_comments: comments })
+      .update({ 
+        mentor_comments: comments,
+        submission_data: updatedSubmissionData
+      })
       .eq("id", submission.id);
     if (error) {
-      toast.error("Failed to save comments");
+      toast.error("Failed to save");
     } else {
-      toast.success("Comments saved");
+      toast.success("Saved successfully");
       await notifyLearner(
         selectedLearner.id,
-        "Manager Comment Added",
-        `A comment was added to your ${new Date(year, month - 1).toLocaleString("en-US", { month: "long", year: "numeric" })} feedback.`
+        "Feedback Updated",
+        `Your ${new Date(year, month - 1).toLocaleString("en-US", { month: "long", year: "numeric" })} feedback was updated by management.`
       );
       fetchSubmission();
     }
@@ -441,15 +458,44 @@ const ManageFeedback: React.FC = () => {
                         <div className="border rounded-md p-3 bg-muted/30">
                           <p className="text-sm font-medium mb-2">Learner Responses</p>
                           <div className="space-y-1 text-sm">
-                            {Object.entries(submission.submission_data).map(([key, value]) => (
-                              <div key={key} className="flex items-start gap-2">
-                                <span className="text-muted-foreground capitalize min-w-44">{key.replace(/_/g, " ")}</span>
-                                <span className="font-medium break-words">{String(value ?? "")}</span>
-                              </div>
-                            ))}
+                            {Object.entries(submission.submission_data)
+                              .filter(([key]) => key !== 'supervisor_name' && key !== 'supervisor_feedback')
+                              .map(([key, value]) => (
+                                <div key={key} className="flex items-start gap-2">
+                                  <span className="text-muted-foreground capitalize min-w-44">{key.replace(/_/g, " ")}</span>
+                                  <span className="font-medium break-words">{String(value ?? "")}</span>
+                                </div>
+                              ))}
                           </div>
                         </div>
                       )}
+
+                      <div className="space-y-4 border rounded-md p-4 bg-card">
+                        <p className="text-sm font-medium">Supervisor Information</p>
+                        <div className="space-y-3">
+                          <div className="space-y-2">
+                            <Label htmlFor="supervisor_name">Supervisor Name</Label>
+                            <Input
+                              id="supervisor_name"
+                              value={supervisorName}
+                              onChange={(e) => setSupervisorName(e.target.value)}
+                              placeholder="Enter supervisor's name"
+                              disabled={loading || !submission}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="supervisor_feedback">Supervisor Feedback</Label>
+                            <Textarea
+                              id="supervisor_feedback"
+                              value={supervisorFeedback}
+                              onChange={(e) => setSupervisorFeedback(e.target.value)}
+                              placeholder="Enter supervisor's feedback"
+                              rows={3}
+                              disabled={loading || !submission}
+                            />
+                          </div>
+                        </div>
+                      </div>
 
                       <div className="space-y-2">
                         <p className="text-sm font-medium">Manager Comment</p>

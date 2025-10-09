@@ -37,8 +37,6 @@ const MonthlyFeedbackForm = () => {
     challenges_faced: '',
     achievements: '',
     mentorship_received: '',
-    supervisor_name: '',
-    supervisor_feedback: '',
     learning_objectives: '',
     additional_comments: ''
   });
@@ -260,31 +258,6 @@ const MonthlyFeedbackForm = () => {
               </div>
             </div>
 
-            {/* Supervisor Information */}
-            <div className="bg-white p-6 rounded-xl border border-gray-100 px-[10px]">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <User className="h-5 w-5 mr-2" />
-                Supervisor Information
-              </h3>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="supervisor_name">Supervisor Name</Label>
-                  <Input id="supervisor_name" value={formData.supervisor_name} onChange={e => setFormData(prev => ({
-                  ...prev,
-                  supervisor_name: e.target.value
-                }))} className="rounded-xl border-gray-200" placeholder="Enter your supervisor's name" />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="supervisor_feedback">Supervisor Comments (if any)</Label>
-                  <Textarea id="supervisor_feedback" value={formData.supervisor_feedback} onChange={e => setFormData(prev => ({
-                  ...prev,
-                  supervisor_feedback: e.target.value
-                }))} className="rounded-xl border-gray-200" placeholder="Any comments from your supervisor" rows={3} />
-                </div>
-              </div>
-            </div>
-
             {/* Additional Comments */}
             <div className="bg-white p-6 rounded-xl border border-gray-100 px-[10px]">
               <div className="space-y-2">
@@ -304,6 +277,29 @@ const MonthlyFeedbackForm = () => {
             </Button>
             </form>
 
+            {/* Supervisor Information (Read-only) */}
+            {existingSubmission?.submission_data && (existingSubmission.submission_data.supervisor_name || existingSubmission.submission_data.supervisor_feedback) && (
+              <div className="mt-6 bg-white p-6 rounded-xl border border-gray-100 px-[10px]">
+                <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
+                  <User className="h-5 w-5 mr-2" />
+                  Supervisor Information
+                </h3>
+                {existingSubmission.submission_data.supervisor_name && (
+                  <div className="mb-3">
+                    <p className="text-sm text-gray-600 mb-1">Supervisor Name</p>
+                    <p className="text-gray-800 font-medium">{existingSubmission.submission_data.supervisor_name}</p>
+                  </div>
+                )}
+                {existingSubmission.submission_data.supervisor_feedback && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Supervisor Feedback</p>
+                    <p className="text-gray-700 whitespace-pre-wrap">{existingSubmission.submission_data.supervisor_feedback}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Manager Review */}
             {existingSubmission && (existingSubmission.mentor_comments || typeof (existingSubmission.mentor_rating as any) === 'number') && (
               <div className="mt-6 bg-white p-6 rounded-xl border border-gray-100 px-[10px]">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
