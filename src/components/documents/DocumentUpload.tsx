@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Upload, FileText, Download, Trash2, Eye, File, CheckCircle, AlertCircle, FolderOpen, HelpCircle } from 'lucide-react';
@@ -65,17 +66,17 @@ const DocumentUpload = () => {
       }]
     },
     office: {
-      title: 'Office Documents',
+      title: 'Log books & Timesheets',
       icon: '📋',
       documents: [{
         value: 'work_attendance_log',
-        label: 'Work Attendance Log Book/Time Sheet',
+        label: 'Bi-Weekly Timesheets',
         points: 0,
         required: false,
         whenRequired: true
       }, {
         value: 'class_attendance_proof',
-        label: 'Class Attendance Proof/Time Sheet',
+        label: 'Class Attendance Timesheet',
         points: 0,
         required: false,
         whenRequired: true
@@ -272,7 +273,7 @@ const DocumentUpload = () => {
           case 'personal':
             return 'personal-documents';
           case 'office':
-            return 'office-documents';
+            return 'logbooks-timesheets';
           case 'contracts':
             return 'contracts';
           default:
@@ -458,169 +459,151 @@ const DocumentUpload = () => {
     const docInfo = getDocumentInfo(docType);
     return docInfo?.label || docType;
   };
-  return <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6 p-4 sm:p-0 px-0">
-      {/* Upload Section */}
-      <Card className="bg-gradient-to-br from-white to-blue-50 border-0 shadow-lg">
-        <CardHeader className="text-center p-4 sm:p-6">
-          <div className="flex items-center justify-center space-x-2 mb-2">
-            <Upload className="h-5 w-5 sm:h-6 sm:w-6 text-[#122ec0]" />
-            <CardTitle className="text-xl sm:text-2xl bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
-              Document Upload
-            </CardTitle>
-          </div>
-          <CardDescription className="text-gray-600 text-sm sm:text-base">
-            Upload your learnership documents for compliance tracking
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6 px-[8px]">
-          <div className="space-y-4 sm:space-y-6">
-            {/* File Selection */}
-            <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-100">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <Label htmlFor="document-type" className="text-sm sm:text-base">Document Type *</Label>
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <HelpCircle className="h-4 w-4 text-gray-500 cursor-pointer" />
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-[425px] max-h-[80vh] overflow-y-auto">
-                        <DialogHeader>
-                          <DialogTitle>Document Point System</DialogTitle>
-                          <DialogDescription>
-                            Here's a breakdown of the points awarded for each document.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          {Object.entries(documentCategories).map(([key, category]) => (
-                            <div key={key}>
-                              <h4 className="font-semibold text-gray-800">{category.icon} {category.title}</h4>
-                              <ul className="list-disc list-inside space-y-1 mt-1">
-                                {category.documents.map(doc => (
-                                  <li key={doc.value} className="text-sm text-gray-600">
-                                    {doc.label}:
-                                    <span className="font-semibold ml-1">
-                                      {doc.points > 0 ? `${doc.points} points` : 'No points'}
-                                    </span>
-                                    {doc.required && <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full ml-2">Required</span>}
-                                    {doc.whenRequired && <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full ml-2">When Required</span>}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          ))}
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                  <Select value={documentType} onValueChange={setDocumentType}>
-                    <SelectTrigger className="rounded-xl">
-                      <SelectValue placeholder="Select document type" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[60vh] overflow-y-auto">
-                      {Object.entries(documentCategories).map(([key, category]) => <div key={key}>
-                          <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                            {category.icon} {category.title}
-                          </div>
-                          {category.documents.map(doc => <SelectItem key={doc.value} value={doc.value} className="pl-6">
-                              <div className="flex items-center justify-between w-full">
-                                <span>{doc.label}</span>
-                              </div>
-                            </SelectItem>)}
-                        </div>)}
-                    </SelectContent>
-                  </Select>
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="file-upload" className="text-sm sm:text-base">Select File *</Label>
-                  <Input id="file-upload" type="file" onChange={handleFileSelect} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" className="rounded-xl border-gray-200" />
-                  <p className="text-xs text-gray-500">
-                    Supported formats: PDF, Word documents, Images (max 10MB)
-                  </p>
-                </div>
+  const renderCategoryTab = (categoryKey: keyof typeof documentCategories) => {
+    const category = documentCategories[categoryKey];
+    const categoryDocs = getDocumentsByCategory(categoryKey);
 
-                {selectedFile && <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                    <div className="flex items-center space-x-3">
-                      {getDocumentIcon(selectedFile.name)}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-blue-800 truncate">{selectedFile.name}</p>
-                        <p className="text-sm text-blue-600">{formatFileSize(selectedFile.size)}</p>
-                      </div>
-                      <CheckCircle className="h-5 w-5 text-blue-500 flex-shrink-0" />
-                    </div>
-                  </div>}
-
-                {uploadProgress > 0 && uploadProgress < 100 && <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Uploading...</span>
-                      <span>{Math.round(uploadProgress)}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div className="bg-gradient-to-r from-[#122ec0] to-[#e16623] h-2 rounded-full transition-all duration-300" style={{
-                    width: `${uploadProgress}%`
-                  }}></div>
-                    </div>
-                  </div>}
-              </div>
-            </div>
-
-            <Button onClick={handleUpload} disabled={!selectedFile || !documentType || loading} className="w-full bg-gradient-to-r from-[#122ec0] to-[#e16623] hover:from-[#0f2499] hover:to-[#d55a1f] text-white rounded-xl py-3 text-base sm:text-lg font-semibold transition-all duration-300 transform hover:scale-105">
-              {loading ? 'Uploading...' : <>
-                  <Upload className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                  Upload Document
-                </>}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Documents List by Category */}
-      {Object.entries(documentCategories).map(([categoryKey, category]) => {
-      const categoryDocs = getDocumentsByCategory(categoryKey);
-      return <Card key={categoryKey}>
-            <CardHeader className="p-4 sm:p-6">
-              <CardTitle className="flex items-center space-x-2 text-lg sm:text-xl">
-                <span className="text-xl sm:text-2xl">{category.icon}</span>
-                <span>{category.title}</span>
-                <span className="text-sm sm:text-base text-gray-500">({categoryDocs.length})</span>
+    return (
+      <div className="space-y-6">
+        {/* Upload Section for the category */}
+        <Card className="bg-gradient-to-br from-white to-blue-50 border-0 shadow-lg">
+          <CardHeader className="text-center p-4 sm:p-6">
+            <div className="flex items-center justify-center space-x-2 mb-2">
+              <Upload className="h-5 w-5 sm:h-6 sm:w-6 text-[#122ec0]" />
+              <CardTitle className="text-xl sm:text-2xl bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
+                Upload to {category.title}
               </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6">
-              {categoryDocs.length === 0 ? <div className="text-center py-8 sm:py-12">
-                  <FolderOpen className="h-12 w-12 sm:h-16 sm:w-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-base sm:text-lg font-medium text-gray-700 mb-2">No {category.title.toLowerCase()}</h3>
-                  <p className="text-gray-500 text-sm sm:text-base">Upload your first document in this category</p>
-                </div> : <div className="space-y-3 sm:space-y-4">
-                  {categoryDocs.map(doc => <div key={doc.id} className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                      <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
-                        {getDocumentIcon(doc.file_name)}
-                         <div className="flex-1 min-w-0">
-                           <h4 className="font-medium text-gray-800 truncate text-sm sm:text-base">
-                             {doc.file_name}
-                           </h4>
-                           <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 text-xs sm:text-sm text-gray-600 space-y-1 sm:space-y-0">
-                             <span className="capitalize font-medium">
-                               {doc.document_type === 'cv_upload' ? 'CV' : getDocumentLabel(doc.document_type)}
-                             </span>
-                             {doc.file_size > 0 && <span>{formatFileSize(doc.file_size)}</span>}
-                             <span>{doc.document_type === 'cv_upload' ? 'Published' : 'Uploaded'}: {new Date(doc.uploaded_at).toLocaleDateString()}</span>
-                           </div>
-                         </div>
+            </div>
+            <CardDescription className="text-gray-600 text-sm sm:text-base">
+              Upload your documents for this category.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-6 px-[8px]">
+            <div className="space-y-4 sm:space-y-6">
+              <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-100">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor={`document-type-${categoryKey}`} className="text-sm sm:text-base">Document Type *</Label>
+                    <Select value={documentType} onValueChange={setDocumentType}>
+                      <SelectTrigger className="rounded-xl">
+                        <SelectValue placeholder="Select document type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {category.documents.map(doc => (
+                          <SelectItem key={doc.value} value={doc.value}>
+                            {doc.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor={`file-upload-${categoryKey}`} className="text-sm sm:text-base">Select File *</Label>
+                    <Input id={`file-upload-${categoryKey}`} type="file" onChange={handleFileSelect} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" className="rounded-xl border-gray-200" />
+                    <p className="text-xs text-gray-500">
+                      Supported formats: PDF, Word documents, Images (max 10MB)
+                    </p>
+                  </div>
+
+                  {selectedFile && documentCategories[categoryKey].documents.some(d => d.value === documentType) && (
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                      <div className="flex items-center space-x-3">
+                        {getDocumentIcon(selectedFile.name)}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-blue-800 truncate">{selectedFile.name}</p>
+                          <p className="text-sm text-blue-600">{formatFileSize(selectedFile.size)}</p>
+                        </div>
+                        <CheckCircle className="h-5 w-5 text-blue-500 flex-shrink-0" />
                       </div>
-                      <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
-                        <Button variant="outline" size="sm" onClick={() => handleDownload(doc)} className="rounded-lg p-2">
-                          <Download className="h-3 w-3 sm:h-4 sm:w-4" />
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleDelete(doc)} className="rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 p-2">
-                          <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                        </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <Button onClick={handleUpload} disabled={!selectedFile || !documentType || loading || !documentCategories[categoryKey].documents.some(d => d.value === documentType)} className="w-full bg-gradient-to-r from-[#122ec0] to-[#e16623] hover:from-[#0f2499] hover:to-[#d55a1f] text-white rounded-xl py-3 text-base sm:text-lg font-semibold transition-all duration-300 transform hover:scale-105">
+                {loading ? 'Uploading...' : (
+                  <>
+                    <Upload className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                    Upload Document
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Documents List for the category */}
+        <Card>
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="flex items-center space-x-2 text-lg sm:text-xl">
+              <span className="text-xl sm:text-2xl">{category.icon}</span>
+              <span>Uploaded in {category.title}</span>
+              <span className="text-sm sm:text-base text-gray-500">({categoryDocs.length})</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-6">
+            {categoryDocs.length === 0 ? (
+              <div className="text-center py-8 sm:py-12">
+                <FolderOpen className="h-12 w-12 sm:h-16 sm:w-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-base sm:text-lg font-medium text-gray-700 mb-2">No {category.title.toLowerCase()}</h3>
+                <p className="text-gray-500 text-sm sm:text-base">Upload your first document in this category</p>
+              </div>
+            ) : (
+              <div className="space-y-3 sm:space-y-4">
+                {categoryDocs.map(doc => (
+                  <div key={doc.id} className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
+                      {getDocumentIcon(doc.file_name)}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-gray-800 truncate text-sm sm:text-base">
+                          {doc.file_name}
+                        </h4>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 text-xs sm:text-sm text-gray-600 space-y-1 sm:space-y-0">
+                          <span className="capitalize font-medium">
+                            {doc.document_type === 'cv_upload' ? 'CV' : getDocumentLabel(doc.document_type)}
+                          </span>
+                          {doc.file_size > 0 && <span>{formatFileSize(doc.file_size)}</span>}
+                          <span>{doc.document_type === 'cv_upload' ? 'Published' : 'Uploaded'}: {new Date(doc.uploaded_at).toLocaleDateString()}</span>
+                        </div>
                       </div>
-                    </div>)}
-                </div>}
-            </CardContent>
-          </Card>;
-    })}
+                    </div>
+                    <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+                      <Button variant="outline" size="sm" onClick={() => handleDownload(doc)} className="rounded-lg p-2">
+                        <Download className="h-3 w-3 sm:h-4 sm:w-4" />
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => handleDelete(doc)} className="rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 p-2">
+                        <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  return <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6 p-4 sm:p-0 px-0">
+      <Tabs defaultValue="personal" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="personal">{documentCategories.personal.icon} {documentCategories.personal.title}</TabsTrigger>
+          <TabsTrigger value="office">{documentCategories.office.icon} {documentCategories.office.title}</TabsTrigger>
+          <TabsTrigger value="contracts">{documentCategories.contracts.icon} {documentCategories.contracts.title}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="personal" className="mt-6">
+          {renderCategoryTab('personal')}
+        </TabsContent>
+        <TabsContent value="office" className="mt-6">
+          {renderCategoryTab('office')}
+        </TabsContent>
+        <TabsContent value="contracts" className="mt-6">
+          {renderCategoryTab('contracts')}
+        </TabsContent>
+      </Tabs>
 
       {/* Document Guidelines */}
       <Card className="bg-yellow-50 border-yellow-200">
