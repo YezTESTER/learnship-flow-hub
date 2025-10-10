@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { toast } from "sonner";
 import { Upload, FileText, Download, Trash2, Eye, File, CheckCircle, AlertCircle, FolderOpen, HelpCircle } from 'lucide-react';
 interface Document {
   id: string;
@@ -18,6 +18,17 @@ interface Document {
   file_size: number;
   uploaded_at: string;
 }
+
+interface TimesheetSchedule {
+  id: string;
+  month: number;
+  year: number;
+  period: number;
+  work_timesheet_uploaded: boolean;
+  class_timesheet_uploaded: boolean;
+  due_date: string; uploaded_at: string | null;
+}
+
 const DocumentUpload = () => {
   const {
     user,
@@ -28,6 +39,10 @@ const DocumentUpload = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [documentType, setDocumentType] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [timesheetSchedules, setTimesheetSchedules] = useState<TimesheetSchedule[]>([]);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [uploadTarget, setUploadTarget] = useState<{ periodId: string; type: 'work' | 'class' } | null>(null);
+
   const documentCategories = {
     personal: {
       title: 'Personal Documents',
@@ -71,7 +86,7 @@ const DocumentUpload = () => {
       documents: [{
         value: 'work_attendance_log',
         label: 'Bi-Weekly Timesheets',
-        points: 0,
+        points: 10,
         required: false,
         whenRequired: true
       }, {
@@ -187,8 +202,16 @@ const DocumentUpload = () => {
   useEffect(() => {
     if (user) {
       fetchDocuments();
+      fetchTimesheetSchedules();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      fetchTimesheetSchedules();
+    }
+  }, [selectedYear, user]);
+
   const fetchDocuments = async () => {
     try {
       console.log('Fetching documents for user:', user?.id);
@@ -238,6 +261,24 @@ const DocumentUpload = () => {
     } catch (error: any) {
       console.error('Error fetching documents:', error);
       toast.error('Failed to load documents');
+    }
+  };
+
+  const fetchTimesheetSchedules = async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('timesheet_schedules')
+        .select('*')
+        .eq('learner_id', user.id)
+        .eq('year', selectedYear)
+        .order('month', { ascending: true })
+        .order('period', { ascending: true });
+
+      if (error) throw error;
+      setTimesheetSchedules(data || []);
+    } catch (error: any) {
+      toast.error('Failed to load timesheet schedules');
     }
   };
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -291,6 +332,24 @@ const DocumentUpload = () => {
     setLoading(true);
     setUploadProgress(0);
     try {
+      // If uploading via timesheet calendar, update the schedule
+      let isLate = false;
+      if (uploadTarget) {
+        const updateField = uploadTarget.type === 'work' ? 'work_timesheet_uploaded' : 'class_timesheet_uploaded';
+        const { error: scheduleError } = await supabase
+          .from('timesheet_schedules')
+          .update({ [updateField]: true, uploaded_at: new Date().toISOString() })
+          .eq('id', uploadTarget.periodId);
+ 
+        if (scheduleError) throw scheduleError;
+
+        // Check if late submission (more than 1 week)
+        const schedule = timesheetSchedules.find(s => s.id === uploadTarget.periodId);
+        const dueDate = new Date(schedule?.due_date || '');
+        const oneWeekLate = new Date(dueDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+        isLate = new Date() > oneWeekLate;
+      }
+
       // Get the appropriate bucket for this document type
       const bucketName = getBucketForDocumentType(documentType);
 
@@ -319,21 +378,24 @@ const DocumentUpload = () => {
 
       // Award points based on document type
       const docInfo = getDocumentInfo(documentType);
-      if (docInfo && docInfo.points > 0) {
+      if (docInfo && docInfo.points > 0) { 
+        const pointsToAward = isLate ? Math.ceil(docInfo.points / 2) : docInfo.points;
         await supabase.from('achievements').insert({
           learner_id: user.id,
           badge_type: 'document_upload',
-          badge_name: 'Document Uploaded',
-          description: `Successfully uploaded ${docInfo.label}`,
-          points_awarded: docInfo.points,
+          badge_name: `${docInfo.label} Uploaded`,
+          description: `Successfully uploaded ${docInfo.label}${isLate ? ' (Late)' : ''}`,
+          points_awarded: pointsToAward,
           badge_color: '#8B5CF6',
           badge_icon: 'file'
         });
+        toast.info(`You earned ${pointsToAward} points! ${isLate ? ' (Half points for late submission)' : ''}`);
       }
       toast.success('Document uploaded successfully!');
       setSelectedFile(null);
       setDocumentType('');
       setUploadProgress(0);
+      setUploadTarget(null);
       fetchDocuments();
 
       // Reset file input
@@ -343,6 +405,7 @@ const DocumentUpload = () => {
       toast.error(error.message || 'Failed to upload document');
     } finally {
       setLoading(false);
+      fetchTimesheetSchedules();
       setUploadProgress(0);
     }
   };
@@ -460,7 +523,220 @@ const DocumentUpload = () => {
     return docInfo?.label || docType;
   };
 
+  const getAvailableYears = () => {
+    const currentYear = new Date().getFullYear();
+    const startYear = profile?.created_at ? new Date(profile.created_at).getFullYear() : currentYear - 1;
+    const years = [];
+    for (let year = startYear; year <= currentYear; year++) {
+      years.push(year);
+    }
+    return years;
+  };
+
+  const getMonthsForYear = (year: number) => {
+    const months = [];
+    const now = new Date();
+    const currentMonthNum = now.getMonth() + 1;
+    const currentYearNum = now.getFullYear();
+    
+    const registrationDate = profile?.created_at ? new Date(profile.created_at) : null;
+    const registrationMonth = registrationDate ? registrationDate.getMonth() + 1 : 1;
+    const registrationYear = registrationDate ? registrationDate.getFullYear() : year;
+
+    for (let month = 1; month <= 12; month++) {
+      if (year === currentYearNum && month > currentMonthNum) continue;
+      if (year < registrationYear) continue;
+      if (year === registrationYear && month < registrationMonth) continue;
+      months.push(month);
+    }
+    return months;
+  };
+
+  const renderBiWeeklyTimesheets = () => {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Bi-Weekly Timesheet Submissions</CardTitle>
+              <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {getAvailableYears().map(year => (
+                    <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <CardDescription>
+              Upload your bi-weekly work timesheets here. Two periods are required per month.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {getMonthsForYear(selectedYear).map(month => {
+              const monthName = new Date(selectedYear, month - 1).toLocaleString('default', { month: 'long' });
+              const periods = timesheetSchedules.filter(s => s.month === month && s.year === selectedYear);
+              
+              return (
+                <div key={month} className="border rounded-lg p-4">
+                  <h4 className="font-semibold mb-3">{monthName} {selectedYear}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Array.from({ length: 2 }, (_, i) => i + 1).map(periodNum => {
+                      const periodData = periods.find(p => p.period === periodNum);
+                      const dueDate = periodData?.due_date 
+                        ? new Date(periodData.due_date) 
+                        : new Date(selectedYear, month - 1, periodNum === 1 ? 15 : new Date(selectedYear, month, 0).getDate());
+
+                      const isOverdue = dueDate < new Date() && !periodData?.work_timesheet_uploaded;
+
+                      return (
+                        <div key={periodNum} className={`p-3 rounded-md space-y-3 ${isOverdue ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'} border`}>
+                          <h5 className="font-medium text-sm">Period {periodNum}/ S{periodNum} (Due: {dueDate.toLocaleDateString()})</h5>
+                          
+                          {/* Bi-weekly Timesheet */}
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm">Bi-weekly Timesheet</span>
+                            {periodData?.work_timesheet_uploaded ? (
+                              <Badge variant="default" className="bg-green-600">
+                                Uploaded
+                              </Badge>
+                            ) : (
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button size="sm" variant="outline" onClick={() => {
+                                    setDocumentType('work_attendance_log');
+                                    setUploadTarget({ periodId: periodData!.id, type: 'work' });
+                                  }}>Upload</Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader><DialogTitle>Upload Bi-weekly Timesheet</DialogTitle></DialogHeader>
+                                  {renderUploadForm('work_attendance_log')}
+                                </DialogContent>
+                              </Dialog>
+                            )}
+                          </div>
+                          {isOverdue && (
+                            <div className="flex items-center gap-2 text-xs text-red-600">
+                              <AlertCircle className="h-3 w-3" /> <span>Submission is overdue.</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  const renderClassAttendance = () => {
+    const classAttendanceDocs = documents.filter(doc => doc.document_type === 'class_attendance_proof');
+
+    return (
+      <div className="space-y-6">
+        <Card className="bg-gradient-to-br from-white to-blue-50 border-0 shadow-lg">
+          <CardHeader>
+            <CardTitle>Upload Class Attendance</CardTitle>
+            <CardDescription>Upload your signed class attendance sheets here.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="class-attendance-upload">Select File *</Label>
+                <Input id="class-attendance-upload" type="file" onChange={handleFileSelect} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" className="rounded-xl border-gray-200" />
+                <p className="text-xs text-gray-500">Supported formats: PDF, Word, Images (max 10MB)</p>
+              </div>
+              <Button 
+                onClick={() => {
+                  setDocumentType('class_attendance_proof');
+                  handleUpload();
+                }} 
+                disabled={!selectedFile || loading} 
+                className="w-full"
+              >
+                {loading ? 'Uploading...' : 'Upload Class Attendance'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Uploaded Class Attendance Sheets</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {classAttendanceDocs.length === 0 ? (
+              <p className="text-muted-foreground text-center">No class attendance sheets uploaded yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {classAttendanceDocs.map(doc => (
+                  <div key={doc.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-3 flex-1 min-w-0">
+                      {getDocumentIcon(doc.file_name)}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-gray-800 truncate text-sm">{doc.file_name}</h4>
+                        <div className="text-xs text-gray-600">
+                          <span>{formatFileSize(doc.file_size)}</span>
+                          <span className="mx-2">•</span>
+                          <span>Uploaded: {new Date(doc.uploaded_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button variant="outline" size="sm" onClick={() => handleDownload(doc)}>
+                        <Download className="h-4 w-4" />
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => handleDelete(doc)} className="text-red-600 hover:text-red-700">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  const renderUploadForm = (docType: string) => (
+    <div className="space-y-4 p-4">
+      <Input type="file" onChange={handleFileSelect} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" />
+      <Button onClick={handleUpload} disabled={!selectedFile || loading} className="w-full">
+        {loading ? 'Uploading...' : 'Confirm Upload'}
+      </Button>
+    </div>
+  );
+
   const renderCategoryTab = (categoryKey: keyof typeof documentCategories) => {
+    if (categoryKey === 'office') {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>Timesheet Submissions</CardTitle>
+            <CardDescription>Manage your bi-weekly and class attendance timesheets.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="bi-weekly">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="bi-weekly">Bi-weekly Timesheets</TabsTrigger>
+                <TabsTrigger value="classes">Class Attendance</TabsTrigger>
+              </TabsList>
+              <TabsContent value="bi-weekly" className="mt-4">{renderBiWeeklyTimesheets()}</TabsContent>
+              <TabsContent value="classes" className="mt-4">{renderClassAttendance()}</TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      );
+    }
+
     const category = documentCategories[categoryKey];
     const categoryDocs = getDocumentsByCategory(categoryKey);
 
@@ -583,71 +859,62 @@ const DocumentUpload = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Category-specific Guidelines */}
+        <Card className="bg-yellow-50 border-yellow-200">
+          <CardHeader className="p-4">
+            <CardTitle className="flex items-center space-x-2 text-yellow-800 text-base">
+              <AlertCircle className="h-5 w-5" />
+              <span>Guidelines for {category.title}</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-yellow-700 p-4 pt-0 text-sm">
+            <ul className="space-y-1 list-disc list-inside">
+              {categoryKey === 'personal' && (
+                <>
+                  <li>Submit certified copies of all personal documents.</li>
+                  <li>Qualifications must be certified by SAQA or relevant authority.</li>
+                  <li>Bank account proof should be recent (within 3 months).</li>
+                </>
+              )}
+              {categoryKey === 'office' && (
+                <>
+                  <li>Submit bi-weekly attendance records as required.</li>
+                  <li>Time sheets must be signed by your supervisor.</li>
+                </>
+              )}
+              {categoryKey === 'contracts' && (
+                <>
+                  <li>All contract documents must be fully completed and signed.</li>
+                  <li>The POPIA form is mandatory for all learners.</li>
+                </>
+              )}
+              <li>Maximum file size is 10MB.</li>
+              <li>Accepted formats: PDF, Word, Images (JPG, PNG).</li>
+            </ul>
+          </CardContent>
+        </Card>
       </div>
     );
   };
 
   return <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6 p-4 sm:p-0 px-0">
-      <Tabs defaultValue="personal" className="w-full">
+      <Tabs defaultValue="office" className="w-full" onValueChange={() => setUploadTarget(null)}>
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="personal">{documentCategories.personal.icon} {documentCategories.personal.title}</TabsTrigger>
           <TabsTrigger value="office">{documentCategories.office.icon} {documentCategories.office.title}</TabsTrigger>
+          <TabsTrigger value="personal">{documentCategories.personal.icon} {documentCategories.personal.title}</TabsTrigger>
           <TabsTrigger value="contracts">{documentCategories.contracts.icon} {documentCategories.contracts.title}</TabsTrigger>
         </TabsList>
-        <TabsContent value="personal" className="mt-6">
-          {renderCategoryTab('personal')}
-        </TabsContent>
         <TabsContent value="office" className="mt-6">
           {renderCategoryTab('office')}
+        </TabsContent>
+        <TabsContent value="personal" className="mt-6">
+          {renderCategoryTab('personal')}
         </TabsContent>
         <TabsContent value="contracts" className="mt-6">
           {renderCategoryTab('contracts')}
         </TabsContent>
       </Tabs>
-
-      {/* Document Guidelines */}
-      <Card className="bg-yellow-50 border-yellow-200">
-        <CardHeader className="p-4 sm:p-6">
-          <CardTitle className="flex items-center space-x-2 text-yellow-800 text-lg sm:text-xl">
-            <AlertCircle className="h-5 w-5" />
-            <span>Document Guidelines</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="text-yellow-700 p-4 sm:p-6">
-          <div className="space-y-4 text-sm sm:text-base">
-            <div>
-              <h4 className="font-semibold mb-2">Personal Documents:</h4>
-              <ul className="space-y-1 text-xs sm:text-sm ml-4">
-                <li>• Submit certified copies of all personal documents</li>
-                <li>• Qualifications must be certified by SAQA or relevant authority</li>
-                <li>• Bank account proof should be recent (within 3 months)</li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-2">Office Documents:</h4>
-              <ul className="space-y-1 text-xs sm:text-sm ml-4">
-                <li>• Submit monthly attendance records as required</li>
-                <li>• Time sheets must be signed by supervisor</li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-2">Contracts:</h4>
-              <ul className="space-y-1 text-xs sm:text-sm ml-4">
-                <li>• All contract documents must be fully completed</li>
-                <li>• POPIA form is mandatory for all learners</li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-2">File Requirements:</h4>
-              <ul className="space-y-1 text-xs sm:text-sm ml-4">
-                <li>• Maximum file size: 10MB</li>
-                <li>• Accepted formats: PDF, Word documents, Images</li>
-                <li>• Use clear, descriptive file names</li>
-              </ul>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>;
 };
 export default DocumentUpload;
