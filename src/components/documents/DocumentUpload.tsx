@@ -42,6 +42,7 @@ const DocumentUpload = () => {
   const [timesheetSchedules, setTimesheetSchedules] = useState<TimesheetSchedule[]>([]);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [uploadTarget, setUploadTarget] = useState<{ periodId: string; type: 'work' | 'class' } | null>(null);
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
 
   const documentCategories = {
     personal: {
@@ -314,7 +315,7 @@ const DocumentUpload = () => {
           case 'personal':
             return 'personal-documents';
           case 'office':
-            return 'logbooks-timesheets';
+            return 'office-documents';
           case 'contracts':
             return 'contracts';
           default:
@@ -332,53 +333,100 @@ const DocumentUpload = () => {
     setLoading(true);
     setUploadProgress(0);
     try {
-      // If uploading via timesheet calendar, update the schedule
-      let isLate = false;
-      if (uploadTarget) {
-        const updateField = uploadTarget.type === 'work' ? 'work_timesheet_uploaded' : 'class_timesheet_uploaded';
-        const { error: scheduleError } = await supabase
-          .from('timesheet_schedules')
-          .update({ [updateField]: true, uploaded_at: new Date().toISOString() })
-          .eq('id', uploadTarget.periodId);
- 
-        if (scheduleError) throw scheduleError;
+      // Optimistically update the UI before refetching
+      if (uploadTarget?.type === 'work') {
+        setTimesheetSchedules(prevSchedules =>
+          prevSchedules.map(schedule =>
+            schedule.id === uploadTarget.periodId
+              ? { ...schedule, work_timesheet_uploaded: true, uploaded_at: new Date().toISOString() }
+              : schedule
+          )
+        );
+      }
 
-        // Check if late submission (more than 1 week)
-        const schedule = timesheetSchedules.find(s => s.id === uploadTarget.periodId);
-        const dueDate = new Date(schedule?.due_date || '');
-        const oneWeekLate = new Date(dueDate.getTime() + 7 * 24 * 60 * 60 * 1000);
-        isLate = new Date() > oneWeekLate;
+      // If this is an update, find the old document to delete it later
+      let oldDocPath: string | null = null;
+      if (uploadTarget) {
+        const { data: oldSubmission } = await supabase
+            .from('timesheet_submissions')
+            .select('file_path')
+            .eq('schedule_id', uploadTarget.periodId)
+            .single();
+        if (oldSubmission) {
+            oldDocPath = oldSubmission.file_path;
+        }
       }
 
       // Get the appropriate bucket for this document type
       const bucketName = getBucketForDocumentType(documentType);
 
-      // Create file path with user folder: bucket > user_id > filename
-      const fileExt = selectedFile.name.split('.').pop();
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      // Create a structured file path: bucket/learner_id/year/month/period/filename
+      let filePath = '';
+      if (uploadTarget) {
+        const schedule = timesheetSchedules.find(s => s.id === uploadTarget.periodId);
+        if (schedule) {
+          filePath = `${user.id}/${schedule.year}/${schedule.month}/${schedule.period}/${selectedFile.name}`;
+        }
+      }
+      // Fallback for non-timesheet uploads
+      if (!filePath) {
+        const fileExt = selectedFile.name.split('.').pop();
+        filePath = `${user.id}/${Date.now()}.${fileExt}`;
+      }
 
       // Upload file to the categorized storage bucket
       const {
         data: uploadData,
         error: uploadError
-      } = await supabase.storage.from(bucketName).upload(fileName, selectedFile);
+      } = await supabase.storage.from(bucketName).upload(filePath, selectedFile, { upsert: true });
       if (uploadError) throw uploadError;
 
-      // Save document record to database
-      const {
-        error: dbError
-      } = await supabase.from('documents').insert({
-        learner_id: user.id,
-        document_type: documentType as any,
-        file_name: selectedFile.name,
-        file_path: uploadData.path,
-        file_size: selectedFile.size
-      });
-      if (dbError) throw dbError;
+      // Handle timesheet submission record
+      let isLate = false;
+      if (uploadTarget?.type === 'work') {
+        const schedule = timesheetSchedules.find(s => s.id === uploadTarget.periodId);
+        // Check if late submission (more than 1 week)
+        const dueDate = new Date(schedule?.due_date || '');
+        const oneWeekLate = new Date(dueDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+        isLate = new Date() > oneWeekLate;
+
+        // Upsert the timesheet submission record
+        const { error: submissionError } = await supabase
+          .from('timesheet_submissions')
+          .upsert({
+            schedule_id: uploadTarget.periodId,
+            learner_id: user.id,
+            file_name: selectedFile.name,
+            file_path: uploadData.path,
+            file_size: selectedFile.size,
+            uploaded_at: new Date().toISOString()
+          }, { onConflict: 'schedule_id' });
+        
+        if (submissionError) throw submissionError;
+
+        // Update the schedule table to mark as uploaded
+        const { error: scheduleUpdateError } = await supabase
+          .from('timesheet_schedules')
+          .update({ work_timesheet_uploaded: true, uploaded_at: new Date().toISOString() })
+          .eq('id', uploadTarget.periodId);
+        
+        if (scheduleUpdateError) throw scheduleUpdateError;
+
+      } else {
+        // Handle regular document uploads
+        const { error: dbError } = await supabase.from('documents').insert({ learner_id: user.id, document_type: documentType as any, file_name: selectedFile.name, file_path: uploadData.path, file_size: selectedFile.size });
+        if (dbError) throw dbError;
+      }
+
+      // If this was an update and the filename changed, delete the old file from storage
+      if (oldDocPath && oldDocPath !== uploadData.path) {
+        await supabase.storage.from(bucketName).remove([oldDocPath]);
+      }
 
       // Award points based on document type
       const docInfo = getDocumentInfo(documentType);
-      if (docInfo && docInfo.points > 0) { 
+      // Only award points if it's a new submission (no oldDocPath)
+      if (docInfo && docInfo.points > 0 && !oldDocPath) { 
         const pointsToAward = isLate ? Math.ceil(docInfo.points / 2) : docInfo.points;
         await supabase.from('achievements').insert({
           learner_id: user.id,
@@ -397,6 +445,7 @@ const DocumentUpload = () => {
       setUploadProgress(0);
       setUploadTarget(null);
       fetchDocuments();
+      setIsUploadDialogOpen(false); // Close the dialog on success
 
       // Reset file input
       const fileInput = window.document.getElementById('file-upload') as HTMLInputElement;
@@ -405,10 +454,62 @@ const DocumentUpload = () => {
       toast.error(error.message || 'Failed to upload document');
     } finally {
       setLoading(false);
-      fetchTimesheetSchedules();
       setUploadProgress(0);
     }
   };
+
+  const handleTimesheetUploadClick = async (periodData: TimesheetSchedule | undefined, periodNum: number, month: number, year: number) => {
+    if (periodData) {
+      setDocumentType('work_attendance_log');
+      setUploadTarget({ periodId: periodData.id, type: 'work' });
+    } else {
+      // Create the schedule entry if it doesn't exist
+      try {
+        // Call the existing function to create schedules for the whole month
+        const { error } = await supabase.rpc('initialize_biweekly_timesheets', {
+          user_id: user!.id,
+          target_month: month,
+          target_year: year
+        });
+        if (error) throw error;
+
+        // Refetch schedules to get the newly created one
+        const { data: newSchedules } = await supabase.from('timesheet_schedules').select('*').eq('learner_id', user!.id).eq('year', year).eq('month', month);
+        const newPeriodData = newSchedules?.find(p => p.period === periodNum);
+
+        setDocumentType('work_attendance_log');
+        if (newPeriodData) setUploadTarget({ periodId: newPeriodData.id, type: 'work' });
+        else throw new Error("Failed to find newly created schedule.");
+      } catch (error: any) {
+        toast.error("Could not prepare upload slot. Please try again.");
+      }
+    }
+  };
+
+  const handleViewTimesheet = async (period: TimesheetSchedule) => {
+    const { data: submission } = await supabase
+      .from('timesheet_submissions')
+      .select('file_path, file_name')
+      .eq('schedule_id', period.id)
+      .single();
+
+    if (!submission) {
+      toast.error("Document not found.");
+      return;
+    }
+
+    const { data, error } = await supabase.storage
+      .from('office-documents')
+      .download(submission.file_path);
+
+    if (error) throw error;
+
+    const url = URL.createObjectURL(data);
+    window.open(url, '_blank');
+    URL.revokeObjectURL(url);
+
+  };
+
   const handleDownload = async (doc: Document) => {
     try {
       // Handle CV downloads differently - they are stored as JSON in file_path
@@ -598,24 +699,27 @@ const DocumentUpload = () => {
                           {/* Bi-weekly Timesheet */}
                           <div className="flex items-center justify-between">
                             <span className="text-sm">Bi-weekly Timesheet</span>
-                            {periodData?.work_timesheet_uploaded ? (
-                              <Badge variant="default" className="bg-green-600">
-                                Uploaded
-                              </Badge>
-                            ) : (
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button size="sm" variant="outline" onClick={() => {
-                                    setDocumentType('work_attendance_log');
-                                    setUploadTarget({ periodId: periodData!.id, type: 'work' });
-                                  }}>Upload</Button>
-                                </DialogTrigger>
-                                <DialogContent>
-                                  <DialogHeader><DialogTitle>Upload Bi-weekly Timesheet</DialogTitle></DialogHeader>
-                                  {renderUploadForm('work_attendance_log')}
-                                </DialogContent>
-                              </Dialog>
-                            )}
+                            <div className="flex items-center gap-2">
+                              {periodData?.work_timesheet_uploaded && (
+                                <Button size="sm" variant="outline" onClick={() => handleViewTimesheet(periodData)}>
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              )}
+                              <Dialog open={isUploadDialogOpen && uploadTarget?.periodId === periodData?.id} onOpenChange={setIsUploadDialogOpen}>
+                                  <DialogTrigger asChild>
+                                    <Button size="sm" variant="outline" onClick={() => {
+                                      handleTimesheetUploadClick(periodData, periodNum, month, selectedYear);
+                                      setIsUploadDialogOpen(true);
+                                    }}>
+                                      {periodData?.work_timesheet_uploaded ? 'Update' : 'Upload'}
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent>
+                                    <DialogHeader><DialogTitle>{periodData?.work_timesheet_uploaded ? 'Update' : 'Upload'} Bi-weekly Timesheet</DialogTitle></DialogHeader>
+                                    {renderUploadForm('work_attendance_log')}
+                                  </DialogContent>
+                                </Dialog>
+                            </div>
                           </div>
                           {isOverdue && (
                             <div className="flex items-center gap-2 text-xs text-red-600">

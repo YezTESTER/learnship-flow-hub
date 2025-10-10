@@ -525,7 +525,7 @@ const LearnersManagement: React.FC = () => {
     if (documentCategories.personal.includes(docType)) {
       return 'personal-documents';
     } else if (documentCategories.office.includes(docType)) {
-      return 'logbooks-timesheets';
+      return 'office-documents';
     } else if (documentCategories.contracts.includes(docType)) {
       return 'contracts';
     }

@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { useComplianceSystem } from '@/hooks/useComplianceSystem';
+import { useComplianceSystem, TimesheetPeriod } from '@/hooks/useComplianceSystem';
 import { Calendar, FileText, Award, Bell, Settings, TrendingUp, Clock, CheckCircle, Target, Star, Upload, AlertCircle, User, BarChart3, Zap } from 'lucide-react';
 
 interface LearnerDashboardProps {
@@ -15,7 +15,7 @@ interface LearnerDashboardProps {
 const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
   setActiveSection
 }) => {
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const { compliance, timesheetPeriods, loading: complianceLoading } = useComplianceSystem();
   
   const [stats, setStats] = useState({
@@ -30,11 +30,31 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
   const [loading, setLoading] = useState(true);
   const [hasCurrentMonthFeedback, setHasCurrentMonthFeedback] = useState(false);
   const [missingRequiredDocs, setMissingRequiredDocs] = useState<string[]>([]);
+  const [pastTimesheets, setPastTimesheets] = useState<TimesheetPeriod[]>([]);
 
   useEffect(() => {
     fetchDashboardData();
     calculateProfileCompletion();
+    fetchPastTimesheets();
   }, [profile]);
+
+  const fetchPastTimesheets = async () => {
+    if (!user?.id) return;
+    
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 2);
+    threeMonthsAgo.setDate(1);
+    threeMonthsAgo.setHours(0, 0, 0, 0);
+
+    const { data, error } = await supabase
+      .from('timesheet_schedules')
+      .select('*')
+      .eq('learner_id', user.id)
+      .gte('due_date', threeMonthsAgo.toISOString())
+      .order('year', { ascending: false })
+      .order('month', { ascending: false });
+    if (data) setPastTimesheets(data);
+  };
 
   const calculateProfileCompletion = () => {
     if (!profile) return;
@@ -109,6 +129,20 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
       setLoading(false);
     }
   };
+
+  const timesheetsByMonth = useMemo(() => {
+    const grouped: { [key: string]: TimesheetPeriod[] } = {};
+    pastTimesheets.forEach(p => {
+      const key = `${p.year}-${p.month}`;
+      if (!grouped[key]) {
+        grouped[key] = [];
+      }
+      grouped[key].push(p);
+    });
+    return Object.entries(grouped)
+      .sort(([keyA], [keyB]) => new Date(keyB).getTime() - new Date(keyA).getTime())
+      .slice(0, 3);
+  }, [pastTimesheets]);
 
   if (loading || complianceLoading) {
     return (
@@ -291,76 +325,54 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
 
       {/* Bi-Weekly Timesheets */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
-              <span>Bi-Weekly Timesheets (This Month)</span>
+              <span>Bi-Weekly Timesheets (Last 3 Months)</span>
               <Clock className="h-5 w-5 text-purple-600" />
             </CardTitle>
-            <CardDescription>
-              {timesheetPeriods.length > 0 ? (
-                `${timesheetPeriods.filter(p => p.work_timesheet_uploaded && p.class_timesheet_uploaded).length} of ${timesheetPeriods.length} periods complete`
-              ) : (
-                'Loading timesheet schedule...'
-              )}
-            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {timesheetPeriods.map((period) => {
-                const isComplete = period.work_timesheet_uploaded && period.class_timesheet_uploaded;
-                const dueDate = new Date(period.due_date);
-                const isOverdue = !isComplete && dueDate < new Date();
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {timesheetsByMonth.map(([key, periods]) => {
+                const [year, month] = key.split('-');
+                const monthName = new Date(parseInt(year), parseInt(month) - 1).toLocaleString('default', { month: 'long' });
+                const allUploaded = periods.length >= 2 && periods.every(p => p.work_timesheet_uploaded);
                 
                 return (
-                  <div 
-                    key={period.id} 
-                    className={`p-4 rounded-lg border ${
-                      isComplete 
-                        ? 'bg-green-50 border-green-300' 
-                        : isOverdue 
-                          ? 'bg-red-50 border-red-300' 
-                          : 'bg-amber-50 border-amber-300'
-                    }`}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="font-medium text-sm">
-                          Period {period.period} ({period.period === 1 ? '1st-15th' : '16th-End'})
-                        </h4>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Due: {dueDate.toLocaleDateString()}
-                        </p>
+                  <Card key={key} className={allUploaded ? 'bg-green-50' : 'bg-red-50'}>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">{monthName} {year}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {allUploaded ? (
+                        <div className="flex items-center gap-2 text-green-700">
+                          <CheckCircle className="h-4 w-4" />
+                          <span className="text-sm font-medium">All timesheets uploaded</span>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-red-700">
+                            <AlertCircle className="h-4 w-4" />
+                            <span className="text-sm font-medium">Uploads are missing</span>
+                          </div>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => handleNavigateToSection('documents')}
+                            className="w-full text-xs"
+                          >
+                            Go to Uploads
+                          </Button>
+                        </div>
+                      )}
+                      <div className="flex gap-2 mt-3">
+                        {periods.sort((a,b) => a.period - b.period).map(p => (
+                          <Badge key={p.id} variant={p.work_timesheet_uploaded ? 'default' : 'secondary'}>S{p.period}</Badge>
+                        ))}
                       </div>
-                      <div className="flex gap-2">
-                        <Badge 
-                          variant={period.work_timesheet_uploaded ? "default" : "secondary"} 
-                          className="text-xs"
-                        >
-                          Work {period.work_timesheet_uploaded ? '✓' : '✗'}
-                        </Badge>
-                        <Badge 
-                          variant={period.class_timesheet_uploaded ? "default" : "secondary"} 
-                          className="text-xs"
-                        >
-                          Class {period.class_timesheet_uploaded ? '✓' : '✗'}
-                        </Badge>
-                      </div>
-                    </div>
-                    
-                    {!isComplete && (
-                      <div className="mt-3">
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          onClick={() => handleNavigateToSection('documents')}
-                          className="text-xs"
-                        >
-                          Upload Missing Timesheets
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+                    </CardContent>
+                  </Card>
                 );
               })}
             </div>
@@ -368,7 +380,7 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
         </Card>
 
         {/* Recent Achievements */}
-        <Card className="bg-white shadow-lg border-0">
+        <Card className="bg-white shadow-lg border-0 lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <Award className="h-5 w-5 text-[#e16623]" />
