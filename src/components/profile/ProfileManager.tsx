@@ -87,6 +87,7 @@ const ProfileManager = () => {
       });
     }
   }, [profile, user]);
+
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !user) return;

@@ -4,8 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useUnsavedChanges } from '@/contexts/UnsavedChangesContext';
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Home, FileText, Upload, Award, Bell, Settings, Users, BarChart3, LogOut, User, BookOpen, Menu, X } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Home, FileText, Upload, Award, Bell, Settings, Users, BarChart3, LogOut, User, BookOpen, Menu, X, Clock } from 'lucide-react';
 import { useMediaQuery } from 'react-responsive';
 
 interface SidebarProps {
@@ -67,7 +67,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
-  const learnerMenuItems = [
+  const learnerMenuItems: MenuItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'feedback', label: 'Monthly Feedback', icon: FileText },
     { id: 'documents', label: 'Documents', icon: Upload },
@@ -78,7 +78,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'account-settings', label: 'Account Settings', icon: Settings },
   ];
 
-  const mentorMenuItems = [
+  const mentorMenuItems: MenuItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'learners', label: 'My Learners', icon: Users },
     { id: 'feedback-review', label: 'Review Feedback', icon: FileText },
@@ -87,11 +87,19 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'account-settings', label: 'Account Settings', icon: Settings },
   ];
 
-  const adminMenuItems = [
+  interface MenuItem {
+    id: string;
+    label: string;
+    icon: React.ElementType;
+    link?: string;
+  }
+
+  const adminMenuItems: MenuItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'learners', label: 'All Learners', icon: Users },
     { id: 'reports', label: 'Reports', icon: BarChart3 },
     { id: 'feedback-review', label: 'Manage Feedback', icon: FileText },
+    { id: 'timesheets', label: 'Timesheets', icon: Clock, link: 'https://timesheet-generator-wps.vercel.app/' },
     { id: 'comms', label: 'Communications', icon: FileText },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'account-settings', label: 'Account Settings', icon: Settings },
@@ -136,7 +144,13 @@ const Sidebar: React.FC<SidebarProps> = ({
           return (
             <button
               key={item.id}
-              onClick={() => handleNavigation(item.id)}
+              onClick={() => {
+                if (item.link) {
+                  window.location.href = item.link;
+                } else {
+                  handleNavigation(item.id);
+                }
+              }}
               className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl mb-1 transition-all duration-200 transform hover:scale-105 text-sm ${
                 activeSection === item.id
                   ? 'bg-white/20 text-white shadow-lg'

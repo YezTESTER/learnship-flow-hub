@@ -95,12 +95,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userData = user.user_metadata || {};
       const role = userData.role || 'learner';
       
-      // Additional server-side validation for admin accounts
-      if (role === 'admin' && !user.email?.endsWith('@whitepaperconcepts.co.za')) {
-        console.error('Admin account creation blocked: invalid email domain');
-        throw new Error('Admin accounts can only be created with @whitepaperconcepts.co.za email addresses');
-      }
-      
       const { data, error } = await supabase
         .from('profiles')
         .insert([
@@ -132,7 +126,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     } catch (error) {
-      console.error('Error in createUserProfile:', error);
+      console.error('Error creating profile:', error);
       throw error;
     }
   };
@@ -148,8 +142,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } 
       };
     }
-    
-    setLoading(true);
     
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -173,8 +165,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Signup exception:', error);
       return { error };
-    } finally {
-      setLoading(false);
     }
   };
 
