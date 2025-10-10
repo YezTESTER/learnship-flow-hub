@@ -36,6 +36,9 @@ const MonthlyFeedbackForm = () => {
   const [existingSubmission, setExistingSubmission] = useState<FeedbackSubmission | null>(null);
   const [viewingSubmission, setViewingSubmission] = useState<FeedbackSubmission | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isEditingPastMonth, setIsEditingPastMonth] = useState(false);
+  const [editingMonth, setEditingMonth] = useState<number | null>(null);
+  const [editingYear, setEditingYear] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     attendance_rating: '',
     performance_rating: '',
@@ -88,8 +91,14 @@ const MonthlyFeedbackForm = () => {
     e.preventDefault();
     if (!user) return;
     
+    const targetMonth = isEditingPastMonth && editingMonth ? editingMonth : currentMonth;
+    const targetYear = isEditingPastMonth && editingYear ? editingYear : currentYear;
+    
+    // Get the submission for the target month
+    const targetSubmission = getSubmissionForMonth(targetMonth, targetYear);
+    
     // Check if editing is allowed
-    if (existingSubmission && !existingSubmission.is_editable_by_learner) {
+    if (targetSubmission && !targetSubmission.is_editable_by_learner && !isEditingPastMonth) {
       toast({
         title: "Cannot Edit",
         description: "This submission is locked. Contact your manager to enable editing.",
@@ -100,37 +109,47 @@ const MonthlyFeedbackForm = () => {
     
     setLoading(true);
     try {
-      const dueDate = new Date(currentYear, currentMonth, 5); // Due on the 5th of next month
+      const dueDate = new Date(targetYear, targetMonth, 5); // Due on the 5th of next month
+      const isResubmission = !!targetSubmission;
 
       const submissionData = {
         learner_id: user.id,
-        month: currentMonth,
-        year: currentYear,
+        month: targetMonth,
+        year: targetYear,
         status: 'submitted' as const,
         submission_data: formData,
         submitted_at: new Date().toISOString(),
         due_date: dueDate.toISOString(),
-        is_editable_by_learner: false // Lock after submission
+        is_editable_by_learner: false, // Lock after submission
+        edited_at: isResubmission ? new Date().toISOString() : null
       };
       let result;
-      if (existingSubmission) {
-        result = await supabase.from('feedback_submissions').update(submissionData).eq('id', existingSubmission.id);
+      if (targetSubmission) {
+        result = await supabase.from('feedback_submissions').update(submissionData).eq('id', targetSubmission.id);
       } else {
         result = await supabase.from('feedback_submissions').insert(submissionData);
       }
       if (result.error) throw result.error;
 
-      // Award performance-based points for submission
-      await awardPoints(
-        'feedback_submission',
-        10,
-        `Monthly Feedback - ${new Date(currentYear, currentMonth - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`
-      );
+      // Award performance-based points for new submission only (not edits)
+      if (!isResubmission) {
+        await awardPoints(
+          'feedback_submission',
+          10,
+          `Monthly Feedback - ${new Date(targetYear, targetMonth - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`
+        );
+      }
 
       toast({
         title: "Success",
-        description: "Monthly feedback submitted successfully!",
+        description: isResubmission ? "Feedback updated successfully!" : "Monthly feedback submitted successfully!",
       });
+      
+      // Reset editing state
+      setIsEditingPastMonth(false);
+      setEditingMonth(null);
+      setEditingYear(null);
+      
       fetchSubmissions();
       checkCurrentMonthSubmission();
     } catch (error: any) {
@@ -153,11 +172,40 @@ const MonthlyFeedbackForm = () => {
     setIsViewDialogOpen(true);
   };
 
+  const handleEditPastMonth = (month: number, year: number, submission?: FeedbackSubmission) => {
+    setEditingMonth(month);
+    setEditingYear(year);
+    setIsEditingPastMonth(true);
+    
+    if (submission?.submission_data) {
+      setFormData(submission.submission_data as typeof formData);
+    } else {
+      // Reset form for new submission
+      setFormData({
+        attendance_rating: '',
+        performance_rating: '',
+        challenges_faced: '',
+        achievements: '',
+        mentorship_received: '',
+        learning_objectives: '',
+        additional_comments: ''
+      });
+    }
+    
+    // Scroll to form
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  };
+
   const getPastMonths = () => {
     const months = [];
     const now = new Date();
     const currentMonthNum = now.getMonth() + 1;
     const currentYearNum = now.getFullYear();
+    
+    // Get learner's registration month and year
+    const registrationDate = profile?.created_at ? new Date(profile.created_at) : null;
+    const registrationMonth = registrationDate ? registrationDate.getMonth() + 1 : 1;
+    const registrationYear = registrationDate ? registrationDate.getFullYear() : selectedYear;
     
     for (let month = 1; month <= 12; month++) {
       // Only show months up to current month for current year
@@ -166,6 +214,14 @@ const MonthlyFeedbackForm = () => {
       }
       // Don't show future years
       if (selectedYear > currentYearNum) {
+        continue;
+      }
+      // Don't show months before registration
+      if (selectedYear === registrationYear && month < registrationMonth) {
+        continue;
+      }
+      // Don't show months before learner registered
+      if (selectedYear < registrationYear) {
         continue;
       }
       months.push(month);
@@ -232,6 +288,7 @@ const MonthlyFeedbackForm = () => {
               const submission = getSubmissionForMonth(month, selectedYear);
               const monthName = new Date(selectedYear, month - 1).toLocaleDateString('en-US', { month: 'short' });
               const isCurrentPeriod = month === currentMonth && selectedYear === currentYear;
+              const canEdit = submission?.is_editable_by_learner || !submission;
               
               return (
                 <div key={month} className="relative">
@@ -239,12 +296,21 @@ const MonthlyFeedbackForm = () => {
                     variant={submission ? "default" : "outline"}
                     className={`w-full h-20 flex flex-col items-center justify-center ${
                       isCurrentPeriod ? 'ring-2 ring-[#122ec0]' : ''
-                    } ${submission?.status === 'submitted' ? 'bg-green-600 hover:bg-green-700' : ''}`}
-                    onClick={() => submission && handleViewSubmission(submission)}
-                    disabled={!submission}
+                    } ${submission?.status === 'submitted' ? 'bg-green-600 hover:bg-green-700' : ''} ${
+                      !submission ? 'border-red-500 hover:bg-red-50' : ''
+                    }`}
+                    onClick={() => {
+                      if (submission && !canEdit) {
+                        handleViewSubmission(submission);
+                      } else if (submission && canEdit) {
+                        handleEditPastMonth(month, selectedYear, submission);
+                      } else {
+                        handleEditPastMonth(month, selectedYear);
+                      }
+                    }}
                   >
                     <span className="font-semibold">{monthName}</span>
-                    <span className="text-xs mt-1">
+                    <span className={`text-xs mt-1 ${!submission ? 'text-red-600 font-semibold' : ''}`}>
                       {submission ? (
                         submission.status === 'submitted' ? (
                           <CheckCircle className="h-4 w-4" />
@@ -271,21 +337,43 @@ const MonthlyFeedbackForm = () => {
         </CardContent>
       </Card>
 
-      {/* Current Month Submission */}
+      {/* Current/Editing Month Submission */}
       <Card className="bg-gradient-to-br from-white to-blue-50 border-0 shadow-lg">
         <CardHeader className="text-center">
           <div className="flex items-center justify-center space-x-2 mb-2">
             <FileText className="h-6 w-6 text-[#122ec0]" />
             <CardTitle className="text-2xl bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
-              Monthly Feedback - {new Date(currentYear, currentMonth - 1).toLocaleDateString('en-US', {
-              month: 'long',
-              year: 'numeric'
-            })}
+              Monthly Feedback - {isEditingPastMonth && editingMonth && editingYear 
+                ? new Date(editingYear, editingMonth - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+                : new Date(currentYear, currentMonth - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+              }
             </CardTitle>
           </div>
           <CardDescription className="text-gray-600">
-            {existingSubmission ? `Submitted on ${new Date(existingSubmission.submitted_at).toLocaleDateString()}` : 'Complete your monthly performance evaluation'}
+            {isEditingPastMonth 
+              ? (getSubmissionForMonth(editingMonth!, editingYear!) 
+                  ? 'Editing past submission' 
+                  : 'Filling in missed submission')
+              : (existingSubmission 
+                  ? `Submitted on ${new Date(existingSubmission.submitted_at).toLocaleDateString()}` 
+                  : 'Complete your monthly performance evaluation')
+            }
           </CardDescription>
+          {isEditingPastMonth && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => {
+                setIsEditingPastMonth(false);
+                setEditingMonth(null);
+                setEditingYear(null);
+                checkCurrentMonthSubmission();
+              }}
+              className="mt-2"
+            >
+              Cancel & Return to Current Month
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -394,31 +482,29 @@ const MonthlyFeedbackForm = () => {
               </div>
             </div>
 
-            {!canEdit && existingSubmission && (
-              <div className="flex items-center gap-2 text-yellow-600 bg-yellow-50 p-3 rounded-xl mb-4">
-                <Lock className="h-5 w-5" />
-                <span className="text-sm">This submission is locked. Contact your manager to enable editing.</span>
-              </div>
-            )}
-            
             <Button 
               type="submit" 
-              disabled={loading || !canEdit} 
+              disabled={loading} 
               className="w-full bg-gradient-to-r from-[#122ec0] to-[#e16623] hover:from-[#0f2499] hover:to-[#d55a1f] text-white rounded-xl py-3 font-semibold transition-all duration-300 transform hover:scale-105 text-base disabled:opacity-50"
             >
-              {loading ? 'Submitting...' : !canEdit ? 'Locked' : <>
+              {loading ? 'Submitting...' : (
+                <>
                   <Send className="mr-2 h-5 w-5" />
-                  {existingSubmission ? 'Update Submission' : 'Submit Monthly Feedback'}
-                </>}
+                  {isEditingPastMonth 
+                    ? (getSubmissionForMonth(editingMonth!, editingYear!) ? 'Update Submission' : 'Submit Feedback')
+                    : (existingSubmission ? 'Update Submission' : 'Submit Monthly Feedback')
+                  }
+                </>
+              )}
             </Button>
             </form>
 
-            {/* Supervisor Information (Read-only) */}
-            {existingSubmission?.submission_data && (existingSubmission.submission_data.supervisor_name || existingSubmission.submission_data.supervisor_feedback) && (
-              <div className="mt-6 bg-white p-6 rounded-xl border border-gray-100 px-[10px]">
+            {/* Supervisor Information (Read-only) - Only show if not editing */}
+            {!isEditingPastMonth && existingSubmission?.submission_data && (existingSubmission.submission_data.supervisor_name || existingSubmission.submission_data.supervisor_feedback) && (
+              <div className="mt-6 bg-blue-50 p-6 rounded-xl border border-blue-200 px-[10px]">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
                   <User className="h-5 w-5 mr-2" />
-                  Supervisor Information
+                  Supervisor Information (Read-only)
                 </h3>
                 {existingSubmission.submission_data.supervisor_name && (
                   <div className="mb-3">
@@ -435,9 +521,9 @@ const MonthlyFeedbackForm = () => {
               </div>
             )}
 
-            {/* Manager Review */}
-            {existingSubmission && (existingSubmission.mentor_comments || typeof (existingSubmission.mentor_rating as any) === 'number') && (
-              <div className="mt-6 bg-white p-6 rounded-xl border border-gray-100 px-[10px]">
+            {/* Manager Review - Only show if not editing */}
+            {!isEditingPastMonth && existingSubmission && (existingSubmission.mentor_comments || typeof (existingSubmission.mentor_rating as any) === 'number') && (
+              <div className="mt-6 bg-yellow-50 p-6 rounded-xl border border-yellow-200 px-[10px]">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
                   <Star className="h-5 w-5 mr-2" />
                   Manager Review
