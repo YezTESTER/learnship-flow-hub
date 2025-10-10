@@ -184,7 +184,17 @@ AS $$
 DECLARE
   period_1_due DATE;
   period_2_due DATE;
+  existing_count INTEGER;
 BEGIN
+  -- Check if schedules for this month already exist
+  SELECT COUNT(*) INTO existing_count
+  FROM public.timesheet_schedules
+  WHERE learner_id = user_id AND month = target_month AND year = target_year;
+
+  IF existing_count > 0 THEN
+    RETURN;
+  END IF;
+
   -- Calculate due dates (15th and last day of month)
   period_1_due := make_date(target_year, target_month, 15);
   period_2_due := (make_date(target_year, target_month, 1) + INTERVAL '1 month - 1 day')::DATE;

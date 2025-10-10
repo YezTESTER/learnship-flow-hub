@@ -43,6 +43,73 @@ const DocumentUpload = () => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [uploadTarget, setUploadTarget] = useState<{ periodId: string; type: 'work' | 'class' } | null>(null);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [pendingUploadTarget, setPendingUploadTarget] = useState<{ periodId: string; type: 'work' | 'class' } | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [uploadCompleted, setUploadCompleted] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      fetchDocuments();
+      fetchTimesheetSchedules();
+    }
+  }, [user, refreshTrigger]);
+
+  useEffect(() => {
+    if (user) {
+      fetchTimesheetSchedules();
+    }
+  }, [selectedYear, user, refreshTrigger]);
+
+  // New effect to handle post-upload refresh
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
+    if (uploadCompleted) {
+      // After a successful upload, refresh the schedules
+      timeoutId = setTimeout(() => {
+        fetchTimesheetSchedules();
+        setUploadCompleted(false);
+      }, 1500);
+    }
+    
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [uploadCompleted]);
+
+  // Effect to handle upload target changes
+  useEffect(() => {
+    console.log('Upload target changed:', uploadTarget);
+  }, [uploadTarget]);
+
+  // Effect to monitor when the component might be reverting state
+  useEffect(() => {
+    console.log('Component re-rendered. Current timesheetSchedules length:', timesheetSchedules.length);
+    const uploadedSchedules = timesheetSchedules.filter(s => s.work_timesheet_uploaded);
+    console.log('Currently uploaded schedules:', uploadedSchedules.length);
+    if (uploadedSchedules.length > 0) {
+      console.log('Uploaded schedule IDs:', uploadedSchedules.map(s => s.id));
+    }
+  }, [timesheetSchedules]);
+
+  // Periodic refresh to ensure data consistency (every 30 seconds)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (user && !loading) {
+        fetchTimesheetSchedules();
+      }
+    }, 30000); // 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [user, loading]);
+
+  // Effect to synchronize pendingUploadTarget with uploadTarget
+  useEffect(() => {
+    if (pendingUploadTarget) {
+      setUploadTarget(pendingUploadTarget);
+      setPendingUploadTarget(null);
+    }
+  }, [pendingUploadTarget]);
 
   const documentCategories = {
     personal: {
@@ -87,7 +154,7 @@ const DocumentUpload = () => {
       documents: [{
         value: 'work_attendance_log',
         label: 'Bi-Weekly Timesheets',
-        points: 10,
+        points: 17.5, // Changed from 10 to 17.5 to align with 35% compliance score weight (17.5 points per timesheet × 2 periods = 35 max points)
         required: false,
         whenRequired: true
       }, {
@@ -200,19 +267,6 @@ const DocumentUpload = () => {
     }
   };
 
-  useEffect(() => {
-    if (user) {
-      fetchDocuments();
-      fetchTimesheetSchedules();
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (user) {
-      fetchTimesheetSchedules();
-    }
-  }, [selectedYear, user]);
-
   const fetchDocuments = async () => {
     try {
       console.log('Fetching documents for user:', user?.id);
@@ -265,9 +319,24 @@ const DocumentUpload = () => {
     }
   };
 
-  const fetchTimesheetSchedules = async () => {
+  // Helper function to deeply compare two timesheet schedules
+  const areSchedulesEqual = (a: TimesheetSchedule, b: TimesheetSchedule): boolean => {
+    return (
+      a.id === b.id &&
+      a.month === b.month &&
+      a.year === b.year &&
+      a.period === b.period &&
+      a.work_timesheet_uploaded === b.work_timesheet_uploaded &&
+      a.class_timesheet_uploaded === b.class_timesheet_uploaded &&
+      a.due_date === b.due_date &&
+      a.uploaded_at === b.uploaded_at
+    );
+  };
+
+  const fetchTimesheetSchedules = async (retryCount = 0) => {
     if (!user) return;
     try {
+      console.log('Fetching timesheet schedules for user:', user.id, 'and year:', selectedYear, 'retry:', retryCount);
       const { data, error } = await supabase
         .from('timesheet_schedules')
         .select('*')
@@ -277,9 +346,43 @@ const DocumentUpload = () => {
         .order('period', { ascending: true });
 
       if (error) throw error;
-      setTimesheetSchedules(data || []);
+      
+      // Log the fetched data for debugging
+      console.log(`Fetched ${data?.length || 0} timesheet schedules for year ${selectedYear}:`, data);
+      
+      // Check if any schedules have work_timesheet_uploaded = true
+      const uploadedSchedules = data?.filter(s => s.work_timesheet_uploaded) || [];
+      console.log('Uploaded schedules count:', uploadedSchedules.length);
+      
+      // Only update state if data has actually changed
+      setTimesheetSchedules(prevSchedules => {
+        // Compare the new data with the existing data
+        const hasChanged = prevSchedules.length !== data?.length || 
+          prevSchedules.some((prev, index) => {
+            const current = data?.[index];
+            return !current || !areSchedulesEqual(prev, current);
+          });
+      
+        if (hasChanged) {
+          console.log('Timesheet schedules have changed, updating state');
+          return data || [];
+        } else {
+          console.log('Timesheet schedules unchanged, skipping state update');
+          return prevSchedules;
+        }
+      });
     } catch (error: any) {
-      toast.error('Failed to load timesheet schedules');
+      console.error('Error fetching timesheet schedules:', error);
+      
+      // Retry logic for transient errors
+      if (retryCount < 3) {
+        console.log(`Retrying fetchTimesheetSchedules, attempt ${retryCount + 1}`);
+        setTimeout(() => {
+          fetchTimesheetSchedules(retryCount + 1);
+        }, 500 * (retryCount + 1)); // Exponential backoff
+      } else {
+        toast.error('Failed to load timesheet schedules after multiple attempts');
+      }
     }
   };
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -333,27 +436,24 @@ const DocumentUpload = () => {
     setLoading(true);
     setUploadProgress(0);
     try {
-      // Optimistically update the UI before refetching
-      if (uploadTarget?.type === 'work') {
-        setTimesheetSchedules(prevSchedules =>
-          prevSchedules.map(schedule =>
-            schedule.id === uploadTarget.periodId
-              ? { ...schedule, work_timesheet_uploaded: true, uploaded_at: new Date().toISOString() }
-              : schedule
-          )
-        );
-      }
-
+      // Store the periodId for later use since uploadTarget might change
+      const currentPeriodId = uploadTarget?.periodId;
+      
       // If this is an update, find the old document to delete it later
       let oldDocPath: string | null = null;
       if (uploadTarget) {
-        const { data: oldSubmission } = await supabase
+        try {
+          // Direct query using raw SQL since table is not in generated types
+          const { data: oldSubmission, error: oldSubmissionError }: any = await (supabase as any)
             .from('timesheet_submissions')
             .select('file_path')
             .eq('schedule_id', uploadTarget.periodId)
             .single();
-        if (oldSubmission) {
+          if (oldSubmission && !oldSubmissionError) {
             oldDocPath = oldSubmission.file_path;
+          }
+        } catch (err) {
+          console.warn('Could not fetch old submission:', err);
         }
       }
 
@@ -391,26 +491,35 @@ const DocumentUpload = () => {
         isLate = new Date() > oneWeekLate;
 
         // Upsert the timesheet submission record
-        const { error: submissionError } = await supabase
-          .from('timesheet_submissions')
-          .upsert({
-            schedule_id: uploadTarget.periodId,
-            learner_id: user.id,
-            file_name: selectedFile.name,
-            file_path: uploadData.path,
-            file_size: selectedFile.size,
-            uploaded_at: new Date().toISOString()
-          }, { onConflict: 'schedule_id' });
-        
-        if (submissionError) throw submissionError;
+        // Direct query using raw SQL since table is not in generated types
+        try {
+          const { error: submissionError }: any = await (supabase as any)
+            .from('timesheet_submissions')
+            .upsert({
+              schedule_id: uploadTarget.periodId,
+              learner_id: user.id,
+              file_name: selectedFile.name,
+              file_path: uploadData.path,
+              file_size: selectedFile.size,
+              uploaded_at: new Date().toISOString()
+            }, { onConflict: 'schedule_id' });
+          
+          if (submissionError) throw submissionError;
+        } catch (err) {
+          console.error('Error upserting timesheet submission:', err);
+          throw err;
+        }
 
         // Update the schedule table to mark as uploaded
         const { error: scheduleUpdateError } = await supabase
           .from('timesheet_schedules')
           .update({ work_timesheet_uploaded: true, uploaded_at: new Date().toISOString() })
           .eq('id', uploadTarget.periodId);
-        
+      
         if (scheduleUpdateError) throw scheduleUpdateError;
+        
+        // Log the update for debugging
+        console.log('Timesheet schedule updated:', uploadTarget.periodId);
 
       } else {
         // Handle regular document uploads
@@ -425,8 +534,15 @@ const DocumentUpload = () => {
 
       // Award points based on document type
       const docInfo = getDocumentInfo(documentType);
-      // Only award points if it's a new submission (no oldDocPath)
-      if (docInfo && docInfo.points > 0 && !oldDocPath) { 
+      // Only award points if it's a new submission (check if schedule was already marked as uploaded)
+      let wasAlreadyUploaded = false;
+      if (uploadTarget?.type === 'work') {
+        // For timesheet uploads, check if the schedule was already marked as uploaded
+        const schedule = timesheetSchedules.find(s => s.id === uploadTarget.periodId);
+        wasAlreadyUploaded = !!schedule?.work_timesheet_uploaded;
+      }
+      
+      if (docInfo && docInfo.points > 0 && !wasAlreadyUploaded && !oldDocPath) { 
         const pointsToAward = isLate ? Math.ceil(docInfo.points / 2) : docInfo.points;
         await supabase.from('achievements').insert({
           learner_id: user.id,
@@ -445,6 +561,22 @@ const DocumentUpload = () => {
       setUploadProgress(0);
       setUploadTarget(null);
       fetchDocuments();
+
+      // Force refresh of timesheet schedules with a more robust approach
+      // First, update the state immediately to reflect the change
+      if (currentPeriodId) {
+        setTimesheetSchedules(prevSchedules => 
+          prevSchedules.map(schedule => 
+            schedule.id === currentPeriodId 
+              ? { ...schedule, work_timesheet_uploaded: true, uploaded_at: new Date().toISOString() } 
+              : schedule
+          )
+        );
+      }
+
+      // Set upload completed flag to trigger the useEffect refresh
+      setUploadCompleted(true);
+
       setIsUploadDialogOpen(false); // Close the dialog on success
 
       // Reset file input
@@ -459,12 +591,19 @@ const DocumentUpload = () => {
   };
 
   const handleTimesheetUploadClick = async (periodData: TimesheetSchedule | undefined, periodNum: number, month: number, year: number) => {
+    console.log('handleTimesheetUploadClick called with:', { periodData, periodNum, month, year });
+    
+    // Set the upload target first
+    setDocumentType('work_attendance_log');
+    
     if (periodData) {
-      setDocumentType('work_attendance_log');
-      setUploadTarget({ periodId: periodData.id, type: 'work' });
+      setPendingUploadTarget({ periodId: periodData.id, type: 'work' });
+      setIsUploadDialogOpen(true);
+      console.log('Setting upload target to existing period:', periodData.id);
     } else {
       // Create the schedule entry if it doesn't exist
       try {
+        console.log('Creating new schedule for:', { user_id: user!.id, target_month: month, target_year: year });
         // Call the existing function to create schedules for the whole month
         const { error } = await supabase.rpc('initialize_biweekly_timesheets', {
           user_id: user!.id,
@@ -476,38 +615,56 @@ const DocumentUpload = () => {
         // Refetch schedules to get the newly created one
         const { data: newSchedules } = await supabase.from('timesheet_schedules').select('*').eq('learner_id', user!.id).eq('year', year).eq('month', month);
         const newPeriodData = newSchedules?.find(p => p.period === periodNum);
+        console.log('New schedules fetched:', newSchedules);
+        console.log('New period data found:', newPeriodData);
 
-        setDocumentType('work_attendance_log');
-        if (newPeriodData) setUploadTarget({ periodId: newPeriodData.id, type: 'work' });
-        else throw new Error("Failed to find newly created schedule.");
+        if (newPeriodData) {
+          setPendingUploadTarget({ periodId: newPeriodData.id, type: 'work' });
+          setIsUploadDialogOpen(true);
+          console.log('Setting upload target to new period:', newPeriodData.id);
+        } else {
+          throw new Error("Failed to find newly created schedule.");
+        }
+      
+        // Update the selected year if it's different
+        if (selectedYear !== year) {
+          setSelectedYear(year);
+          console.log('Updated selected year to:', year);
+        }
       } catch (error: any) {
+        console.error('Error in handleTimesheetUploadClick:', error);
         toast.error("Could not prepare upload slot. Please try again.");
       }
     }
   };
 
   const handleViewTimesheet = async (period: TimesheetSchedule) => {
-    const { data: submission } = await supabase
-      .from('timesheet_submissions')
-      .select('file_path, file_name')
-      .eq('schedule_id', period.id)
-      .single();
+    try {
+      // Direct query using raw SQL since table is not in generated types
+      const { data: submission, error: submissionError }: any = await (supabase as any)
+        .from('timesheet_submissions')
+        .select('file_path, file_name')
+        .eq('schedule_id', period.id)
+        .single();
 
-    if (!submission) {
-      toast.error("Document not found.");
-      return;
+      if (!submission || submissionError) {
+        toast.error("Document not found.");
+        return;
+      }
+
+      const { data, error } = await supabase.storage
+        .from('office-documents')
+        .download(submission.file_path);
+
+      if (error) throw error;
+
+      const url = URL.createObjectURL(data);
+      window.open(url, '_blank');
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error viewing timesheet:', err);
+      toast.error("Could not load document.");
     }
-
-    const { data, error } = await supabase.storage
-      .from('office-documents')
-      .download(submission.file_path);
-
-    if (error) throw error;
-
-    const url = URL.createObjectURL(data);
-    window.open(url, '_blank');
-    URL.revokeObjectURL(url);
-
   };
 
   const handleDownload = async (doc: Document) => {
@@ -705,20 +862,37 @@ const DocumentUpload = () => {
                                   <Eye className="h-4 w-4" />
                                 </Button>
                               )}
-                              <Dialog open={isUploadDialogOpen && uploadTarget?.periodId === periodData?.id} onOpenChange={setIsUploadDialogOpen}>
-                                  <DialogTrigger asChild>
-                                    <Button size="sm" variant="outline" onClick={() => {
+                              <Dialog 
+                                open={isUploadDialogOpen && uploadTarget?.periodId === periodData?.id} 
+                                onOpenChange={(open) => {
+                                  setIsUploadDialogOpen(open);
+                                  // Reset upload target when dialog closes
+                                  if (!open) {
+                                    // Add a small delay before resetting the upload target to ensure state updates properly
+                                    setTimeout(() => {
+                                      setUploadTarget(null);
+                                    }, 100);
+                                  }
+                                }}
+                              >
+                                <DialogTrigger asChild>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    onClick={() => {
                                       handleTimesheetUploadClick(periodData, periodNum, month, selectedYear);
-                                      setIsUploadDialogOpen(true);
-                                    }}>
-                                      {periodData?.work_timesheet_uploaded ? 'Update' : 'Upload'}
-                                    </Button>
-                                  </DialogTrigger>
-                                  <DialogContent>
-                                    <DialogHeader><DialogTitle>{periodData?.work_timesheet_uploaded ? 'Update' : 'Upload'} Bi-weekly Timesheet</DialogTitle></DialogHeader>
-                                    {renderUploadForm('work_attendance_log')}
-                                  </DialogContent>
-                                </Dialog>
+                                    }}
+                                  >
+                                    {periodData?.work_timesheet_uploaded ? 'Update' : 'Upload'}
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>{periodData?.work_timesheet_uploaded ? 'Update' : 'Upload'} Bi-weekly Timesheet</DialogTitle>
+                                  </DialogHeader>
+                                  {renderUploadForm('work_attendance_log')}
+                                </DialogContent>
+                              </Dialog>
                             </div>
                           </div>
                           {isOverdue && (
@@ -974,20 +1148,20 @@ const DocumentUpload = () => {
           </CardHeader>
           <CardContent className="text-yellow-700 p-4 pt-0 text-sm">
             <ul className="space-y-1 list-disc list-inside">
-              {categoryKey === 'personal' && (
+              {categoryKey as string === 'personal' && (
                 <>
                   <li>Submit certified copies of all personal documents.</li>
                   <li>Qualifications must be certified by SAQA or relevant authority.</li>
                   <li>Bank account proof should be recent (within 3 months).</li>
                 </>
               )}
-              {categoryKey === 'office' && (
+              {categoryKey as string === 'office' && (
                 <>
                   <li>Submit bi-weekly attendance records as required.</li>
                   <li>Time sheets must be signed by your supervisor.</li>
                 </>
               )}
-              {categoryKey === 'contracts' && (
+              {categoryKey as string === 'contracts' && (
                 <>
                   <li>All contract documents must be fully completed and signed.</li>
                   <li>The POPIA form is mandatory for all learners.</li>
