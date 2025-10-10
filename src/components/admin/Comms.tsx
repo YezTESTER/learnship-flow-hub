@@ -79,23 +79,41 @@ const Comms: React.FC = () => {
           read_at,
           user_id,
           sender_id,
-          message_type,
-          profiles!user_id (
-            full_name,
-            email
-          )
+          message_type
         `)
         .eq('message_type', 'learner_to_admin')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       
-      const formattedMessages = data?.map(msg => ({
-        ...msg,
-        user: msg.profiles
-      })) || [];
+      // Fetch sender information for each message
+      const messagesWithSenders = await Promise.all(
+        data?.map(async (msg) => {
+          if (msg.sender_id) {
+            const { data: senderData, error: senderError } = await supabase
+              .from('profiles')
+              .select('full_name, email')
+              .eq('id', msg.sender_id)
+              .single();
+            
+            if (!senderError && senderData) {
+              return {
+                ...msg,
+                user: senderData
+              };
+            }
+          }
+          return {
+            ...msg,
+            user: {
+              full_name: 'Unknown User',
+              email: 'unknown@example.com'
+            }
+          };
+        }) || []
+      );
       
-      setInboxMessages(formattedMessages);
+      setInboxMessages(messagesWithSenders);
     } catch (error: any) {
       toast.error('Failed to fetch inbox messages');
       console.error('Error fetching inbox messages:', error);
@@ -317,7 +335,7 @@ const Comms: React.FC = () => {
                       <p className="text-gray-700 text-sm leading-relaxed">{message.message}</p>
                       <Separator className="my-2" />
                       <div className="text-xs text-gray-500">
-                        From: {message.user?.email}
+                        From: {message.user?.full_name !== 'Unknown User' ? `${message.user?.full_name} (${message.user?.email})` : 'Unknown User'}
                       </div>
                     </div>
                   ))}

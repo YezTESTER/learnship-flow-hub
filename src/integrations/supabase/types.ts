@@ -585,6 +585,10 @@ export type Database = {
         Args: { target_month: number; target_year: number; user_id: string }
         Returns: undefined
       }
+      send_message_to_admins: {
+        Args: { sender_id: string; message_title: string; message_content: string }
+        Returns: string[]
+      }
       update_compliance_score: {
         Args: { user_id: string }
         Returns: undefined

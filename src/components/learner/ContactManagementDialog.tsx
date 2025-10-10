@@ -27,25 +27,39 @@ const ContactManagementDialog: React.FC<ContactManagementDialogProps> = ({ child
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: profile?.id, // This will be visible to admins in their inbox
+      console.log('Sending message to admins via RPC function...');
+      
+      // Use the new RPC function to send message to all admins
+      const { data, error } = await supabase
+        .rpc('send_message_to_admins', {
           sender_id: profile?.id,
-          title: title,
-          message: message,
-          type: 'info',
-          message_type: 'learner_to_admin'
+          message_title: title,
+          message_content: message
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error calling send_message_to_admins RPC:', error);
+        
+        // Provide user-friendly error messages
+        if (error.message && error.message.includes('No admin users found')) {
+          throw new Error('No management personnel are currently available to receive messages. Please contact support for assistance.');
+        } else if (error.message && error.message.includes('Invalid sender')) {
+          throw new Error('Unable to send message due to account validation issues. Please contact support.');
+        } else if (error.message && error.message.includes('permission')) {
+          throw new Error('Unable to send message due to system permissions. Please contact support.');
+        }
+        
+        throw new Error('Failed to send message. Please try again later.');
+      }
 
+      console.log('Message sent successfully. Notification IDs:', data);
+      
       toast.success('Message sent to management successfully!');
       setTitle('');
       setMessage('');
       setOpen(false);
     } catch (error: any) {
-      toast.error('Failed to send message');
+      toast.error(error.message || 'Failed to send message. Please try again later.');
       console.error('Error sending message:', error);
     } finally {
       setLoading(false);
