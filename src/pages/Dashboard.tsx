@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { UnsavedChangesProvider } from '@/contexts/UnsavedChangesContext';
 import { Navigate } from 'react-router-dom';
@@ -19,13 +20,18 @@ import LearnersManagement from '@/components/admin/LearnersManagement';
 import Reports from '@/components/admin/Reports';
 import ManageFeedback from '@/components/admin/ManageFeedback';
 import Comms from '@/components/admin/Comms';
+import AdminTimesheets from '@/components/admin/AdminTimesheets';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
+import { Button } from '@/components/ui/button';
+import { ArrowRight } from 'lucide-react';
+
 const Dashboard = () => {
   const {
     user,
     profile,
     loading
   } = useAuth();
+  const location = useLocation();
   const [activeSection, setActiveSection] = useState('dashboard');
   const [showOnboarding, setShowOnboarding] = useState(false);
   useEffect(() => {
@@ -38,6 +44,14 @@ const Dashboard = () => {
       }
     }
   }, [profile]);
+
+  useEffect(() => {
+    // Handle URL hash changes to set active section
+    const hash = location.hash.replace('#', '');
+    if (hash && hash !== activeSection) {
+      setActiveSection(hash);
+    }
+  }, [location.hash, activeSection]);
   const checkProfileCompletion = () => {
     if (!profile) return 0;
     const requiredFields = ['full_name', 'id_number', 'learnership_program', 'employer_name', 'phone_number', 'address', 'date_of_birth', 'emergency_contact', 'emergency_phone', 'start_date', 'end_date'];
@@ -112,6 +126,11 @@ const Dashboard = () => {
           return <Comms />;
         }
         return <Navigate to="/dashboard" replace />;
+      case 'timesheets':
+        if (profile?.role === 'admin') {
+          return <AdminTimesheets />;
+        }
+        return <Navigate to="/dashboard" replace />;
       case 'settings':
         if (profile?.role === 'admin') {
           return <div className="text-center py-12">
@@ -157,6 +176,8 @@ const Dashboard = () => {
         return 'Feedback Review';
       case 'comms':
         return 'Communications';
+      case 'timesheets':
+        return 'Learner Timesheets';
       case 'settings':
         return 'System Settings';
       default:
@@ -170,12 +191,26 @@ const Dashboard = () => {
         <main className="flex-1 md:ml-64 pt-16">
           <div className="pb-4 md:pb-8 px-[17px] pt-0">
             <div className="mb-8">
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
-                {getSectionTitle()}
-              </h1>
-              <p className="text-gray-600 mt-2">
-                Welcome back, {profile?.full_name}! Here's your {profile?.role} overview.
-              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-[#122ec0] to-[#e16623] bg-clip-text text-transparent">
+                    {getSectionTitle()}
+                  </h1>
+                  <p className="text-gray-600 mt-2">
+                    Welcome back, {profile?.full_name}! Here's your {profile?.role} overview.
+                  </p>
+                </div>
+                {activeSection === 'timesheets' && profile?.role === 'admin' && (
+                  <Button 
+                    variant="default" 
+                    onClick={() => window.location.href = 'https://timesheet-generator-wps.vercel.app/'}
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <ArrowRight className="h-4 w-4" />
+                    Manage Timesheets
+                  </Button>
+                )}
+              </div>
             </div>
             
             {renderContent()}

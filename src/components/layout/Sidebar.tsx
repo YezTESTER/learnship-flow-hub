@@ -54,6 +54,8 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const handleNavigation = (sectionId: string) => {
     const navigate = () => {
+      // Update URL hash
+      window.location.hash = sectionId;
       setActiveSection(sectionId);
       if (isMobile) {
         setIsMenuOpen(false);
@@ -99,7 +101,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'learners', label: 'All Learners', icon: Users },
     { id: 'reports', label: 'Reports', icon: BarChart3 },
     { id: 'feedback-review', label: 'Manage Feedback', icon: FileText },
-    { id: 'timesheets', label: 'Timesheets', icon: Clock, link: 'https://timesheet-generator-wps.vercel.app/' },
+    { id: 'timesheets', label: 'Timesheets', icon: Clock },
     { id: 'comms', label: 'Communications', icon: FileText },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'account-settings', label: 'Account Settings', icon: Settings },
@@ -188,7 +190,10 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="p-4 bg-gradient-to-r from-[#122ec0] to-blue-600 text-white flex justify-between items-center">
           <h1 className="text-lg font-bold">Learnership Portal</h1>
           <div className="flex items-center space-x-2">
-            <Button variant="ghost" size="icon" onClick={() => handleNavigation('notifications')} className="relative">
+            <Button variant="ghost" size="icon" onClick={() => {
+              window.location.hash = 'notifications';
+              handleNavigation('notifications');
+            }} className="relative">
               <Bell size={24} />
               {unreadCount > 0 && (
                 <span className="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
