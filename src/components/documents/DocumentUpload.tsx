@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from "sonner";
-import { Upload, FileText, Download, Trash2, Eye, File, CheckCircle, AlertCircle, FolderOpen, HelpCircle } from 'lucide-react';
+import { Upload, FileText, Download, Trash2, Eye, File, CheckCircle, AlertCircle, FolderOpen, HelpCircle, Clock } from 'lucide-react';
 
 interface Document {
   id: string;
@@ -925,26 +925,26 @@ const DocumentUpload = () => {
   const renderBiWeeklyTimesheets = () => {
     return (
       <div className="space-y-6">
-        <Card>
-          <CardHeader>
+        <Card className="bg-gradient-to-br from-white to-blue-50 border-0 shadow-xl">
+          <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
-              <CardTitle>Bi-Weekly Timesheet Submissions</CardTitle>
+              <CardTitle className="text-2xl font-bold text-gray-800">Bi-Weekly Timesheet Submissions</CardTitle>
               <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-                <SelectTrigger className="w-32">
+                <SelectTrigger className="w-32 bg-white border-2 border-blue-200 rounded-xl shadow-sm hover:border-blue-300 transition-colors">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {getAvailableYears().map(year => (
-                    <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                    <SelectItem key={year} value={year.toString()} className="py-2">{year}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <CardDescription>
+            <CardDescription className="text-gray-600">
               Upload your bi-weekly work timesheets here. Two periods are required per month.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
             {getMonthsForYear(selectedYear)
               .sort((a, b) => b - a) // Sort months in descending order to show latest first
               .map(month => {
@@ -952,9 +952,11 @@ const DocumentUpload = () => {
               const periods = timesheetSchedules.filter(s => s.month === month && s.year === selectedYear);
               
               return (
-                <div key={month} className="border rounded-lg p-4">
-                  <h4 className="font-semibold mb-3">{monthName} {selectedYear}</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div key={month} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+                  <div className="px-5 py-4 border-b border-gray-100">
+                    <h4 className="text-lg font-semibold text-gray-800">{monthName} {selectedYear}</h4>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
                     {Array.from({ length: 2 }, (_, i) => i + 1).map(periodNum => {
                       const periodData = periods.find(p => p.period === periodNum);
                       const dueDate = periodData?.due_date 
@@ -962,17 +964,55 @@ const DocumentUpload = () => {
                         : new Date(selectedYear, month - 1, periodNum === 1 ? 15 : new Date(selectedYear, month, 0).getDate());
 
                       const isOverdue = dueDate < new Date() && !periodData?.work_timesheet_uploaded;
+                      const isUploaded = periodData?.work_timesheet_uploaded;
 
                       return (
-                        <div key={periodNum} className={`p-3 rounded-md space-y-3 ${isOverdue ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'} border`}>
-                          <h5 className="font-medium text-sm">Period {periodNum}/ S{periodNum} (Due: {dueDate.toLocaleDateString()})</h5>
-                          
-                          {/* Bi-weekly Timesheet */}
+                        <div key={periodNum} className={`p-4 rounded-xl space-y-3 transition-all duration-200 ${
+                          isUploaded 
+                            ? 'bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 shadow-sm' 
+                            : isOverdue 
+                              ? 'bg-gradient-to-r from-red-50 to-orange-50 border border-red-200' 
+                              : 'bg-gradient-to-r from-gray-50 to-blue-50 border border-gray-200'
+                        }`}>
                           <div className="flex items-center justify-between">
-                            <span className="text-sm">Bi-weekly Timesheet</span>
+                            <div className="flex items-center space-x-2">
+                              <h5 className="font-semibold text-gray-800">Period {periodNum}</h5>
+                              <span className="text-xs px-2 py-1 bg-gray-200 text-gray-700 rounded-full">S{periodNum}</span>
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              Due: {dueDate.toLocaleDateString()}
+                            </div>
+                          </div>
+                          
+                          {/* Status indicator */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              {isUploaded ? (
+                                <>
+                                  <CheckCircle className="h-5 w-5 text-green-600" />
+                                  <span className="text-sm font-medium text-green-700">Uploaded</span>
+                                </>
+                              ) : isOverdue ? (
+                                <>
+                                  <AlertCircle className="h-5 w-5 text-red-600" />
+                                  <span className="text-sm font-medium text-red-700">Overdue</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Clock className="h-5 w-5 text-gray-500" />
+                                  <span className="text-sm font-medium text-gray-600">Pending</span>
+                                </>
+                              )}
+                            </div>
+                            
                             <div className="flex items-center gap-2">
-                              {periodData?.work_timesheet_uploaded && (
-                                <Button size="sm" variant="outline" onClick={() => handleViewTimesheet(periodData)}>
+                              {isUploaded && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  onClick={() => handleViewTimesheet(periodData!)}
+                                  className="border-green-200 hover:bg-green-50 text-green-700"
+                                >
                                   <Eye className="h-4 w-4" />
                                 </Button>
                               )}
@@ -992,26 +1032,43 @@ const DocumentUpload = () => {
                                 <DialogTrigger asChild>
                                   <Button 
                                     size="sm" 
-                                    variant="outline" 
+                                    variant={isUploaded ? "outline" : "default"}
+                                    className={isUploaded 
+                                      ? "border-green-200 hover:bg-green-100 text-green-700" 
+                                      : "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-md hover:shadow-lg transition-all"
+                                    }
                                     onClick={() => {
                                       handleTimesheetUploadClick(periodData, periodNum, month, selectedYear);
                                     }}
                                   >
-                                    {periodData?.work_timesheet_uploaded ? 'Update' : 'Upload'}
+                                    {isUploaded ? 'Update' : 'Upload'}
                                   </Button>
                                 </DialogTrigger>
-                                <DialogContent>
+                                <DialogContent className="sm:max-w-md">
                                   <DialogHeader>
-                                    <DialogTitle>{periodData?.work_timesheet_uploaded ? 'Update' : 'Upload'} Bi-weekly Timesheet</DialogTitle>
+                                    <DialogTitle className="text-xl font-bold text-gray-800">
+                                      {isUploaded ? 'Update' : 'Upload'} Bi-weekly Timesheet
+                                    </DialogTitle>
+                                    <DialogDescription className="text-gray-600">
+                                      {monthName} {selectedYear} - Period {periodNum}
+                                    </DialogDescription>
                                   </DialogHeader>
                                   {renderUploadForm('work_attendance_log')}
                                 </DialogContent>
                               </Dialog>
                             </div>
                           </div>
-                          {isOverdue && (
-                            <div className="flex items-center gap-2 text-xs text-red-600">
-                              <AlertCircle className="h-3 w-3" /> <span>Submission is overdue.</span>
+                          
+                          {isOverdue && !isUploaded && (
+                            <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">
+                              <AlertCircle className="h-4 w-4 flex-shrink-0" /> 
+                              <span>Submission is overdue. Please upload as soon as possible.</span>
+                            </div>
+                          )}
+                          
+                          {isUploaded && periodData?.uploaded_at && (
+                            <div className="text-xs text-gray-500 mt-2">
+                              Uploaded on {new Date(periodData.uploaded_at).toLocaleDateString()}
                             </div>
                           )}
                         </div>
@@ -1032,16 +1089,22 @@ const DocumentUpload = () => {
 
     return (
       <div className="space-y-6">
-        <Card className="bg-gradient-to-br from-white to-blue-50 border-0 shadow-lg">
-          <CardHeader>
-            <CardTitle>Upload Class Attendance</CardTitle>
-            <CardDescription>Upload your signed class attendance sheets here.</CardDescription>
+        <Card className="bg-gradient-to-br from-white to-blue-50 border-0 shadow-xl">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-2xl font-bold text-gray-800">Upload Class Attendance</CardTitle>
+            <CardDescription className="text-gray-600">Upload your signed class attendance sheets here.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="class-attendance-upload">Select File *</Label>
-                <Input id="class-attendance-upload" type="file" onChange={handleFileSelect} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" className="rounded-xl border-gray-200" />
+                <Label htmlFor="class-attendance-upload" className="text-gray-700 font-medium">Select File *</Label>
+                <Input 
+                  id="class-attendance-upload" 
+                  type="file" 
+                  onChange={handleFileSelect} 
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" 
+                  className="rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring focus:ring-blue-200 transition-colors" 
+                />
                 <p className="text-xs text-gray-500">Supported formats: PDF, Word, Images (max 10MB)</p>
               </div>
               <Button 
@@ -1050,41 +1113,60 @@ const DocumentUpload = () => {
                   handleUpload();
                 }} 
                 disabled={!selectedFile || loading} 
-                className="w-full"
+                className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl py-3 font-semibold shadow-md hover:shadow-lg transition-all duration-200"
               >
-                {loading ? 'Uploading...' : 'Upload Class Attendance'}
+                {loading ? (
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Uploading...</span>
+                  </div>
+                ) : 'Upload Class Attendance'}
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Uploaded Class Attendance Sheets</CardTitle>
+        <Card className="bg-white border-0 shadow-xl">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-2xl font-bold text-gray-800">Uploaded Class Attendance Sheets</CardTitle>
           </CardHeader>
           <CardContent>
             {classAttendanceDocs.length === 0 ? (
-              <p className="text-muted-foreground text-center">No class attendance sheets uploaded yet.</p>
+              <div className="text-center py-10">
+                <FolderOpen className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-700 mb-2">No class attendance sheets uploaded yet</h3>
+                <p className="text-gray-500">Upload your first class attendance sheet to get started</p>
+              </div>
             ) : (
               <div className="space-y-3">
                 {classAttendanceDocs.map(doc => (
-                  <div key={doc.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-3 flex-1 min-w-0">
+                  <div key={doc.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200 hover:bg-gray-100 transition-colors duration-200">
+                    <div className="flex items-center space-x-4 flex-1 min-w-0">
                       {getDocumentIcon(doc.file_name)}
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-gray-800 truncate text-sm">{doc.file_name}</h4>
-                        <div className="text-xs text-gray-600">
-                          <span>{formatFileSize(doc.file_size)}</span>
-                          <span className="mx-2">•</span>
+                        <h4 className="font-semibold text-gray-800 truncate text-base">{doc.file_name}</h4>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 text-sm text-gray-600 space-y-1 sm:space-y-0 mt-1">
+                          <span className="font-medium">{formatFileSize(doc.file_size)}</span>
+                          <span className="hidden sm:block">•</span>
                           <span>Uploaded: {new Date(doc.uploaded_at).toLocaleDateString()}</span>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Button variant="outline" size="sm" onClick={() => handleDownload(doc)}>
+                    <div className="flex items-center space-x-2 ml-4">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleDownload(doc)}
+                        className="border-gray-300 hover:bg-gray-100 text-gray-700"
+                      >
                         <Download className="h-4 w-4" />
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleDelete(doc)} className="text-red-600 hover:text-red-700">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleDelete(doc)} 
+                        className="border-red-200 hover:bg-red-50 text-red-600 hover:text-red-700"
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -1099,10 +1181,28 @@ const DocumentUpload = () => {
   };
 
   const renderUploadForm = (docType: string) => (
-    <div className="space-y-4 p-4">
-      <Input type="file" onChange={handleFileSelect} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" />
-      <Button onClick={handleUpload} disabled={!selectedFile || loading} className="w-full">
-        {loading ? 'Uploading...' : 'Confirm Upload'}
+    <div className="space-y-6 p-4">
+      <div className="space-y-2">
+        <Label className="text-gray-700 font-medium">Select File *</Label>
+        <Input 
+          type="file" 
+          onChange={handleFileSelect} 
+          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" 
+          className="rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring focus:ring-blue-200 transition-colors"
+        />
+        <p className="text-xs text-gray-500">Supported formats: PDF, Word, Images (max 10MB)</p>
+      </div>
+      <Button 
+        onClick={handleUpload} 
+        disabled={!selectedFile || loading} 
+        className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl py-3 font-semibold shadow-md hover:shadow-lg transition-all duration-200"
+      >
+        {loading ? (
+          <div className="flex items-center justify-center space-x-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            <span>Uploading...</span>
+          </div>
+        ) : 'Confirm Upload'}
       </Button>
     </div>
   );
@@ -1112,19 +1212,29 @@ const DocumentUpload = () => {
     
     if (categoryKey === 'office') {
       return (
-        <Card>
-          <CardHeader>
-            <CardTitle>Timesheet Submissions</CardTitle>
-            <CardDescription>Manage your bi-weekly and class attendance timesheets.</CardDescription>
+        <Card className="bg-white border-0 shadow-xl">
+          <CardHeader className="pb-6">
+            <CardTitle className="text-2xl font-bold text-gray-800">Timesheet Submissions</CardTitle>
+            <CardDescription className="text-gray-600">Manage your bi-weekly and class attendance timesheets.</CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="bi-weekly">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="bi-weekly">Bi-weekly Timesheets</TabsTrigger>
-                <TabsTrigger value="classes">Class Attendance</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 bg-gray-100 p-1 rounded-xl">
+                <TabsTrigger 
+                  value="bi-weekly" 
+                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg transition-all"
+                >
+                  Bi-weekly Timesheets
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="classes" 
+                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg transition-all"
+                >
+                  Class Attendance
+                </TabsTrigger>
               </TabsList>
-              <TabsContent value="bi-weekly" className="mt-4">{renderBiWeeklyTimesheets()}</TabsContent>
-              <TabsContent value="classes" className="mt-4">{renderClassAttendance()}</TabsContent>
+              <TabsContent value="bi-weekly" className="mt-6">{renderBiWeeklyTimesheets()}</TabsContent>
+              <TabsContent value="classes" className="mt-6">{renderClassAttendance()}</TabsContent>
             </Tabs>
           </CardContent>
         </Card>
