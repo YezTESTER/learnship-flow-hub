@@ -5,8 +5,19 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { useComplianceSystem, TimesheetPeriod } from '@/hooks/useComplianceSystem';
+import { useComplianceSystem } from '@/hooks/useComplianceSystem';
 import { Calendar, FileText, Award, Bell, Settings, TrendingUp, Clock, CheckCircle, Target, Star, Upload, AlertCircle, User, BarChart3, Zap } from 'lucide-react';
+
+interface TimesheetPeriod {
+  id: string;
+  period: number;
+  work_timesheet_uploaded: boolean;
+  class_timesheet_uploaded: boolean;
+  due_date: string;
+  uploaded_at: string | null;
+  month: number;
+  year: number;
+}
 
 interface LearnerDashboardProps {
   setActiveSection?: (section: string) => void;
@@ -46,14 +57,53 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
     threeMonthsAgo.setDate(1);
     threeMonthsAgo.setHours(0, 0, 0, 0);
 
+    // Fetch timesheet schedules with submission status
     const { data, error } = await supabase
       .from('timesheet_schedules')
-      .select('*')
+      .select(`
+        id,
+        month,
+        year,
+        period,
+        work_timesheet_uploaded,
+        class_timesheet_uploaded,
+        due_date,
+        uploaded_at
+      `)
       .eq('learner_id', user.id)
       .gte('due_date', threeMonthsAgo.toISOString())
       .order('year', { ascending: false })
-      .order('month', { ascending: false });
-    if (data) setPastTimesheets(data);
+      .order('month', { ascending: false })
+      .order('period', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching past timesheets:', error);
+      return;
+    }
+
+    // Also fetch timesheet submissions to ensure we have the most up-to-date status
+    // Using raw SQL since timesheet_submissions is not in the generated types
+    const { data: submissionsData, error: submissionsError }: any = await (supabase as any)
+      .from('timesheet_submissions')
+      .select('schedule_id')
+      .eq('learner_id', user.id);
+
+    if (submissionsError) {
+      console.error('Error fetching timesheet submissions:', submissionsError);
+      setPastTimesheets(data || []);
+      return;
+    }
+
+    // Create a set of schedule_ids that have submissions
+    const submittedScheduleIds = new Set(submissionsData?.map((sub: any) => sub.schedule_id) || []);
+
+    // Update the schedules with submission status from the submissions table (source of truth)
+    const updatedData = (data || []).map((schedule: any) => ({
+      ...schedule,
+      work_timesheet_uploaded: submittedScheduleIds.has(schedule.id) || schedule.work_timesheet_uploaded
+    }));
+
+    setPastTimesheets(updatedData);
   };
 
   const calculateProfileCompletion = () => {
@@ -340,9 +390,18 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
                 const allUploaded = periods.length >= 2 && periods.every(p => p.work_timesheet_uploaded);
                 
                 return (
-                  <Card key={key} className={allUploaded ? 'bg-green-50' : 'bg-red-50'}>
+                  <Card 
+                    key={key} 
+                    className={`cursor-pointer transition-all duration-200 hover:shadow-md ${allUploaded ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}
+                    onClick={() => handleNavigateToSection('documents')}
+                  >
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-base">{monthName} {year}</CardTitle>
+                      <CardTitle className="text-base flex items-center justify-between">
+                        <span>{monthName} {year}</span>
+                        {allUploaded && (
+                          <CheckCircle className="h-5 w-5 text-green-600" />
+                        )}
+                      </CardTitle>
                     </CardHeader>
                     <CardContent>
                       {allUploaded ? (
@@ -356,19 +415,24 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
                             <AlertCircle className="h-4 w-4" />
                             <span className="text-sm font-medium">Uploads are missing</span>
                           </div>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            onClick={() => handleNavigateToSection('documents')}
-                            className="w-full text-xs"
-                          >
-                            Go to Uploads
-                          </Button>
                         </div>
                       )}
                       <div className="flex gap-2 mt-3">
                         {periods.sort((a,b) => a.period - b.period).map(p => (
-                          <Badge key={p.id} variant={p.work_timesheet_uploaded ? 'default' : 'secondary'}>S{p.period}</Badge>
+                          <Badge 
+                            key={p.id} 
+                            variant={p.work_timesheet_uploaded ? 'default' : 'secondary'}
+                            className={`flex items-center gap-1 ${p.work_timesheet_uploaded ? 'bg-green-500' : ''}`}
+                          >
+                            {p.work_timesheet_uploaded ? (
+                              <>
+                                <CheckCircle className="h-3 w-3" />
+                                S{p.period}
+                              </>
+                            ) : (
+                              <>S{p.period}</>
+                            )}
+                          </Badge>
                         ))}
                       </div>
                     </CardContent>
