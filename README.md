@@ -26,6 +26,7 @@ This project is built with:
   - View compliance dashboard with detailed breakdown
   - Access CV builder and publish CVs
   - Receive and respond to admin communications
+  - Record absent days when submitting timesheets
 
 ### 2. WPS Admin / Coordinator (Internal Admin)
 - **Purpose**: WPS compliance coordinators managing all learners
@@ -74,6 +75,8 @@ This project is built with:
   - Week 3-4: Combined timesheet for second half of month
 - **Benefits**: Reduced administrative burden, better compliance rates, simplified tracking
 - **Compliance Tracking**: Automated monitoring of upload schedules and deadlines
+- **Absent Days Tracking**: Learners can record absent days when submitting timesheets
+- **Pagination**: Timesheet views limited to 5 months per page for better usability
 
 ### 3. Comprehensive Profile Management
 Learners can manage extensive personal information including:
@@ -91,6 +94,7 @@ Learners can manage extensive personal information including:
 - **Annexure System**: Support for Annexures A-F for compliance auditing
 - **File Storage**: Secure cloud storage with access controls
 - **Tracking**: Upload dates, file versions, compliance status
+- **Absent Days**: Learners can record absent days with each timesheet submission
 
 ### 5. Feedback & Evaluation System
 - **Monthly Reports**: Required monthly submissions with multiple components:
@@ -132,6 +136,7 @@ Learners can manage extensive personal information including:
 ### New Compliance Tables
 - **compliance_factors**: Multi-component compliance scoring per learner/month
 - **timesheet_schedules**: Bi-weekly timesheet tracking and requirements
+- **timesheet_submissions**: Detailed timesheet submission records with absent days tracking
 - **performance_metrics**: Historical performance data for analytics
 - **learner_categories**: Admin-defined categories for learner organization
 - **learner_category_assignments**: Many-to-many relationship for categorization
@@ -141,6 +146,8 @@ Learners can manage extensive personal information including:
 - **award_performance_points()**: Dynamic point allocation with bonuses/penalties
 - **initialize_biweekly_timesheets()**: Automated timesheet schedule creation
 - **update_compliance_score()**: Real-time compliance updates
+- **sync_timesheet_schedule_status()**: Automatic synchronization between timesheet schedules and submissions
+- **sync_all_timesheet_schedules_for_learner()**: Manual synchronization function for learner timesheets
 
 ## Key Compliance & Reporting Goals
 
@@ -222,6 +229,19 @@ npm run dev
 - Version-controlled migration history
 - Rollback capabilities for schema changes
 - Data integrity preservation
+
+## Recent Enhancements
+
+### Timesheet Management Improvements
+- **Absent Days Tracking**: Learners can now record absent days when submitting or updating bi-weekly timesheets
+- **Pagination**: Timesheet views are now limited to 5 months per page for better usability and performance
+- **Database Schema Updates**: Added `absent_days` column to `timesheet_submissions` table and `updated_at` column to `timesheet_schedules` table
+- **Automatic Synchronization**: Enhanced database triggers to ensure consistency between timesheet schedules and submissions
+
+### UI/UX Improvements
+- **Dashboard Updates**: Enhanced dashboard to properly display timesheet upload status with visual indicators
+- **Improved Navigation**: Made timesheet cards clickable to navigate directly to upload sections
+- **Visual Feedback**: Added green checkmarks for uploaded timesheets and clear status indicators
 
 ## Monitoring & Analytics
 

@@ -22,6 +22,7 @@ interface Document {
 
 interface TimesheetSubmission {
   id: string;
+  absent_days?: number;
 }
 
 interface TimesheetSchedule {
@@ -34,6 +35,7 @@ interface TimesheetSchedule {
   due_date: string;
   uploaded_at: string | null;
   timesheet_submissions?: TimesheetSubmission[];
+  absent_days?: number;
 }
 
 const DocumentUpload = () => {
@@ -55,6 +57,9 @@ const DocumentUpload = () => {
   const [pendingUploadTarget, setPendingUploadTarget] = useState<{ periodId: string; type: 'work' | 'class' } | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [uploadCompleted, setUploadCompleted] = useState(false);
+  const [absentDays, setAbsentDays] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1); // Add pagination state
+  const monthsPerPage = 5; // Set months per page to 5
 
   // Log when component mounts
   useEffect(() => {
@@ -89,6 +94,8 @@ const DocumentUpload = () => {
       setTimeout(() => {
         fetchTimesheetSchedules();
       }, 200);
+      // Reset to first page when year changes
+      setCurrentPage(1);
     }
   }, [selectedYear, user, refreshTrigger]);
 
@@ -164,6 +171,9 @@ const DocumentUpload = () => {
         fetchTimesheetSchedules();
       }, 200);
     }
+    
+    // Reset to first page when component mounts
+    setCurrentPage(1);
     
     return () => {
       console.log('DocumentUpload component unmounted');
@@ -429,13 +439,13 @@ const DocumentUpload = () => {
       // Using raw SQL since timesheet_submissions is not in the generated types
       const { data: submissionsData, error: submissionsError }: any = await (supabase as any)
         .from('timesheet_submissions')
-        .select('schedule_id')
+        .select('schedule_id, absent_days')
         .eq('learner_id', user.id);
       
       if (submissionsError) throw submissionsError;
       
-      // Create a set of schedule_ids that have submissions for quick lookup
-      const submittedScheduleIds = new Set(submissionsData.map((submission: any) => submission.schedule_id));
+      // Create a map of schedule_id to absent_days for quick lookup
+      const absentDaysMap = new Map(submissionsData.map((submission: any) => [submission.schedule_id, submission.absent_days]));
       
       // Log the fetched data for debugging
       console.log(`Fetched ${schedulesData?.length || 0} timesheet schedules for year ${selectedYear}:`, schedulesData);
@@ -445,7 +455,9 @@ const DocumentUpload = () => {
       const updatedData = (schedulesData || []).map((schedule: any) => ({
         ...schedule,
         // If there's a submission for this schedule, mark as uploaded (this is the primary source of truth)
-        work_timesheet_uploaded: submittedScheduleIds.has(schedule.id)
+        work_timesheet_uploaded: absentDaysMap.has(schedule.id) || schedule.work_timesheet_uploaded,
+        // Add absent days information
+        absent_days: absentDaysMap.get(schedule.id) || 0
       }));
       
       setTimesheetSchedules(updatedData);
@@ -592,6 +604,7 @@ const DocumentUpload = () => {
                 file_name: selectedFile.name,
                 file_path: uploadData.path,
                 file_size: selectedFile.size,
+                absent_days: absentDays, // Include absent days in the submission
                 uploaded_at: new Date().toISOString()
               }, { onConflict: 'schedule_id' });
             
@@ -672,6 +685,7 @@ const DocumentUpload = () => {
       setSelectedFile(null);
       setDocumentType('');
       setUploadProgress(0);
+      setAbsentDays(0); // Reset absent days after successful upload
 
       // Close the dialog immediately
       setIsUploadDialogOpen(false);
@@ -750,13 +764,18 @@ const DocumentUpload = () => {
       // Direct query using raw SQL since table is not in generated types
       const { data: submission, error: submissionError }: any = await (supabase as any)
         .from('timesheet_submissions')
-        .select('file_path, file_name')
+        .select('file_path, file_name, absent_days')
         .eq('schedule_id', period.id)
         .single();
 
       if (!submission || submissionError) {
         toast.error("Document not found.");
         return;
+      }
+
+      // Show absent days information in a toast
+      if (submission.absent_days !== undefined && submission.absent_days > 0) {
+        toast.info(`Absent days recorded: ${submission.absent_days}`);
       }
 
       const { data, error } = await supabase.storage
@@ -923,13 +942,23 @@ const DocumentUpload = () => {
   };
 
   const renderBiWeeklyTimesheets = () => {
+    const allMonths = getMonthsForYear(selectedYear).sort((a, b) => b - a); // Sort months in descending order to show latest first
+    
+    // Calculate pagination
+    const totalPages = Math.ceil(allMonths.length / monthsPerPage);
+    const startIndex = (currentPage - 1) * monthsPerPage;
+    const selectedMonths = allMonths.slice(startIndex, startIndex + monthsPerPage);
+    
     return (
       <div className="space-y-6">
         <Card className="bg-gradient-to-br from-white to-blue-50 border-0 shadow-xl">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-2xl font-bold text-gray-800">Bi-Weekly Timesheet Submissions</CardTitle>
-              <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+              <Select value={selectedYear.toString()} onValueChange={(v) => {
+                setSelectedYear(parseInt(v));
+                setCurrentPage(1); // Reset to first page when year changes
+              }}>
                 <SelectTrigger className="w-32 bg-white border-2 border-blue-200 rounded-xl shadow-sm hover:border-blue-300 transition-colors">
                   <SelectValue />
                 </SelectTrigger>
@@ -945,9 +974,7 @@ const DocumentUpload = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {getMonthsForYear(selectedYear)
-              .sort((a, b) => b - a) // Sort months in descending order to show latest first
-              .map(month => {
+            {selectedMonths.map(month => {
               const monthName = new Date(selectedYear, month - 1).toLocaleString('default', { month: 'long' });
               const periods = timesheetSchedules.filter(s => s.month === month && s.year === selectedYear);
               
@@ -1025,6 +1052,7 @@ const DocumentUpload = () => {
                                     // Add a small delay before resetting the upload target to ensure state updates properly
                                     setTimeout(() => {
                                       setUploadTarget(null);
+                                      setAbsentDays(0); // Reset absent days when dialog closes
                                     }, 100);
                                   }
                                 }}
@@ -1069,6 +1097,11 @@ const DocumentUpload = () => {
                           {isUploaded && periodData?.uploaded_at && (
                             <div className="text-xs text-gray-500 mt-2">
                               Uploaded on {new Date(periodData.uploaded_at).toLocaleDateString()}
+                              {periodData.absent_days !== undefined && periodData.absent_days > 0 && (
+                                <span className="block mt-1">
+                                  Absent days: <span className="font-medium text-gray-700">{periodData.absent_days}</span>
+                                </span>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1078,6 +1111,33 @@ const DocumentUpload = () => {
                 </div>
               );
             })}
+            
+            {/* Pagination controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between border-t border-gray-200 pt-4">
+                <Button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  variant="outline"
+                  size="sm"
+                >
+                  Previous
+                </Button>
+                
+                <div className="text-sm text-gray-600">
+                  Page {currentPage} of {totalPages}
+                </div>
+                
+                <Button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  variant="outline"
+                  size="sm"
+                >
+                  Next
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -1192,6 +1252,23 @@ const DocumentUpload = () => {
         />
         <p className="text-xs text-gray-500">Supported formats: PDF, Word, Images (max 10MB)</p>
       </div>
+      
+      {/* Absent Days Input - only show for work attendance logs */}
+      {docType === 'work_attendance_log' && (
+        <div className="space-y-2">
+          <Label className="text-gray-700 font-medium">Absent Days</Label>
+          <Input 
+            type="number" 
+            min="0"
+            value={absentDays}
+            onChange={(e) => setAbsentDays(Math.max(0, parseInt(e.target.value) || 0))}
+            className="rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring focus:ring-blue-200 transition-colors"
+            placeholder="Enter number of absent days"
+          />
+          <p className="text-xs text-gray-500">Number of days you were absent during this period</p>
+        </div>
+      )}
+      
       <Button 
         onClick={handleUpload} 
         disabled={!selectedFile || loading} 
