@@ -117,7 +117,7 @@ const DocumentUpload = () => {
   // Effect to monitor when the component might be reverting state
   useEffect(() => {
     console.log('Component re-rendered. Current timesheetSchedules length:', timesheetSchedules.length);
-    const uploadedSchedules = timesheetSchedules.filter(s => s.work_timesheet_uploaded || (s.timesheet_submissions && s.timesheet_submissions.length > 0));
+    const uploadedSchedules = timesheetSchedules.filter(s => s.work_timesheet_uploaded);
     console.log('Currently uploaded schedules:', uploadedSchedules.length);
     if (uploadedSchedules.length > 0) {
       console.log('Uploaded schedule IDs:', uploadedSchedules.map(s => s.id));
@@ -404,7 +404,9 @@ const DocumentUpload = () => {
     if (!user) return;
     try {
       console.log('Fetching timesheet schedules for user:', user.id, 'and year:', selectedYear, 'retry:', retryCount);
-      const { data, error } = await supabase
+      
+      // First, fetch the timesheet schedules
+      const { data: schedulesData, error: schedulesError } = await supabase
         .from('timesheet_schedules')
         .select(`
           id,
@@ -414,24 +416,36 @@ const DocumentUpload = () => {
           work_timesheet_uploaded,
           class_timesheet_uploaded,
           due_date,
-          uploaded_at,
-          timesheet_submissions(id)
+          uploaded_at
         `)
         .eq('learner_id', user.id)
         .eq('year', selectedYear)
         .order('month', { ascending: true })
         .order('period', { ascending: true });
 
-      if (error) throw error;
-    
-      // Log the fetched data for debugging
-      console.log(`Fetched ${data?.length || 0} timesheet schedules for year ${selectedYear}:`, data);
+      if (schedulesError) throw schedulesError;
       
-      // Update state with fresh data, ensuring timesheet_submissions is properly handled
-      const updatedData = (data || []).map(schedule => ({
+      // Then, fetch all timesheet submissions for this user to determine which schedules have submissions
+      // Using raw SQL since timesheet_submissions is not in the generated types
+      const { data: submissionsData, error: submissionsError }: any = await (supabase as any)
+        .from('timesheet_submissions')
+        .select('schedule_id')
+        .eq('learner_id', user.id);
+      
+      if (submissionsError) throw submissionsError;
+      
+      // Create a set of schedule_ids that have submissions for quick lookup
+      const submittedScheduleIds = new Set(submissionsData.map((submission: any) => submission.schedule_id));
+      
+      // Log the fetched data for debugging
+      console.log(`Fetched ${schedulesData?.length || 0} timesheet schedules for year ${selectedYear}:`, schedulesData);
+      console.log(`Found ${submissionsData?.length || 0} timesheet submissions`);
+      
+      // Update state with fresh data, using submissions as the source of truth for upload status
+      const updatedData = (schedulesData || []).map((schedule: any) => ({
         ...schedule,
-        // If there are submissions, mark as uploaded regardless of the work_timesheet_uploaded field
-        work_timesheet_uploaded: (schedule.timesheet_submissions && schedule.timesheet_submissions.length > 0) || schedule.work_timesheet_uploaded
+        // If there's a submission for this schedule, mark as uploaded (this is the primary source of truth)
+        work_timesheet_uploaded: submittedScheduleIds.has(schedule.id)
       }));
       
       setTimesheetSchedules(updatedData);
