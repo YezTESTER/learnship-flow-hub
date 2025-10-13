@@ -1066,7 +1066,19 @@ const LearnersManagement: React.FC = () => {
                   <CardContent>
                     <div className="space-y-3">
                       {/* Regular Documents & CV Files */}
-                      {selectedLearner.documents?.map(document => {
+                      {selectedLearner.documents?.filter(document => {
+                        // Filter out office documents (timesheet submissions) as they should not appear in this section
+                        const documentCategories = {
+                          personal: ['qualifications', 'certified_id', 'certified_proof_residence', 'proof_bank_account', 'drivers_license', 'cv_upload'],
+                          office: ['work_attendance_log', 'class_attendance_proof'],
+                          contracts: ['induction_form', 'popia_form', 'learner_consent_policy', 'employment_contract', 'learnership_contract']
+                        };
+                        
+                        // Only show personal and contract documents in this section
+                        return documentCategories.personal.includes(document.document_type) || 
+                               documentCategories.contracts.includes(document.document_type) ||
+                               (isCVDocument(document) && isPublishedCVDocument(document));
+                      }).map(document => {
                         const isCVFile = isCVDocument(document);
                         const isPublishedCV = isPublishedCVDocument(document);
                         
@@ -1113,7 +1125,20 @@ const LearnersManagement: React.FC = () => {
                         );
                       })}
                       
-                      {(!selectedLearner.documents || selectedLearner.documents.length === 0) && (
+                      {(!selectedLearner.documents || 
+                        selectedLearner.documents.filter(document => {
+                          // Filter out office documents (timesheet submissions) as they should not appear in this section
+                          const documentCategories = {
+                            personal: ['qualifications', 'certified_id', 'certified_proof_residence', 'proof_bank_account', 'drivers_license', 'cv_upload'],
+                            office: ['work_attendance_log', 'class_attendance_proof'],
+                            contracts: ['induction_form', 'popia_form', 'learner_consent_policy', 'employment_contract', 'learnership_contract']
+                          };
+                          
+                          // Only show personal and contract documents in this section
+                          return documentCategories.personal.includes(document.document_type) || 
+                                 documentCategories.contracts.includes(document.document_type) ||
+                                 (isCVDocument(document) && isPublishedCVDocument(document));
+                        }).length === 0) && (
                         <p className="text-sm text-muted-foreground text-center py-4">No documents uploaded yet</p>
                       )}
                     </div>

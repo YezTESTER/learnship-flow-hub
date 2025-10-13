@@ -236,6 +236,24 @@ const Reports: React.FC = () => {
     };
   };
 
+  // Helper function to map document types to bucket IDs (matches DocumentUpload.tsx logic)
+  const getBucketForDocumentType = (docType: string): string => {
+    const documentCategories = {
+      personal: ['qualifications', 'certified_id', 'certified_proof_residence', 'proof_bank_account', 'drivers_license', 'cv_upload'],
+      office: ['work_attendance_log', 'class_attendance_proof'],
+      contracts: ['induction_form', 'popia_form', 'learner_consent_policy', 'employment_contract', 'learnership_contract']
+    };
+
+    if (documentCategories.personal.includes(docType)) {
+      return 'personal-documents';
+    } else if (documentCategories.office.includes(docType)) {
+      return 'office-documents';
+    } else if (documentCategories.contracts.includes(docType)) {
+      return 'contracts';
+    }
+    return 'personal-documents'; // default
+  };
+
   const openComplianceReport = (learner: ExtendedProfile) => {
     setSelectedLearner(learner);
     setComplianceStats(calculateComplianceStats(learner));
@@ -608,7 +626,18 @@ const Reports: React.FC = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {selectedLearner.documents?.map(document => (
+                      {selectedLearner.documents?.filter(document => {
+                        // Filter out office documents (timesheet submissions) as they should not appear in this section
+                        const documentCategories = {
+                          personal: ['qualifications', 'certified_id', 'certified_proof_residence', 'proof_bank_account', 'drivers_license', 'cv_upload'],
+                          office: ['work_attendance_log', 'class_attendance_proof'],
+                          contracts: ['induction_form', 'popia_form', 'learner_consent_policy', 'employment_contract', 'learnership_contract']
+                        };
+                        
+                        // Only show personal and contract documents in this section
+                        return documentCategories.personal.includes(document.document_type) || 
+                               documentCategories.contracts.includes(document.document_type);
+                      }).map(document => (
                         <div key={document.id} className="flex items-center justify-between border rounded-lg p-3">
                           <div className="flex items-center space-x-3">
                             <FileText className="w-4 h-4 text-muted-foreground" />
