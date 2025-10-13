@@ -22,7 +22,6 @@ import {
 import { toast } from "sonner";
 
 type Profile = Tables<'profiles'>;
-type TimesheetSchedule = Tables<'timesheet_schedules'>;
 
 interface TimesheetSubmission {
   id: string;
@@ -33,7 +32,17 @@ interface TimesheetSubmission {
   uploaded_at: string;
 }
 
-interface ExtendedTimesheetSchedule extends TimesheetSchedule {
+interface ExtendedTimesheetSchedule {
+  id: string;
+  learner_id: string;
+  month: number;
+  year: number;
+  period: number;
+  work_timesheet_uploaded: boolean;
+  class_timesheet_uploaded: boolean;
+  due_date: string;
+  uploaded_at: string | null;
+  created_at: string;
   learner?: Profile;
   submission?: TimesheetSubmission;
 }
@@ -43,7 +52,7 @@ const AdminTimesheets: React.FC = () => {
   const [timesheetSchedules, setTimesheetSchedules] = useState<ExtendedTimesheetSchedule[]>([]);
   const [filteredSchedules, setFilteredSchedules] = useState<ExtendedTimesheetSchedule[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number | 'all'>('all');
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
@@ -60,7 +69,9 @@ const AdminTimesheets: React.FC = () => {
     try {
       setLoading(true);
       
-      // Fetch all learners
+      console.log('Fetching learners...');
+      
+      // Fetch all learners with full profile data (like other admin components)
       const { data: learnersData, error: learnersError } = await supabase
         .from('profiles')
         .select('*')
@@ -69,16 +80,17 @@ const AdminTimesheets: React.FC = () => {
       
       if (learnersError) throw learnersError;
       
+      console.log('Fetched learners:', learnersData?.length || 0);
+      
       if (learnersData) {
         setLearners(learnersData);
+        
+        console.log('Fetching timesheet schedules for year:', selectedYear);
         
         // Fetch timesheet schedules for all learners for the selected year
         const { data: schedulesData, error: schedulesError } = await supabase
           .from('timesheet_schedules')
-          .select(`
-            *,
-            profiles!inner(full_name, avatar_url, id)
-          `)
+          .select('*')
           .in('learner_id', learnersData.map(l => l.id))
           .eq('year', selectedYear)
           .order('month', { ascending: false })
@@ -86,9 +98,13 @@ const AdminTimesheets: React.FC = () => {
         
         if (schedulesError) throw schedulesError;
         
+        console.log('Fetched schedules:', schedulesData?.length || 0);
+        
         // Fetch submissions for these schedules
         if (schedulesData && schedulesData.length > 0) {
           const scheduleIds = schedulesData.map(s => s.id);
+          
+          console.log('Fetching submissions for schedule IDs:', scheduleIds.length);
           
           // Using raw SQL since timesheet_submissions is not in the generated types
           const { data: submissionsData, error: submissionsError }: any = await (supabase as any)
@@ -98,10 +114,14 @@ const AdminTimesheets: React.FC = () => {
           
           if (submissionsError) throw submissionsError;
           
+          console.log('Fetched submissions:', submissionsData?.length || 0);
+          
           // Combine schedules with learner info and submissions
           const enrichedSchedules = schedulesData.map(schedule => {
             const learner = learnersData.find(l => l.id === schedule.learner_id);
             const submission = submissionsData?.find((s: any) => s.schedule_id === schedule.id);
+            
+            console.log('Processing schedule:', schedule.id, 'learner found:', !!learner, 'submission found:', !!submission);
             
             return {
               ...schedule,
@@ -110,14 +130,16 @@ const AdminTimesheets: React.FC = () => {
             };
           });
           
+          console.log('Setting timesheet schedules:', enrichedSchedules.length);
           setTimesheetSchedules(enrichedSchedules);
         } else {
+          console.log('No schedules found, setting empty array');
           setTimesheetSchedules([]);
         }
       }
     } catch (error) {
       console.error('Error fetching data:', error);
-      toast.error('Failed to load timesheet data');
+      toast.error('Failed to load timesheet data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -194,7 +216,7 @@ const AdminTimesheets: React.FC = () => {
     }
   };
 
-  const getStatusBadge = (schedule: ExtendedTimesheetSchedule) => {
+  const getSubmissionStatus = (schedule: ExtendedTimesheetSchedule) => {
     if (schedule.submission) {
       return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
         <CheckCircle className="w-3 h-3 mr-1" />
@@ -212,15 +234,24 @@ const AdminTimesheets: React.FC = () => {
       </Badge>;
     }
     
-    return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
+    return <Badge className="bg-yellow-100 text-yellow-8800 hover:bg-yellow-100">
       <Clock className="w-3 h-3 mr-1" />
       Pending
     </Badge>;
   };
 
   const getAbsentDaysInfo = (schedule: ExtendedTimesheetSchedule) => {
-    if (!schedule.submission || schedule.submission.absent_days === undefined || schedule.submission.absent_days === 0) {
+    if (!schedule.submission || schedule.submission.absent_days === undefined) {
       return null;
+    }
+    
+    if (schedule.submission.absent_days === 0) {
+      return (
+        <div className="mt-2 flex items-center text-sm">
+          <CheckCircle className="w-4 h-4 mr-1 text-green-500" />
+          <span className="font-medium text-green-600">Perfect Attendance (+10 pts)</span>
+        </div>
+      );
     }
     
     return (
@@ -244,6 +275,14 @@ const AdminTimesheets: React.FC = () => {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-800">Learner Timesheet Submissions</h2>
         <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={fetchData}
+            disabled={loading}
+          >
+            {loading ? 'Refreshing...' : 'Refresh'}
+          </Button>
           <Button 
             variant="outline" 
             size="sm"
@@ -336,7 +375,11 @@ const AdminTimesheets: React.FC = () => {
               <div className="ml-4">
                 <p className="text-sm text-gray-600">On Time</p>
                 <p className="text-2xl font-bold text-gray-800">
-                  {filteredSchedules.filter(s => s.submission && new Date(s.uploaded_at || '') <= new Date(s.due_date)).length}
+                  {filteredSchedules.filter(s => 
+                    s.submission && 
+                    s.submission.uploaded_at && 
+                    new Date(s.submission.uploaded_at) <= new Date(s.due_date)
+                  ).length}
                 </p>
               </div>
             </div>
@@ -352,7 +395,10 @@ const AdminTimesheets: React.FC = () => {
               <div className="ml-4">
                 <p className="text-sm text-gray-600">Pending</p>
                 <p className="text-2xl font-bold text-gray-800">
-                  {filteredSchedules.filter(s => !s.submission && new Date(s.due_date) >= new Date()).length}
+                  {filteredSchedules.filter(s => 
+                    !s.submission && 
+                    new Date(s.due_date) >= new Date()
+                  ).length}
                 </p>
               </div>
             </div>
@@ -368,7 +414,10 @@ const AdminTimesheets: React.FC = () => {
               <div className="ml-4">
                 <p className="text-sm text-gray-600">Overdue</p>
                 <p className="text-2xl font-bold text-gray-800">
-                  {filteredSchedules.filter(s => !s.submission && new Date(s.due_date) < new Date()).length}
+                  {filteredSchedules.filter(s => 
+                    !s.submission && 
+                    new Date(s.due_date) < new Date()
+                  ).length}
                 </p>
               </div>
             </div>
@@ -454,8 +503,17 @@ const AdminTimesheets: React.FC = () => {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(schedule)}
-                        {getAbsentDaysInfo(schedule)}
+                        <div className="flex items-center">
+                          {getSubmissionStatus(schedule)}
+                          {schedule.submission && schedule.submission.absent_days === 0 && (
+                            <CheckCircle className="w-4 h-4 ml-2 text-green-500" />
+                          )}
+                        </div>
+                        {schedule.submission && schedule.submission.absent_days !== undefined && schedule.submission.absent_days > 0 && (
+                          <div className="text-sm text-gray-500 mt-1">
+                            Absent: {schedule.submission.absent_days} day(s)
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         {schedule.submission ? (

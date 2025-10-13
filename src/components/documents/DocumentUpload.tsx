@@ -503,6 +503,22 @@ const DocumentUpload = () => {
     return null;
   };
 
+  // Helper function to get previous absent days for a schedule
+  const getPreviousAbsentDays = async (scheduleId: string) => {
+    try {
+      const { data, error }: any = await (supabase as any)
+        .from('timesheet_submissions')
+        .select('absent_days')
+        .eq('schedule_id', scheduleId)
+        .single();
+      
+      if (error) return null;
+      return data?.absent_days ?? null;
+    } catch (error) {
+      return null;
+    }
+  };
+
   const getBucketForDocumentType = (docType: string) => {
     for (const [categoryKey, category] of Object.entries(documentCategories)) {
       const doc = category.documents.find(d => d.value === docType);
@@ -681,6 +697,56 @@ const DocumentUpload = () => {
         });
         toast.info(`You earned ${pointsToAward} points! ${isLate ? ' (Half points for late submission)' : ''}`);
       }
+      
+      // Award bonus points for perfect attendance (0 absent days) for timesheet uploads
+      if (uploadTarget?.type === 'work' && absentDays === 0) {
+        // Check if this is the first time this timesheet is being uploaded with 0 absent days
+        if (!wasAlreadyUploaded || (oldDocPath && absentDays !== (await getPreviousAbsentDays(uploadTarget.periodId)))) {
+          // Try to call the database function to award the bonus
+          try {
+            // Cast to any to bypass TypeScript errors for custom RPC functions
+            const { error: bonusError } = await (supabase as any).rpc('award_perfect_attendance_bonus', {
+              learner_id: user.id,
+              schedule_id: uploadTarget.periodId
+            });
+            
+            if (bonusError) {
+              console.error('Error awarding perfect attendance bonus:', bonusError);
+              // Fallback to manual achievement creation
+              await supabase.from('achievements').insert({
+                learner_id: user.id,
+                badge_type: 'document_upload',
+                badge_name: 'Perfect Attendance',
+                description: 'Uploaded timesheet with 0 absent days',
+                points_awarded: 10,
+                badge_color: '#10B981',
+                badge_icon: 'star'
+              });
+              toast.success('Perfect attendance! +10 bonus points awarded.', {
+                description: 'Great job maintaining 100% attendance this period!'
+              });
+            } else {
+              toast.success('Perfect attendance! +10 bonus points awarded.', {
+                description: 'Great job maintaining 100% attendance this period!'
+              });
+            }
+          } catch (bonusError) {
+            console.error('Exception awarding perfect attendance bonus:', bonusError);
+            // Fallback to manual achievement creation
+            await supabase.from('achievements').insert({
+                learner_id: user.id,
+                badge_type: 'document_upload',
+                badge_name: 'Perfect Attendance',
+                description: 'Uploaded timesheet with 0 absent days',
+                points_awarded: 10,
+                badge_color: '#10B981',
+                badge_icon: 'star'
+              });
+            toast.success('Perfect attendance! +10 bonus points awarded.');
+          }
+        }
+      }
+      
       toast.success('Document uploaded successfully!');
       setSelectedFile(null);
       setDocumentType('');
@@ -1018,6 +1084,12 @@ const DocumentUpload = () => {
                                 <>
                                   <CheckCircle className="h-5 w-5 text-green-600" />
                                   <span className="text-sm font-medium text-green-700">Uploaded</span>
+                                  {periodData?.absent_days === 0 && (
+                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                      <CheckCircle className="h-3 w-3 mr-1" />
+                                      Perfect!
+                                    </span>
+                                  )}
                                 </>
                               ) : isOverdue ? (
                                 <>
@@ -1097,6 +1169,12 @@ const DocumentUpload = () => {
                           {isUploaded && periodData?.uploaded_at && (
                             <div className="text-xs text-gray-500 mt-2">
                               Uploaded on {new Date(periodData.uploaded_at).toLocaleDateString()}
+                              {periodData.absent_days !== undefined && periodData.absent_days === 0 && (
+                                <div className="flex items-center gap-1 mt-2 p-2 bg-green-50 rounded-lg border border-green-200">
+                                  <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+                                  <span className="text-sm font-medium text-green-700">Perfect Attendance! +10 bonus points</span>
+                                </div>
+                              )}
                               {periodData.absent_days !== undefined && periodData.absent_days > 0 && (
                                 <span className="block mt-1">
                                   Absent days: <span className="font-medium text-gray-700">{periodData.absent_days}</span>
@@ -1155,7 +1233,7 @@ const DocumentUpload = () => {
             <CardDescription className="text-gray-600">Upload your signed class attendance sheets here.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+            <div className="space-y-4 sm:space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="class-attendance-upload" className="text-gray-700 font-medium">Select File *</Label>
                 <Input 
@@ -1173,7 +1251,7 @@ const DocumentUpload = () => {
                   handleUpload();
                 }} 
                 disabled={!selectedFile || loading} 
-                className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl py-3 font-semibold shadow-md hover:shadow-lg transition-all duration-200"
+                className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl py-3 text-base sm:text-lg font-semibold shadow-md hover:shadow-lg transition-all duration-200"
               >
                 {loading ? (
                   <div className="flex items-center justify-center space-x-2">
@@ -1200,7 +1278,7 @@ const DocumentUpload = () => {
             ) : (
               <div className="space-y-3">
                 {classAttendanceDocs.map(doc => (
-                  <div key={doc.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200 hover:bg-gray-100 transition-colors duration-200">
+                  <div key={doc.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200 hover:bg-gray-100 transition-colors">
                     <div className="flex items-center space-x-4 flex-1 min-w-0">
                       {getDocumentIcon(doc.file_name)}
                       <div className="flex-1 min-w-0">
