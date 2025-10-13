@@ -22,7 +22,15 @@ interface Document {
 
 interface TimesheetSubmission {
   id: string;
+  schedule_id: string;
+  file_name: string;
+  file_path: string;
+  file_size: number;
   absent_days?: number;
+  uploaded_at: string;
+  expiration_date?: string;
+  download_count?: number;
+  is_expired?: boolean;
 }
 
 interface TimesheetSchedule {
@@ -830,7 +838,7 @@ const DocumentUpload = () => {
       // Direct query using raw SQL since table is not in generated types
       const { data: submission, error: submissionError }: any = await (supabase as any)
         .from('timesheet_submissions')
-        .select('file_path, file_name, absent_days')
+        .select('file_path, file_name, absent_days, is_expired, expiration_date')
         .eq('schedule_id', period.id)
         .single();
 
@@ -839,10 +847,30 @@ const DocumentUpload = () => {
         return;
       }
 
+      // Check if timesheet is expired
+      const isExpired = submission.is_expired || 
+        (submission.expiration_date && new Date(submission.expiration_date) < new Date());
+      
+      if (isExpired) {
+        toast.error("This timesheet has expired and is no longer available for viewing.");
+        return;
+      }
+
+      // Check if file path exists
+      if (!submission.file_path) {
+        toast.error("Timesheet file is no longer available.");
+        return;
+      }
+
       // Show absent days information in a toast
       if (submission.absent_days !== undefined && submission.absent_days > 0) {
         toast.info(`Absent days recorded: ${submission.absent_days}`);
       }
+
+      // Increment download count
+      await (supabase as any).rpc('increment_timesheet_download', {
+        schedule_id: period.id
+      });
 
       const { data, error } = await supabase.storage
         .from('office-documents')
@@ -1009,6 +1037,7 @@ const DocumentUpload = () => {
 
   const renderBiWeeklyTimesheets = () => {
     const allMonths = getMonthsForYear(selectedYear).sort((a, b) => b - a); // Sort months in descending order to show latest first
+
     
     // Calculate pagination
     const totalPages = Math.ceil(allMonths.length / monthsPerPage);
