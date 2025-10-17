@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,7 +9,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar as CalendarIcon, Check, Star, Download, FileText, Lock, Unlock } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { useAuth } from "@/contexts/AuthContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -63,11 +63,19 @@ const ManageFeedback: React.FC = () => {
 
   useEffect(() => {
     const loadLearners = async () => {
-      const { data, error } = await supabase
+      let learnersQuery = supabase
         .from("profiles")
         .select("id, full_name, email, employer_name")
         .eq("role", "learner")
         .order("full_name");
+
+      // If user is a mentor, only fetch learners assigned to this mentor
+      if (me?.role === 'mentor' && me.id) {
+        learnersQuery = learnersQuery.eq('mentor_id', me.id);
+      }
+
+      const { data, error } = await learnersQuery;
+      
       if (error) {
         console.error(error);
         toast.error("Failed to load learners");
@@ -76,7 +84,7 @@ const ManageFeedback: React.FC = () => {
       setLearners(data || []);
     };
     loadLearners();
-  }, []);
+  }, [me]);
 
   const filteredLearners = useMemo(() => {
     const q = search.trim().toLowerCase();

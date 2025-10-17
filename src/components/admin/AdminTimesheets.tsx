@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -61,6 +62,7 @@ interface ExtendedTimesheetSchedule {
 }
 
 const AdminTimesheets: React.FC = () => {
+  const { profile } = useAuth();
   const [learners, setLearners] = useState<Profile[]>([]);
   const [timesheetSchedules, setTimesheetSchedules] = useState<ExtendedTimesheetSchedule[]>([]);
   const [filteredSchedules, setFilteredSchedules] = useState<ExtendedTimesheetSchedule[]>([]);
@@ -99,12 +101,19 @@ const AdminTimesheets: React.FC = () => {
       
       console.log('Fetching learners...');
       
-      // Fetch all learners with full profile data (like other admin components)
-      const { data: learnersData, error: learnersError } = await supabase
+      // Fetch learners based on user role
+      let learnersQuery = supabase
         .from('profiles')
         .select('*')
         .eq('role', 'learner')
         .order('full_name');
+
+      // If user is a mentor, only fetch learners assigned to this mentor
+      if (profile?.role === 'mentor' && profile.id) {
+        learnersQuery = learnersQuery.eq('mentor_id', profile.id);
+      }
+
+      const { data: learnersData, error: learnersError } = await learnersQuery;
       
       if (learnersError) throw learnersError;
       

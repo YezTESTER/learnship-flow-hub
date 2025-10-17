@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -48,7 +49,6 @@ interface MonthlyComplianceData {
   dueDate: string;
   onTime: boolean;
 }
-
 interface ComplianceStats {
   totalSubmissions: number;
   onTimeSubmissions: number;
@@ -59,6 +59,7 @@ interface ComplianceStats {
 }
 
 const Reports: React.FC = () => {
+  const { profile } = useAuth();
   const [learners, setLearners] = useState<ExtendedProfile[]>([]);
   const [categories, setCategories] = useState<LearnerCategory[]>([]);
   const [filteredLearners, setFilteredLearners] = useState<ExtendedProfile[]>([]);
@@ -81,10 +82,17 @@ const Reports: React.FC = () => {
   const fetchData = async () => {
     try {
       // Fetch learners
-      const { data: learnersData } = await supabase
+      let learnersQuery = supabase
         .from('profiles')
         .select('*')
         .eq('role', 'learner');
+
+      // If user is a mentor, only fetch learners assigned to this mentor
+      if (profile?.role === 'mentor' && profile.id) {
+        learnersQuery = learnersQuery.eq('mentor_id', profile.id);
+      }
+
+      const { data: learnersData } = await learnersQuery;
 
       // Fetch categories
       const { data: categoriesData } = await supabase

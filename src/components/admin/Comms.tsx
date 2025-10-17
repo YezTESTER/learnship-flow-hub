@@ -59,11 +59,18 @@ const Comms: React.FC = () => {
 
   const fetchLearners = async () => {
     try {
-      const { data, error } = await supabase
+      let learnersQuery = supabase
         .from('profiles')
         .select('id, full_name, email, employer_name, learnership_program')
         .eq('role', 'learner')
         .order('full_name');
+
+      // If user is a mentor, only fetch learners assigned to this mentor
+      if (profile?.role === 'mentor' && profile.id) {
+        learnersQuery = learnersQuery.eq('mentor_id', profile.id);
+      }
+
+      const { data, error } = await learnersQuery;
 
       if (error) throw error;
       setLearners(data || []);
