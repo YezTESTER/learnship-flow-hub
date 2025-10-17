@@ -28,23 +28,36 @@ const MentorDashboard: React.FC<MentorDashboardProps> = ({ setActiveSection }) =
 
   const fetchDashboardData = async () => {
     try {
-      const [learnersData, submissionsData] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('mentor_id', profile!.id)
-          .eq('role', 'learner'),
-        supabase
-          .from('feedback_submissions')
-          .select(`
-            *,
-            profiles!feedback_submissions_learner_id_fkey (full_name)
-          `)
-          .in('learner_id', learners.map(l => l.id))
-      ]);
+      // For now, we'll fetch assigned learners only
+      // In a full implementation, we would check the mentor's visibility settings
+      const { data: learnersData, error: learnersError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('mentor_id', profile!.id)
+        .eq('role', 'learner');
 
-      if (learnersData.data) setLearners(learnersData.data);
-      if (submissionsData.data) setSubmissions(submissionsData.data as any);
+      if (learnersError) throw learnersError;
+
+      if (learnersData) {
+        setLearners(learnersData);
+        
+        // Now fetch submissions for these learners
+        const learnerIds = learnersData.map(l => l.id);
+        if (learnerIds.length > 0) {
+          const { data: submissionsData, error: submissionsError } = await supabase
+            .from('feedback_submissions')
+            .select(`
+              *,
+              profiles!feedback_submissions_learner_id_fkey (full_name)
+            `)
+            .in('learner_id', learnerIds);
+          
+          if (submissionsError) throw submissionsError;
+          if (submissionsData) setSubmissions(submissionsData as any);
+        } else {
+          setSubmissions([]);
+        }
+      }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {

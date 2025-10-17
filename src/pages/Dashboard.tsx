@@ -21,6 +21,7 @@ import Reports from '@/components/admin/Reports';
 import ManageFeedback from '@/components/admin/ManageFeedback';
 import Comms from '@/components/admin/Comms';
 import AdminTimesheets from '@/components/admin/AdminTimesheets';
+import SystemSettings from '@/components/admin/SystemSettings';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
@@ -74,7 +75,7 @@ const Dashboard = () => {
   }
 
   // Redirect non-admin users away from admin sections
-  const adminOnlySections = ['reports', 'settings', 'learners', 'comms'];
+  const adminOnlySections = ['settings'];
   if (profile?.role !== 'admin' && adminOnlySections.includes(activeSection)) {
     setActiveSection('dashboard');
   }
@@ -107,12 +108,14 @@ const Dashboard = () => {
       case 'account-settings':
         return <AccountSettings />;
       case 'learners':
-        if (profile?.role === 'admin' || profile?.role === 'mentor') {
+        if (profile?.role === 'admin') {
           return <LearnersManagement />;
+        } else if (profile?.role === 'mentor') {
+          return <LearnersManagement isMentorView={true} />;
         }
         return <Navigate to="/dashboard" replace />;
       case 'reports':
-        if (profile?.role === 'admin') {
+        if (profile?.role === 'admin' || profile?.role === 'mentor') {
           return <Reports />;
         }
         return <Navigate to="/dashboard" replace />;
@@ -122,21 +125,18 @@ const Dashboard = () => {
         }
         return <Navigate to="/dashboard" replace />;
       case 'comms':
-        if (profile?.role === 'admin') {
+        if (profile?.role === 'admin' || profile?.role === 'mentor') {
           return <Comms />;
         }
         return <Navigate to="/dashboard" replace />;
       case 'timesheets':
-        if (profile?.role === 'admin') {
+        if (profile?.role === 'admin' || profile?.role === 'mentor') {
           return <AdminTimesheets />;
         }
         return <Navigate to="/dashboard" replace />;
       case 'settings':
         if (profile?.role === 'admin') {
-          return <div className="text-center py-12">
-              <h2 className="text-2xl font-bold text-gray-700 mb-4">System Settings</h2>
-              <p className="text-gray-500">Configure system settings and preferences</p>
-            </div>;
+          return <SystemSettings />;
         }
         return <Navigate to="/dashboard" replace />;
       default:

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -53,7 +54,12 @@ interface ExtendedProfile extends Profile {
   cvs?: CV[];
 }
 
-const LearnersManagement: React.FC = () => {
+interface LearnersManagementProps {
+  isMentorView?: boolean;
+}
+
+const LearnersManagement: React.FC<LearnersManagementProps> = ({ isMentorView = false }) => {
+  const { profile } = useAuth();
   const [learners, setLearners] = useState<ExtendedProfile[]>([]);
   const [categories, setCategories] = useState<LearnerCategory[]>([]);
   const [filteredLearners, setFilteredLearners] = useState<ExtendedProfile[]>([]);
@@ -85,11 +91,18 @@ const LearnersManagement: React.FC = () => {
 
   const fetchData = async () => {
     try {
-      // First fetch learners with their related data
-      const { data: learnersData } = await supabase
+      let learnersQuery = supabase
         .from('profiles')
         .select('*')
         .eq('role', 'learner');
+
+      // If this is a mentor view, only fetch learners assigned to this mentor
+      if (isMentorView && profile?.id) {
+        learnersQuery = learnersQuery.eq('mentor_id', profile.id);
+      }
+
+      // First fetch learners with their related data
+      const { data: learnersData } = await learnersQuery;
 
       // Fetch categories
       const { data: categoriesData } = await supabase
@@ -199,27 +212,26 @@ const LearnersManagement: React.FC = () => {
     }
 
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('learner_categories')
-        .insert({
+        .insert([{
           name: newCategory.name,
           color: newCategory.color,
           description: newCategory.description,
-          created_by: userData.user?.id
-        });
+          created_by: profile?.id || '' // Add required field
+        }])
+        .select()
+        .single();
 
       if (error) throw error;
 
+      setCategories([...categories, data]);
+      setNewCategory({ name: '', color: '#3B82F6', description: '' });
+      setShowCategoryDialog(false);
       toast({
         title: "Success",
         description: "Category created successfully"
       });
-
-      setNewCategory({ name: '', color: '#3B82F6', description: '' });
-      setShowCategoryDialog(false);
-      fetchData();
     } catch (error) {
       console.error('Error creating category:', error);
       toast({
@@ -232,33 +244,36 @@ const LearnersManagement: React.FC = () => {
 
   const assignLearnerToCategory = async (learnerId: string, categoryId: string) => {
     try {
-      const { data: userData } = await supabase.auth.getUser();
-
-      // Remove existing assignment
-      await supabase
-        .from('learner_category_assignments')
-        .delete()
-        .eq('learner_id', learnerId);
-
-      // Add new assignment if category is not 'none'
-      if (categoryId !== 'none') {
+      if (categoryId === 'none') {
+        // Remove category assignment
         const { error } = await supabase
           .from('learner_category_assignments')
-          .insert({
+          .delete()
+          .eq('learner_id', learnerId);
+
+        if (error) throw error;
+      } else {
+        // Update or create category assignment
+        const { error } = await supabase
+          .from('learner_category_assignments')
+          .upsert({
             learner_id: learnerId,
             category_id: categoryId,
-            assigned_by: userData.user?.id
+            assigned_by: profile?.id || '', // Add required field
+            assigned_at: new Date().toISOString() // Add required field
+          }, {
+            onConflict: 'learner_id'
           });
 
         if (error) throw error;
       }
 
+      // Refresh data to show updated category
+      fetchData();
       toast({
         title: "Success",
-        description: "Learner category updated successfully"
+        description: "Learner category updated"
       });
-
-      fetchData();
     } catch (error) {
       console.error('Error assigning category:', error);
       toast({
@@ -269,7 +284,12 @@ const LearnersManagement: React.FC = () => {
     }
   };
 
-  const sendMessage = async () => {
+  const openLearnerProfile = (learner: ExtendedProfile) => {
+    setSelectedLearner(learner);
+    setShowLearnerProfile(true);
+  };
+
+  const sendMessageToLearner = async () => {
     if (!selectedLearner || !messageData.title.trim() || !messageData.message.trim()) {
       toast({
         title: "Error",
@@ -280,34 +300,23 @@ const LearnersManagement: React.FC = () => {
     }
 
     try {
-      const { data: userData } = await supabase.auth.getUser();
-
       const { error } = await supabase
         .from('notifications')
-        .insert({
+        .insert([{
           user_id: selectedLearner.id,
           title: messageData.title,
           message: messageData.message,
-          type: 'message',
-          message_type: 'admin_message',
-          sender_id: userData.user?.id
-        });
+          type: 'message'
+        }]);
 
       if (error) throw error;
 
-      toast({
-        title: "Success",
-        description: "Message sent successfully"
-      });
-
       setMessageData({ title: '', message: '' });
       setShowMessageDialog(false);
-      
-      // Refresh message history
-      if (selectedLearner) {
-        const messages = await checkMessageReadStatus(selectedLearner.id);
-        setMessageHistory(messages);
-      }
+      toast({
+        title: "Success",
+        description: "Message sent to learner"
+      });
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
@@ -318,101 +327,46 @@ const LearnersManagement: React.FC = () => {
     }
   };
 
-  const checkMessageReadStatus = async (learnerId: string) => {
-    try {
-      const { data: notifications } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', learnerId)
-        .eq('message_type', 'admin_message')
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      return notifications?.map(notif => ({
-        id: notif.id,
-        title: notif.title,
-        message: notif.message,
-        created_at: notif.created_at,
-        read_at: notif.read_at,
-        isRead: !!notif.read_at
-      })) || [];
-    } catch (error) {
-      console.error('Error fetching message status:', error);
-      return [];
-    }
-  };
-
-  const openLearnerProfile = async (learner: ExtendedProfile) => {
-    setSelectedLearner(learner);
-    setShowLearnerProfile(true);
-    
-    // Load message history for this learner
-    const messages = await checkMessageReadStatus(learner.id);
-    setMessageHistory(messages);
-  };
-
   const awardPoints = async () => {
-    if (!selectedLearner || !pointsData.points || !pointsData.reason.trim()) {
+    if (!selectedLearner || pointsData.points <= 0 || !pointsData.reason.trim()) {
       toast({
         title: "Error",
-        description: "Please fill in all fields",
+        description: "Please fill in all point award fields",
         variant: "destructive"
       });
       return;
     }
 
     try {
-      const { data: userData } = await supabase.auth.getUser();
-
-      // Create achievement record with admin-awarded points
-      const { error: achievementError } = await supabase
-        .from('achievements')
-        .insert({
-          learner_id: selectedLearner.id,
-          badge_type: pointsData.category,
-          badge_name: `Admin Award: ${pointsData.category.replace('_', ' ').toUpperCase()}`,
-          description: pointsData.reason,
-          points_awarded: pointsData.points,
-          badge_color: '#FFD700',
-          badge_icon: 'crown'
-        });
-
-      if (achievementError) throw achievementError;
-
-      // Update learner's total points
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({
-          points: (selectedLearner.points || 0) + pointsData.points
+        .update({ 
+          points: (selectedLearner.points || 0) + pointsData.points 
         })
         .eq('id', selectedLearner.id);
 
       if (updateError) throw updateError;
 
-      // Create notification to learner
-      const { error: notificationError } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: selectedLearner.id,
-          title: `🎉 You've been awarded ${pointsData.points} points!`,
-          message: `Admin awarded you ${pointsData.points} points for: ${pointsData.reason}`,
-          type: 'achievement',
-          message_type: 'admin_message',
-          sender_id: userData.user?.id
-        });
+      const { error: achievementError } = await supabase
+        .from('achievements')
+        .insert([{
+          learner_id: selectedLearner.id,
+          badge_type: pointsData.category,
+          badge_name: pointsData.category.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+          description: pointsData.reason,
+          points_awarded: pointsData.points
+        }]);
 
-      if (notificationError) throw notificationError;
+      if (achievementError) throw achievementError;
 
-      toast({
-        title: "Success",
-        description: `Awarded ${pointsData.points} points to ${selectedLearner.full_name}!`
-      });
-
+      // Refresh learner data
+      fetchData();
       setPointsData({ points: 0, reason: '', category: 'manual_award' });
       setShowPointsDialog(false);
-      
-      // Refresh data to show updated points
-      fetchData();
+      toast({
+        title: "Success",
+        description: `Awarded ${pointsData.points} points to ${selectedLearner.full_name}`
+      });
     } catch (error) {
       console.error('Error awarding points:', error);
       toast({
@@ -423,37 +377,18 @@ const LearnersManagement: React.FC = () => {
     }
   };
 
-  const handleDownloadProfilePDF = async () => {
+  const generateProfilePDF = async () => {
     if (!selectedLearner) return;
-
+    
     setIsGeneratingProfilePDF(true);
     try {
-      await adminPdfGenerator.generateProfilePDF({
-        full_name: selectedLearner.full_name,
-        email: selectedLearner.email,
-        phone_number: selectedLearner.phone_number,
-        id_number: selectedLearner.id_number,
-        date_of_birth: selectedLearner.date_of_birth,
-        gender: selectedLearner.gender,
-        race: selectedLearner.race,
-        nationality: selectedLearner.nationality,
-        employer_name: selectedLearner.employer_name,
-        learnership_program: selectedLearner.learnership_program,
-        start_date: selectedLearner.start_date,
-        end_date: selectedLearner.end_date,
-        compliance_score: selectedLearner.compliance_score,
-        points: selectedLearner.points,
-        status: selectedLearner.status,
-        address: selectedLearner.address,
-        emergency_contact: selectedLearner.emergency_contact,
-        emergency_phone: selectedLearner.emergency_phone
-      });
+      await adminPdfGenerator.generateProfilePDF(selectedLearner);
       toast({
         title: "Success",
-        description: "Profile PDF downloaded successfully!"
+        description: "Profile PDF generated successfully"
       });
     } catch (error) {
-      console.error('PDF generation error:', error);
+      console.error('Error generating PDF:', error);
       toast({
         title: "Error",
         description: "Failed to generate PDF",
@@ -464,105 +399,19 @@ const LearnersManagement: React.FC = () => {
     }
   };
 
-  const handleViewCV = (cv: CV) => {
-    // Convert CV from database format to CVData format
-    const cvData: CVData = {
-      title: cv.cv_name,
-      is_published: cv.is_published,
-      personal_info: cv.personal_info as any || {},
-      experience: cv.work_experience as any || [],
-      education: cv.education as any || [],
-      skills: cv.skills || [],
-      references: []
-    };
-    setSelectedCV(cvData);
-    setShowCVPreview(true);
-  };
-
-  const handleViewCVFromDocument = (document: Document) => {
+  const getMessageHistory = async (learnerId: string) => {
     try {
-      // Parse CV data from the file_path column (which contains the JSON)
-      const cvData = typeof document.file_path === 'string' 
-        ? JSON.parse(document.file_path) 
-        : document.file_path;
-      
-      setSelectedCV(cvData);
-      setShowCVPreview(true);
-    } catch (error) {
-      console.error('Error parsing CV data:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load CV data",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const isCVDocument = (document: Document): boolean => {
-    return document.file_name.startsWith('cv_') && document.file_name.endsWith('.json');
-  };
-
-  const isPublishedCVDocument = (document: Document): boolean => {
-    if (!isCVDocument(document)) return false;
-    try {
-      const cvData = typeof document.file_path === 'string' 
-        ? JSON.parse(document.file_path) 
-        : document.file_path;
-      return cvData?.is_published === true;
-    } catch {
-      return false;
-    }
-  };
-
-  // Helper function to map document types to bucket IDs (matches DocumentUpload.tsx logic)
-  const getBucketForDocumentType = (docType: string): string => {
-    const documentCategories = {
-      personal: ['qualifications', 'certified_id', 'certified_proof_residence', 'proof_bank_account', 'drivers_license', 'cv_upload'],
-      office: ['work_attendance_log', 'class_attendance_proof'],
-      contracts: ['induction_form', 'popia_form', 'learner_consent_policy', 'employment_contract', 'learnership_contract']
-    };
-
-    if (documentCategories.personal.includes(docType)) {
-      return 'personal-documents';
-    } else if (documentCategories.office.includes(docType)) {
-      return 'office-documents';
-    } else if (documentCategories.contracts.includes(docType)) {
-      return 'contracts';
-    }
-    return 'personal-documents'; // default
-  };
-
-  const handleDownloadDocument = async (doc: Document) => {
-    try {
-      // Determine the correct bucket from document type
-      const bucketName = getBucketForDocumentType(doc.document_type);
-
-      const { data, error } = await supabase.storage
-        .from(bucketName)
-        .download(doc.file_path);
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', learnerId)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
-
-      const url = URL.createObjectURL(data);
-      const link = window.document.createElement('a');
-      link.href = url;
-      link.download = doc.file_name;
-      window.document.body.appendChild(link);
-      link.click();
-      window.document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      toast({
-        title: "Success",
-        description: "Document downloaded successfully"
-      });
+      setMessageHistory(data || []);
     } catch (error) {
-      console.error('Download error:', error);
-      toast({
-        title: "Error",
-        description: "Failed to download document",
-        variant: "destructive"
-      });
+      console.error('Error fetching message history:', error);
+      setMessageHistory([]);
     }
   };
 
@@ -598,27 +447,16 @@ const LearnersManagement: React.FC = () => {
             <span className="font-medium">{(learner.compliance_score || 0).toFixed(0)}%</span>
           </div>
           <Progress value={learner.compliance_score || 0} className="h-1" />
-        </div>
-
-        <div className="flex justify-between items-center mt-3 pt-3 border-t">
-          <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-            <Award className="w-3 h-3" />
-            <span>{learner.achievements?.length || 0}</span>
-          </div>
-          <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-            <FileText className="w-3 h-3" />
-            <span>{learner.feedback_submissions?.length || 0}</span>
-          </div>
-          <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-            <Upload className="w-3 h-3" />
-            <span>{learner.documents?.length || 0}</span>
+          
+          <div className="flex items-center justify-between text-xs mt-1">
+            <span className="text-muted-foreground">Documents</span>
+            <span className="font-medium">{learner.documents?.length || 0}</span>
           </div>
         </div>
 
-        <div className="mt-3 flex space-x-2">
-          <Button
-            size="sm"
-            variant="outline"
+        <div className="flex space-x-2 mt-3">
+          <Button 
+            variant="outline" 
             className="flex-1 text-xs"
             onClick={(e) => {
               e.stopPropagation();
@@ -654,7 +492,14 @@ const LearnersManagement: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
         <div>
-          <p className="text-muted-foreground">Manage all learners and their categories</p>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {isMentorView ? 'My Learners' : 'All Learners'}
+          </h1>
+          <p className="text-muted-foreground">
+            {isMentorView 
+              ? 'Manage learners assigned to you' 
+              : 'Manage all learners and their categories'}
+          </p>
         </div>
         
         <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 mt-4 sm:mt-0 w-full sm:w-auto">
@@ -670,7 +515,7 @@ const LearnersManagement: React.FC = () => {
           
           <Dialog open={showCategoryDialog} onOpenChange={setShowCategoryDialog}>
             <DialogTrigger asChild>
-              <Button size="sm" className="w-full sm:w-auto">
+              <Button size="sm" className="w-full sm:w-auto" disabled={isMentorView}>
                 <Plus className="w-4 h-4 mr-2" />
                 Create Category
               </Button>
@@ -685,30 +530,38 @@ const LearnersManagement: React.FC = () => {
                   <Input
                     value={newCategory.name}
                     onChange={(e) => setNewCategory(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="Enter category name"
+                    placeholder="e.g., High Priority, At Risk"
                   />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Color</label>
-                  <Input
-                    type="color"
-                    value={newCategory.color}
-                    onChange={(e) => setNewCategory(prev => ({ ...prev, color: e.target.value }))}
-                  />
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="color"
+                      value={newCategory.color}
+                      onChange={(e) => setNewCategory(prev => ({ ...prev, color: e.target.value }))}
+                      className="w-10 h-10 border rounded cursor-pointer"
+                    />
+                    <span className="text-sm text-muted-foreground">{newCategory.color}</span>
+                  </div>
                 </div>
                 <div>
                   <label className="text-sm font-medium">Description</label>
                   <Textarea
                     value={newCategory.description}
                     onChange={(e) => setNewCategory(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="Enter description (optional)"
+                    placeholder="Optional description"
+                    rows={2}
                   />
                 </div>
                 <div className="flex justify-end space-x-2">
                   <Button variant="outline" onClick={() => setShowCategoryDialog(false)}>
                     Cancel
                   </Button>
-                  <Button onClick={createCategory}>Create Category</Button>
+                  <Button onClick={createCategory}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create Category
+                  </Button>
                 </div>
               </div>
             </DialogContent>
@@ -753,27 +606,19 @@ const LearnersManagement: React.FC = () => {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {/* Uncategorized */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-lg text-muted-foreground">Uncategorized</h3>
-            <div className="space-y-3">
-              {filteredLearners.filter(l => !l.category).map(learner => (
-                <LearnerCard key={learner.id} learner={learner} />
-              ))}
-            </div>
-          </div>
-          
-          {/* Categories */}
-          {categories.map(category => (
-            <div key={category.id} className="space-y-4">
+        <div className="space-y-6">
+          {categories.filter(cat => 
+            filteredLearners.some(l => l.category?.id === cat.id)
+          ).map(category => (
+            <div key={category.id} className="space-y-3">
               <div className="flex items-center space-x-2">
-                <div 
-                  className="w-3 h-3 rounded-full" 
-                  style={{ backgroundColor: category.color }}
-                />
-                <h3 className="font-semibold text-lg">{category.name}</h3>
-                <Badge variant="outline" className="text-xs">
+                <Badge 
+                  className="text-sm py-1 px-3"
+                  style={{ backgroundColor: category.color + '20', color: category.color }}
+                >
+                  {category.name}
+                </Badge>
+                <Badge variant="secondary">
                   {filteredLearners.filter(l => l.category?.id === category.id).length}
                 </Badge>
               </div>
@@ -804,570 +649,384 @@ const LearnersManagement: React.FC = () => {
                   <p className="text-sm text-muted-foreground">{selectedLearner?.email}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleDownloadProfilePDF}
-                  disabled={isGeneratingProfilePDF}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  {isGeneratingProfilePDF ? 'Generating...' : 'Download Profile'}
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    setShowMessageDialog(true);
-                  }}
-                >
-                  <MessageCircle className="w-4 h-4 mr-2" />
-                  Send Message
-                </Button>
-              </div>
+              
+              <Button 
+                onClick={generateProfilePDF} 
+                disabled={isGeneratingProfilePDF}
+                variant="outline"
+                size="sm"
+              >
+                {isGeneratingProfilePDF ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin mr-2"></div>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 mr-2" />
+                    Export PDF
+                  </>
+                )}
+              </Button>
             </div>
           </DialogHeader>
 
           {selectedLearner && (
-            <Tabs defaultValue="profile" className="w-full">
-              <TabsList className="grid grid-cols-6 w-full">
-                <TabsTrigger value="profile">Profile</TabsTrigger>
-                <TabsTrigger value="feedback">Feedback</TabsTrigger>
+            <Tabs defaultValue="overview" className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="documents">Documents</TabsTrigger>
+                <TabsTrigger value="feedback">Feedback</TabsTrigger>
                 <TabsTrigger value="achievements">Achievements</TabsTrigger>
-                <TabsTrigger value="cv">CV</TabsTrigger>
-                <TabsTrigger value="messages">Messages</TabsTrigger>
               </TabsList>
-
-              <TabsContent value="profile" className="space-y-4">
-                {/* Personal Information */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Personal Information</CardTitle>
-                  </CardHeader>
-                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <div className="flex items-center space-x-2">
+              
+              <TabsContent value="overview" className="space-y-6 mt-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2">
+                        <Users className="w-5 h-5" />
+                        <span>Personal Information</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center space-x-3">
                         <Mail className="w-4 h-4 text-muted-foreground" />
                         <span className="text-sm">{selectedLearner.email}</span>
                       </div>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-3">
                         <Phone className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm">{selectedLearner.phone_number || 'N/A'}</span>
+                        <span className="text-sm">{selectedLearner.phone_number || 'Not provided'}</span>
                       </div>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-3">
                         <MapPin className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm">{selectedLearner.address || 'N/A'}</span>
+                        <span className="text-sm">{selectedLearner.address || 'Not provided'}</span>
                       </div>
-                      <div>
-                        <span className="text-sm font-medium">Date of Birth:</span>
-                        <span className="text-sm ml-2">{selectedLearner.date_of_birth || 'N/A'}</span>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium">Gender:</span>
-                        <span className="text-sm ml-2">{selectedLearner.gender || 'N/A'}</span>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium">Race:</span>
-                        <span className="text-sm ml-2">{selectedLearner.race || 'N/A'}</span>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium">Nationality:</span>
-                        <span className="text-sm ml-2">{selectedLearner.nationality || 'N/A'}</span>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium">Area of Residence:</span>
-                        <span className="text-sm ml-2">{selectedLearner.area_of_residence || 'N/A'}</span>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium">Languages:</span>
-                        <span className="text-sm ml-2">
-                          {selectedLearner.languages && selectedLearner.languages.length > 0 
-                            ? selectedLearner.languages.join(', ') 
-                            : 'N/A'}
+                      <div className="flex items-center space-x-3">
+                        <Calendar className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm">
+                          {selectedLearner.date_of_birth 
+                            ? new Date(selectedLearner.date_of_birth).toLocaleDateString() 
+                            : 'Not provided'}
                         </span>
                       </div>
-                    </div>
-                    <div className="space-y-4">
-                      <div>
-                        <span className="text-sm font-medium">ID Number:</span>
-                        <span className="text-sm ml-2">{selectedLearner.id_number || 'N/A'}</span>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium">Program:</span>
-                        <span className="text-sm ml-2">{selectedLearner.learnership_program || 'N/A'}</span>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium">Employer:</span>
-                        <span className="text-sm ml-2">{selectedLearner.employer_name || 'N/A'}</span>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium">Start Date:</span>
-                        <span className="text-sm ml-2">{selectedLearner.start_date || 'N/A'}</span>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium">End Date:</span>
-                        <span className="text-sm ml-2">{selectedLearner.end_date || 'N/A'}</span>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium">Has Disability:</span>
-                        <span className="text-sm ml-2">{selectedLearner.has_disability ? 'Yes' : 'No'}</span>
-                      </div>
-                      {selectedLearner.has_disability && selectedLearner.disability_description && (
-                        <div>
-                          <span className="text-sm font-medium">Disability Description:</span>
-                          <span className="text-sm ml-2">{selectedLearner.disability_description}</span>
-                        </div>
-                      )}
-                      <div>
-                        <span className="text-sm font-medium">Has Driver's License:</span>
-                        <span className="text-sm ml-2">{selectedLearner.has_drivers_license ? 'Yes' : 'No'}</span>
-                      </div>
-                      {selectedLearner.has_drivers_license && selectedLearner.license_codes && selectedLearner.license_codes.length > 0 && (
-                        <div>
-                          <span className="text-sm font-medium">License Codes:</span>
-                          <span className="text-sm ml-2">{selectedLearner.license_codes.join(', ')}</span>
-                        </div>
-                      )}
-                      <div>
-                        <span className="text-sm font-medium">Has Own Transport:</span>
-                        <span className="text-sm ml-2">{selectedLearner.has_own_transport ? 'Yes' : 'No'}</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
 
-                {/* Emergency Contact */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Emergency Contact</CardTitle>
-                  </CardHeader>
-                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <span className="text-sm font-medium">Emergency Contact:</span>
-                      <span className="text-sm ml-2">{selectedLearner.emergency_contact || 'N/A'}</span>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium">Emergency Phone:</span>
-                      <span className="text-sm ml-2">{selectedLearner.emergency_phone || 'N/A'}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Transport Information */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Transport Information</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div>
-                      <span className="text-sm font-medium">Has Own Transport:</span>
-                      <span className="text-sm ml-2">{selectedLearner.has_own_transport ? 'Yes' : 'No'}</span>
-                    </div>
-                    {!selectedLearner.has_own_transport && selectedLearner.public_transport_types && selectedLearner.public_transport_types.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2">
+                        <CheckCircle className="w-5 h-5" />
+                        <span>Program Details</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
                       <div>
-                        <span className="text-sm font-medium">Public Transport Types:</span>
-                        <span className="text-sm ml-2">{selectedLearner.public_transport_types.join(', ')}</span>
+                        <p className="text-sm text-muted-foreground">Learnership Program</p>
+                        <p className="font-medium">{selectedLearner.learnership_program || 'Not specified'}</p>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Financial Information */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Financial Information</CardTitle>
-                  </CardHeader>
-                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <span className="text-sm font-medium">Receives Stipend:</span>
-                      <span className="text-sm ml-2">{selectedLearner.receives_stipend ? 'Yes' : 'No'}</span>
-                    </div>
-                    {selectedLearner.receives_stipend && selectedLearner.stipend_amount && (
                       <div>
-                        <span className="text-sm font-medium">Stipend Amount:</span>
-                        <span className="text-sm ml-2">R{selectedLearner.stipend_amount}</span>
+                        <p className="text-sm text-muted-foreground">Employer</p>
+                        <p className="font-medium">{selectedLearner.employer_name || 'Not specified'}</p>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Compliance Status */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Compliance Status</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Overall Compliance Score:</span>
-                        <span className="text-lg font-bold text-primary">{(selectedLearner.compliance_score || 0).toFixed(1)}%</span>
-                      </div>
-                      <Progress value={selectedLearner.compliance_score || 0} className="h-2" />
-                      <div className="grid grid-cols-3 gap-4 text-center">
-                        <div>
-                          <div className="text-2xl font-bold text-blue-600">{selectedLearner.feedback_submissions?.length || 0}</div>
-                          <div className="text-xs text-muted-foreground">Feedback Forms</div>
-                        </div>
-                        <div>
-                          <div className="text-2xl font-bold text-green-600">{selectedLearner.documents?.length || 0}</div>
-                          <div className="text-xs text-muted-foreground">Documents</div>
-                        </div>
-                        <div>
-                          <div className="text-2xl font-bold text-purple-600">{selectedLearner.achievements?.length || 0}</div>
-                          <div className="text-xs text-muted-foreground">Achievements</div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Compliance Score</p>
+                        <div className="flex items-center space-x-2">
+                          <Progress value={selectedLearner.compliance_score || 0} className="flex-1" />
+                          <span className="text-sm font-medium w-10">{(selectedLearner.compliance_score || 0).toFixed(0)}%</span>
                         </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Points</p>
+                        <p className="font-medium">{selectedLearner.points || 0} points</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
 
-              <TabsContent value="feedback" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Monthly Feedback Submissions</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {selectedLearner.feedback_submissions?.map(submission => (
-                        <div key={submission.id} className="border rounded-lg p-3">
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="font-medium">
-                              {new Date(submission.year, submission.month - 1).toLocaleDateString('en-US', { 
-                                month: 'long', 
-                                year: 'numeric' 
-                              })}
-                            </span>
-                            <Badge variant={
-                              submission.status === 'submitted' ? 'default' :
-                              submission.status === 'approved' ? 'secondary' :
-                              submission.status === 'overdue' ? 'destructive' : 'outline'
-                            }>
-                              {submission.status}
-                            </Badge>
-                          </div>
-                          {submission.submitted_at && (
-                            <p className="text-xs text-muted-foreground">
-                              Submitted: {new Date(submission.submitted_at).toLocaleDateString()}
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <FileText className="w-8 h-8 mx-auto text-blue-500 mb-2" />
+                      <p className="text-2xl font-bold">{selectedLearner.documents?.length || 0}</p>
+                      <p className="text-sm text-muted-foreground">Documents</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <CheckCircle className="w-8 h-8 mx-auto text-green-500 mb-2" />
+                      <p className="text-2xl font-bold">
+                        {selectedLearner.feedback_submissions?.filter(fs => fs.status === 'approved').length || 0}
+                      </p>
+                      <p className="text-sm text-muted-foreground">Approved Feedback</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <Award className="w-8 h-8 mx-auto text-yellow-500 mb-2" />
+                      <p className="text-2xl font-bold">{selectedLearner.achievements?.length || 0}</p>
+                      <p className="text-sm text-muted-foreground">Achievements</p>
+                    </CardContent>
+                  </Card>
+                </div>
 
-              <TabsContent value="documents" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Uploaded Documents</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {/* Regular Documents & CV Files */}
-                      {selectedLearner.documents?.filter(document => {
-                        // Filter out office documents (timesheet submissions) as they should not appear in this section
-                        const documentCategories = {
-                          personal: ['qualifications', 'certified_id', 'certified_proof_residence', 'proof_bank_account', 'drivers_license', 'cv_upload'],
-                          office: ['work_attendance_log', 'class_attendance_proof'],
-                          contracts: ['induction_form', 'popia_form', 'learner_consent_policy', 'employment_contract', 'learnership_contract']
-                        };
-                        
-                        // Only show personal and contract documents in this section
-                        return documentCategories.personal.includes(document.document_type) || 
-                               documentCategories.contracts.includes(document.document_type) ||
-                               (isCVDocument(document) && isPublishedCVDocument(document));
-                      }).map(document => {
-                        const isCVFile = isCVDocument(document);
-                        const isPublishedCV = isPublishedCVDocument(document);
-                        
-                        // Skip unpublished CV files in documents view
-                        if (isCVFile && !isPublishedCV) return null;
-                        
-                        return (
-                          <div 
-                            key={document.id} 
-                            className={`flex items-center justify-between border rounded-lg p-3 ${isCVFile ? 'bg-blue-50' : ''}`}
-                          >
-                            <div>
-                              <p className="font-medium text-sm">{document.file_name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {isCVFile ? 'CV Document (Published)' : document.document_type}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {document.uploaded_at && new Date(document.uploaded_at).toLocaleDateString()}
-                              </p>
-                            </div>
-                            <div className="flex gap-2">
-                              {isCVFile && (
-                                <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                  onClick={() => handleViewCVFromDocument(document)}
-                                >
-                                  <Eye className="w-4 h-4 mr-1" />
-                                  View
-                                </Button>
-                              )}
-                              {!isCVFile && (
-                                <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                  onClick={() => handleDownloadDocument(document)}
-                                >
-                                  <Download className="w-4 h-4 mr-1" />
-                                  Download
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                      
-                      {(!selectedLearner.documents || 
-                        selectedLearner.documents.filter(document => {
-                          // Filter out office documents (timesheet submissions) as they should not appear in this section
-                          const documentCategories = {
-                            personal: ['qualifications', 'certified_id', 'certified_proof_residence', 'proof_bank_account', 'drivers_license', 'cv_upload'],
-                            office: ['work_attendance_log', 'class_attendance_proof'],
-                            contracts: ['induction_form', 'popia_form', 'learner_consent_policy', 'employment_contract', 'learnership_contract']
-                          };
-                          
-                          // Only show personal and contract documents in this section
-                          return documentCategories.personal.includes(document.document_type) || 
-                                 documentCategories.contracts.includes(document.document_type) ||
-                                 (isCVDocument(document) && isPublishedCVDocument(document));
-                        }).length === 0) && (
-                        <p className="text-sm text-muted-foreground text-center py-4">No documents uploaded yet</p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="achievements" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      Achievements & Points
-                      <Button
-                        size="sm"
-                        onClick={() => setShowPointsDialog(true)}
-                        className="ml-auto"
+                <div className="flex space-x-2">
+                  <Dialog open={showMessageDialog} onOpenChange={setShowMessageDialog}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => getMessageHistory(selectedLearner.id)}
                       >
+                        <MessageCircle className="w-4 h-4 mr-2" />
+                        Send Message
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Send Message to {selectedLearner.full_name}</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-sm font-medium">Subject</label>
+                          <Input
+                            value={messageData.title}
+                            onChange={(e) => setMessageData(prev => ({ ...prev, title: e.target.value }))}
+                            placeholder="Message subject"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">Message</label>
+                          <Textarea
+                            value={messageData.message}
+                            onChange={(e) => setMessageData(prev => ({ ...prev, message: e.target.value }))}
+                            placeholder="Your message..."
+                            rows={4}
+                          />
+                        </div>
+                        <div className="flex justify-end space-x-2">
+                          <Button variant="outline" onClick={() => setShowMessageDialog(false)}>
+                            Cancel
+                          </Button>
+                          <Button onClick={sendMessageToLearner}>
+                            <MessageCircle className="w-4 h-4 mr-2" />
+                            Send Message
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+
+                  <Dialog open={showPointsDialog} onOpenChange={setShowPointsDialog}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" disabled={isMentorView}>
                         <Award className="w-4 h-4 mr-2" />
                         Award Points
                       </Button>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="mb-6">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-lg font-semibold">Total Points</span>
-                        <span className="text-3xl font-bold text-primary">{selectedLearner.points || 0}</span>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Award Points to {selectedLearner.full_name}</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-sm font-medium">Points</label>
+                          <Input
+                            type="number"
+                            value={pointsData.points}
+                            onChange={(e) => setPointsData(prev => ({ ...prev, points: parseInt(e.target.value) || 0 }))}
+                            min="1"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">Category</label>
+                          <Select value={pointsData.category} onValueChange={(value) => setPointsData(prev => ({ ...prev, category: value }))}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="manual_award">Manual Award</SelectItem>
+                              <SelectItem value="early_submission">Early Submission</SelectItem>
+                              <SelectItem value="excellent_performance">Excellent Performance</SelectItem>
+                              <SelectItem value="leadership">Leadership</SelectItem>
+                              <SelectItem value="initiative">Initiative</SelectItem>
+                              <SelectItem value="compliance_bonus">Compliance Bonus</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">Reason</label>
+                          <Textarea
+                            value={pointsData.reason}
+                            onChange={(e) => setPointsData(prev => ({ ...prev, reason: e.target.value }))}
+                            placeholder="Explain why these points are being awarded"
+                            rows={3}
+                          />
+                        </div>
+                        <div className="flex justify-end space-x-2">
+                          <Button variant="outline" onClick={() => setShowPointsDialog(false)}>
+                            Cancel
+                          </Button>
+                          <Button onClick={awardPoints}>
+                            <Award className="w-4 h-4 mr-2" />
+                            Award Points
+                          </Button>
+                        </div>
                       </div>
-                      <Progress value={(selectedLearner.points || 0) / 10} className="h-2" />
-                      <p className="text-xs text-muted-foreground mt-1">Points reflect performance and compliance</p>
-                    </div>
-                    <div className="space-y-3">
-                      {selectedLearner.achievements?.map(achievement => (
-                        <div key={achievement.id} className="flex items-center space-x-3 border rounded-lg p-3">
-                          <div 
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-white"
-                            style={{ backgroundColor: achievement.badge_color || '#3B82F6' }}
-                          >
-                            <Award className="w-4 h-4" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-medium text-sm">{achievement.badge_name}</p>
-                            <p className="text-xs text-muted-foreground">{achievement.description}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {achievement.earned_at && new Date(achievement.earned_at).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <Badge variant="outline" className="text-xs">
-                            +{achievement.points_awarded} pts
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </TabsContent>
 
-              <TabsContent value="cv" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Published CVs</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {/* Published CV files from documents table */}
-                      {selectedLearner.documents?.filter(doc => isPublishedCVDocument(doc)).map(document => (
-                        <div key={document.id} className="flex items-center justify-between border rounded-lg p-3 bg-blue-50">
-                          <div>
-                            <p className="font-medium text-sm">{document.file_name.replace('.json', '')}</p>
-                            <p className="text-xs text-muted-foreground">
-                              Updated: {new Date(document.uploaded_at || '').toLocaleDateString()}
-                            </p>
-                          </div>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleViewCVFromDocument(document)}
-                          >
-                            <Eye className="w-4 h-4 mr-1" />
-                            View
-                          </Button>
-                        </div>
-                      ))}
-                      
-                      {/* Published CVs from cvs table */}
-                      {selectedLearner.cvs?.filter(cv => cv.is_published).map(cv => (
-                        <div key={cv.id} className="flex items-center justify-between border rounded-lg p-3">
-                          <div>
-                            <p className="font-medium text-sm">{cv.cv_name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              Updated: {new Date(cv.updated_at).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleViewCV(cv)}
-                          >
-                            <Eye className="w-4 h-4 mr-1" />
-                            View
-                          </Button>
-                        </div>
-                      ))}
-                      
-                      {(!selectedLearner.documents?.some(doc => isPublishedCVDocument(doc)) && 
-                        (!selectedLearner.cvs || selectedLearner.cvs.filter(cv => cv.is_published).length === 0)) && (
-                        <p className="text-sm text-muted-foreground text-center py-4">No published CVs yet</p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="messages" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      Message History
-                      <Button
-                        size="sm"
-                        onClick={() => setShowMessageDialog(true)}
-                        className="ml-auto"
-                      >
-                        <MessageCircle className="w-4 h-4 mr-2" />
-                        Send New Message
-                      </Button>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {messageHistory.length > 0 ? (
-                        messageHistory.map(message => (
-                          <div key={message.id} className="border rounded-lg p-3">
-                            <div className="flex justify-between items-start mb-2">
-                              <div className="flex-1">
-                                <h4 className="font-medium text-sm">{message.title}</h4>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {message.message}
+              <TabsContent value="documents" className="mt-6">
+                <div className="space-y-4">
+                  {selectedLearner.documents && selectedLearner.documents.length > 0 ? (
+                    selectedLearner.documents.map(document => (
+                      <Card key={document.id}>
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <FileText className="w-5 h-5 text-blue-500" />
+                              <div>
+                                <p className="font-medium">{document.file_name}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {new Date(document.uploaded_at || '').toLocaleDateString()}
                                 </p>
                               </div>
-                              <div className="flex items-center space-x-2">
-                                {message.isRead ? (
-                                  <div className="flex items-center text-green-600">
-                                    <CheckCircle className="w-4 h-4 mr-1" />
-                                    <span className="text-xs">Read</span>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center text-orange-600">
-                                    <Clock className="w-4 h-4 mr-1" />
-                                    <span className="text-xs">Unread</span>
-                                  </div>
-                                )}
-                              </div>
                             </div>
-                            <div className="flex justify-between items-center text-xs text-muted-foreground">
-                              <span>
-                                Sent: {new Date(message.created_at).toLocaleDateString()} at{' '}
-                                {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                              {message.read_at && (
-                                <span>
-                                  Read: {new Date(message.read_at).toLocaleDateString()} at{' '}
-                                  {new Date(message.read_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => {
+                                const fileUrl = supabase.storage.from('documents').getPublicUrl(document.file_path).data.publicUrl;
+                                window.open(fileUrl, '_blank');
+                              }}
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              View
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground text-center py-8">No documents uploaded</p>
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="feedback" className="mt-6">
+                <div className="space-y-4">
+                  {selectedLearner.feedback_submissions && selectedLearner.feedback_submissions.length > 0 ? (
+                    selectedLearner.feedback_submissions.map(submission => (
+                      <Card key={submission.id}>
+                        <CardHeader>
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-lg">
+                              {submission.month}/{submission.year} Feedback
+                            </CardTitle>
+                            <Badge 
+                              variant={
+                                submission.status === 'approved' ? 'secondary' :
+                                submission.status === 'submitted' ? 'default' :
+                                submission.status === 'overdue' ? 'destructive' : 'outline'
+                              }
+                            >
+                              {submission.status}
+                            </Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            <p className="text-sm">
+                              <span className="font-medium">Submitted:</span> 
+                              {submission.submitted_at 
+                                ? new Date(submission.submitted_at).toLocaleDateString() 
+                                : 'Not yet submitted'}
+                            </p>
+                            {submission.mentor_rating && (
+                              <p className="text-sm">
+                                <span className="font-medium">Mentor Rating:</span> {submission.mentor_rating}/5
+                              </p>
+                            )}
+                            {submission.mentor_feedback && (
+                              <div>
+                                <p className="font-medium text-sm">Mentor Feedback:</p>
+                                <p className="text-sm text-muted-foreground">{submission.mentor_feedback}</p>
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground text-center py-8">No feedback submissions</p>
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="achievements" className="mt-6">
+                <div className="space-y-4">
+                  {selectedLearner.achievements && selectedLearner.achievements.length > 0 ? (
+                    selectedLearner.achievements.map(achievement => (
+                      <Card key={achievement.id}>
+                        <CardContent className="p-4">
+                          <div className="flex items-center space-x-3">
+                            <Award className="w-5 h-5 text-yellow-500" />
+                            <div>
+                              <p className="font-medium">{achievement.badge_name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {new Date(achievement.earned_at || '').toLocaleDateString()} - 
+                                {achievement.points_awarded} points
+                              </p>
+                              {achievement.description && (
+                                <p className="text-sm mt-1">{achievement.description}</p>
                               )}
                             </div>
                           </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                          <p>No messages sent to this learner yet.</p>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setShowMessageDialog(true)}
-                            className="mt-3"
-                          >
-                            Send First Message
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+                        </CardContent>
+                      </Card>
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground text-center py-8">No achievements earned</p>
+                  )}
+                </div>
               </TabsContent>
             </Tabs>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Send Message Dialog */}
-      <Dialog open={showMessageDialog} onOpenChange={setShowMessageDialog}>
-        <DialogContent>
+      {/* Message History Dialog */}
+      <Dialog open={messageHistory.length > 0} onOpenChange={() => setMessageHistory([])}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Send Message to {selectedLearner?.full_name}</DialogTitle>
+            <DialogTitle>Message History</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Subject</label>
-              <Input
-                value={messageData.title}
-                onChange={(e) => setMessageData(prev => ({ ...prev, title: e.target.value }))}
-                placeholder="Enter message subject"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Message</label>
-              <Textarea
-                value={messageData.message}
-                onChange={(e) => setMessageData(prev => ({ ...prev, message: e.target.value }))}
-                placeholder="Enter your message"
-                rows={4}
-              />
-            </div>
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setShowMessageDialog(false)}>
-                Cancel
-              </Button>
-              <Button onClick={sendMessage}>
-                <MessageCircle className="w-4 h-4 mr-2" />
-                Send Message
-              </Button>
-            </div>
+            {messageHistory.length > 0 ? (
+              messageHistory.map(message => (
+                <Card key={message.id}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">{message.title}</CardTitle>
+                      <span className="text-sm text-muted-foreground">
+                        {new Date(message.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground">{message.message}</p>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <p className="text-muted-foreground text-center py-8">No messages</p>
+            )}
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Award Points Dialog */}
+      {/* Points Dialog */}
       <Dialog open={showPointsDialog} onOpenChange={setShowPointsDialog}>
         <DialogContent>
           <DialogHeader>
@@ -1375,26 +1034,24 @@ const LearnersManagement: React.FC = () => {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium">Points to Award</label>
+              <label className="text-sm font-medium">Points</label>
               <Input
                 type="number"
-                min="1"
-                max="1000"
                 value={pointsData.points}
                 onChange={(e) => setPointsData(prev => ({ ...prev, points: parseInt(e.target.value) || 0 }))}
-                placeholder="Enter points amount"
+                min="1"
               />
             </div>
             <div>
               <label className="text-sm font-medium">Category</label>
               <Select value={pointsData.category} onValueChange={(value) => setPointsData(prev => ({ ...prev, category: value }))}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="manual_award">Manual Award</SelectItem>
-                  <SelectItem value="exceptional_performance">Exceptional Performance</SelectItem>
                   <SelectItem value="early_submission">Early Submission</SelectItem>
+                  <SelectItem value="excellent_performance">Excellent Performance</SelectItem>
                   <SelectItem value="leadership">Leadership</SelectItem>
                   <SelectItem value="initiative">Initiative</SelectItem>
                   <SelectItem value="compliance_bonus">Compliance Bonus</SelectItem>

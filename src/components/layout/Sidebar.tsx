@@ -83,9 +83,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   const mentorMenuItems: MenuItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'learners', label: 'My Learners', icon: Users },
+    { id: 'reports', label: 'Reports', icon: BarChart3 },
     { id: 'feedback-review', label: 'Review Feedback', icon: FileText },
+    { id: 'timesheets', label: 'Timesheets', icon: Clock },
+    { id: 'comms', label: 'Communications', icon: FileText },
     { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'profile', label: 'Profile', icon: User },
     { id: 'account-settings', label: 'Account Settings', icon: Settings },
   ];
 
@@ -130,7 +132,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-blue-200 text-sm">Welcome,</p>
             <p className="text-white font-medium truncate">{profile?.full_name}</p>
             <div className="text-xs text-blue-300 bg-blue-500/20 px-2 py-1 rounded-full inline-block mt-1">
               {profile?.role?.toUpperCase()}
