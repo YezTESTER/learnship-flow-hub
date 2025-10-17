@@ -9,8 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Send, MessageSquare, User, Clock, Mail, Inbox } from 'lucide-react';
+import { Send, MessageSquare, User, Clock, Mail, Inbox, Trash2, Eye, Check } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface LearnerProfile {
@@ -45,6 +47,10 @@ const Comms: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [inboxMessages, setInboxMessages] = useState<Message[]>([]);
   const [activeTab, setActiveTab] = useState<'send' | 'inbox'>('send');
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
+  const [isSelectMode, setIsSelectMode] = useState(false);
 
   useEffect(() => {
     fetchLearners();
@@ -174,6 +180,120 @@ const Comms: React.FC = () => {
     }
   };
 
+  const deleteAllMessages = async () => {
+    if (inboxMessages.length === 0) {
+      toast.info('No messages to delete');
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to delete all messages? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('message_type', 'learner_to_admin');
+
+      if (error) throw error;
+
+      setInboxMessages([]);
+      setSelectedMessages([]);
+      toast.success('All messages deleted successfully');
+    } catch (error: any) {
+      toast.error('Failed to delete messages');
+      console.error('Error deleting messages:', error);
+    }
+  };
+
+  const deleteSelectedMessages = async () => {
+    if (selectedMessages.length === 0) {
+      toast.info('No messages selected for deletion');
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to delete ${selectedMessages.length} message(s)? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .in('id', selectedMessages);
+
+      if (error) throw error;
+
+      setInboxMessages(prev => prev.filter(msg => !selectedMessages.includes(msg.id)));
+      setSelectedMessages([]);
+      toast.success(`${selectedMessages.length} message(s) deleted successfully`);
+    } catch (error: any) {
+      toast.error('Failed to delete messages');
+      console.error('Error deleting messages:', error);
+    }
+  };
+
+  const deleteSingleMessage = async (messageId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (!window.confirm('Are you sure you want to delete this message? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', messageId);
+
+      if (error) throw error;
+
+      setInboxMessages(prev => prev.filter(msg => msg.id !== messageId));
+      if (selectedMessages.includes(messageId)) {
+        setSelectedMessages(prev => prev.filter(id => id !== messageId));
+      }
+      toast.success('Message deleted successfully');
+    } catch (error: any) {
+      toast.error('Failed to delete message');
+      console.error('Error deleting message:', error);
+    }
+  };
+
+  const openMessageModal = (message: Message) => {
+    if (isSelectMode) {
+      toggleMessageSelection(message.id);
+      return;
+    }
+    
+    setSelectedMessage(message);
+    setIsModalOpen(true);
+    if (!message.read_at) {
+      markMessageAsRead(message.id);
+    }
+  };
+
+  const toggleMessageSelection = (messageId: string) => {
+    if (selectedMessages.includes(messageId)) {
+      setSelectedMessages(prev => prev.filter(id => id !== messageId));
+    } else {
+      setSelectedMessages(prev => [...prev, messageId]);
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedMessages.length === inboxMessages.length) {
+      setSelectedMessages([]);
+    } else {
+      setSelectedMessages(inboxMessages.map(msg => msg.id));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedMessages([]);
+    setIsSelectMode(false);
+  };
+
   const unreadInboxCount = inboxMessages.filter(msg => !msg.read_at).length;
 
   return (
@@ -283,7 +403,7 @@ const Comms: React.FC = () => {
       ) : (
         /* Inbox Tab */
         <Card className="bg-gradient-to-br from-white to-blue-50 border-0 shadow-lg">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center space-x-2">
               <Mail className="h-6 w-6 text-primary" />
               <span className="bg-gradient-to-r from-primary to-orange-500 bg-clip-text text-transparent">
@@ -295,6 +415,62 @@ const Comms: React.FC = () => {
                 </Badge>
               )}
             </CardTitle>
+            <div className="flex items-center space-x-2">
+              {isSelectMode ? (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={toggleSelectAll}
+                    className="flex items-center space-x-1"
+                  >
+                    <Check className="h-4 w-4" />
+                    <span>{selectedMessages.length === inboxMessages.length ? 'Deselect All' : 'Select All'}</span>
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={deleteSelectedMessages}
+                    disabled={selectedMessages.length === 0}
+                    className="flex items-center space-x-1"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span>Delete ({selectedMessages.length})</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearSelection}
+                    className="flex items-center space-x-1"
+                  >
+                    <span>Cancel</span>
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsSelectMode(true)}
+                    disabled={inboxMessages.length === 0}
+                    className="flex items-center space-x-1"
+                  >
+                    <Check className="h-4 w-4" />
+                    <span>Select</span>
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={deleteAllMessages}
+                    disabled={inboxMessages.length === 0}
+                    className="flex items-center space-x-1"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span>Delete All</span>
+                  </Button>
+                </>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <ScrollArea className="h-96">
@@ -309,16 +485,31 @@ const Comms: React.FC = () => {
                   {inboxMessages.map((message) => (
                     <div
                       key={message.id}
-                      className={`p-4 rounded-lg border transition-all cursor-pointer ${
+                      className={`p-4 rounded-lg border transition-all cursor-pointer relative ${
                         message.read_at
                           ? 'bg-gray-50 border-gray-200'
                           : 'bg-blue-50 border-blue-200 shadow-sm'
-                      }`}
-                      onClick={() => !message.read_at && markMessageAsRead(message.id)}
+                      } ${selectedMessages.includes(message.id) ? 'ring-2 ring-blue-500' : ''}`}
+                      onClick={() => openMessageModal(message)}
                     >
+                      {isSelectMode && (
+                        <div 
+                          className="absolute top-3 left-3"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Checkbox
+                            checked={selectedMessages.includes(message.id)}
+                            onCheckedChange={() => toggleMessageSelection(message.id)}
+                          />
+                        </div>
+                      )}
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center space-x-2">
-                          <User className="h-4 w-4 text-gray-500" />
+                          {isSelectMode ? (
+                            <div className="w-6"></div>
+                          ) : (
+                            <User className="h-4 w-4 text-gray-500" />
+                          )}
                           <span className="font-medium text-gray-900">
                             {message.user?.full_name}
                           </span>
@@ -332,10 +523,34 @@ const Comms: React.FC = () => {
                         </div>
                       </div>
                       <h4 className="font-medium text-gray-900 mb-2">{message.title}</h4>
-                      <p className="text-gray-700 text-sm leading-relaxed">{message.message}</p>
+                      <p className="text-gray-700 text-sm leading-relaxed line-clamp-2">{message.message}</p>
                       <Separator className="my-2" />
-                      <div className="text-xs text-gray-500">
-                        From: {message.user?.full_name !== 'Unknown User' ? `${message.user?.full_name} (${message.user?.email})` : 'Unknown User'}
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs text-gray-500">
+                          From: {message.user?.full_name !== 'Unknown User' ? `${message.user?.full_name} (${message.user?.email})` : 'Unknown User'}
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openMessageModal(message);
+                            }}
+                          >
+                            <Eye className="h-3 w-3 mr-1" />
+                            View
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs text-red-600 hover:text-red-800"
+                            onClick={(e) => deleteSingleMessage(message.id, e)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -345,6 +560,54 @@ const Comms: React.FC = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Message Detail Modal */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          {selectedMessage && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center justify-between">
+                  <span>{selectedMessage.title}</span>
+                  {!selectedMessage.read_at && (
+                    <Badge variant="secondary" className="text-xs">New</Badge>
+                  )}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between text-sm text-gray-500">
+                  <div className="flex items-center space-x-2">
+                    <User className="h-4 w-4" />
+                    <span>{selectedMessage.user?.full_name}</span>
+                    <span>({selectedMessage.user?.email})</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <Clock className="h-4 w-4" />
+                    <span>{format(new Date(selectedMessage.created_at), 'MMM d, yyyy HH:mm')}</span>
+                  </div>
+                </div>
+                <Separator />
+                <div className="prose max-w-none">
+                  <p className="whitespace-pre-wrap">{selectedMessage.message}</p>
+                </div>
+                <div className="flex justify-end">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => {
+                      deleteSingleMessage(selectedMessage.id, {} as React.MouseEvent);
+                      setIsModalOpen(false);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Message
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
