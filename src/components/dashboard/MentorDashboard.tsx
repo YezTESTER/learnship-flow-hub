@@ -204,7 +204,23 @@ const MentorDashboard: React.FC<MentorDashboardProps> = ({ setActiveSection }) =
                       {submission.status}
                     </Badge>
                     {submission.status === 'submitted' && !submission.mentor_feedback && (
-                      <Button size="sm" variant="outline">Review</Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => {
+                          if (setActiveSection) {
+                            setActiveSection('feedback-review');
+                            // Store the submission info in localStorage
+                            localStorage.setItem('feedbackReviewSubmission', JSON.stringify({
+                              learnerId: submission.learner_id,
+                              month: submission.month,
+                              year: submission.year
+                            }));
+                          }
+                        }}
+                      >
+                        Review
+                      </Button>
                     )}
                   </div>
                 </div>

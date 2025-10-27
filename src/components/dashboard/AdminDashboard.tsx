@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 import { Users, FileText, TrendingUp, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 import { Tables } from '@/integrations/supabase/types';
 
@@ -198,13 +199,33 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ setActiveSection }) => 
                       {new Date(submission.created_at!).toLocaleDateString()}
                     </p>
                   </div>
-                  <Badge variant={
-                    submission.status === 'submitted' ? 'default' :
-                    submission.status === 'approved' ? 'secondary' :
-                    submission.status === 'overdue' ? 'destructive' : 'outline'
-                  }>
-                    {submission.status}
-                  </Badge>
+                  <div className="flex items-center space-x-2">
+                    <Badge variant={
+                      submission.status === 'submitted' ? 'default' :
+                      submission.status === 'approved' ? 'secondary' :
+                      submission.status === 'overdue' ? 'destructive' : 'outline'
+                    }>
+                      {submission.status}
+                    </Badge>
+                    {submission.status === 'submitted' && (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => {
+                          // Store the submission info FIRST to ensure it's available when navigating
+                          localStorage.setItem('feedbackReviewSubmission', JSON.stringify({
+                            learnerId: submission.learner_id,
+                            month: submission.month,
+                            year: submission.year
+                          }));
+                          // Update the hash directly for reliable navigation
+                          window.location.hash = 'feedback-review';
+                        }}
+                      >
+                        Review
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

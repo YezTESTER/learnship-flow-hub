@@ -82,6 +82,25 @@ const ManageFeedback: React.FC = () => {
         return;
       }
       setLearners(data || []);
+      
+      // Check if there's a submission to review from localStorage
+      const savedSubmission = localStorage.getItem('feedbackReviewSubmission');
+      if (savedSubmission) {
+        try {
+          const { learnerId, month, year } = JSON.parse(savedSubmission);
+          const learner = data.find(l => l.id === learnerId);
+          if (learner) {
+            setTimeout(() => {
+              setSelectedMonth(month);
+              setSelectedYear(year);
+              openLearner(learner);
+            }, 100);
+          }
+          localStorage.removeItem('feedbackReviewSubmission');
+        } catch (e) {
+          console.error('Error parsing saved submission', e);
+        }
+      }
     };
     loadLearners();
   }, [me]);
