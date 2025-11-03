@@ -6,6 +6,8 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useComplianceSystem } from '@/hooks/useComplianceSystem';
+import { useMonthlyCompliance } from '@/hooks/useMonthlyCompliance';
+import MonthlyComplianceCards from './MonthlyComplianceCards';
 import { Calendar, FileText, Award, Bell, Settings, TrendingUp, Clock, CheckCircle, Target, Star, Upload, AlertCircle, User, BarChart3, Zap } from 'lucide-react';
 
 interface TimesheetPeriod {
@@ -28,6 +30,7 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
 }) => {
   const { user, profile } = useAuth();
   const { compliance, timesheetPeriods, loading: complianceLoading } = useComplianceSystem();
+  const { monthlyHistory, lifetimePoints, loading: monthlyLoading } = useMonthlyCompliance();
   
   const [stats, setStats] = useState({
     totalSubmissions: 0,
@@ -194,7 +197,7 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
       .slice(0, 3);
   }, [pastTimesheets]);
 
-  if (loading || complianceLoading) {
+  if (loading || complianceLoading || monthlyLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#122ec0]"></div>
@@ -244,106 +247,14 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
         </Card>
       )}
 
-      {/* Comprehensive Compliance Breakdown */}
-      {compliance && (
-        <Card className="mb-8 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-blue-600" />
-              Compliance Breakdown - {compliance.overall_score.toFixed(0)}%
-            </CardTitle>
-            <CardDescription>{compliance.status_message}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Monthly Feedback</span>
-                  <span className="font-medium">{compliance.feedback_score.toFixed(0)}%</span>
-                </div>
-                <Progress value={compliance.feedback_score} className="h-2" />
-                <p className="text-xs text-muted-foreground">40% of total score</p>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Bi-weekly Timesheets</span>
-                  <span className="font-medium">{compliance.timesheet_score.toFixed(0)}%</span>
-                </div>
-                <Progress value={compliance.timesheet_score} className="h-2" />
-                <p className="text-xs text-muted-foreground">35% of total score</p>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Documents</span>
-                  <span className="font-medium">{compliance.document_score.toFixed(0)}%</span>
-                </div>
-                <Progress value={compliance.document_score} className="h-2" />
-                <p className="text-xs text-muted-foreground">15% of total score</p>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Engagement</span>
-                  <span className="font-medium">{compliance.engagement_score.toFixed(0)}%</span>
-                </div>
-                <Progress value={compliance.engagement_score} className="h-2" />
-                <p className="text-xs text-muted-foreground">10% of total score</p>
-              </div>
-            </div>
+      {/* Monthly Compliance & Lifetime Points */}
+      <MonthlyComplianceCards 
+        monthlyHistory={monthlyHistory}
+        lifetimePoints={lifetimePoints}
+      />
 
-            {compliance.next_actions.length > 0 && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                <h4 className="font-medium text-amber-800 mb-2 flex items-center gap-2">
-                  <Zap className="h-4 w-4" />
-                  Next Actions to Improve Score
-                </h4>
-                <ul className="space-y-1">
-                  {compliance.next_actions.map((action, index) => (
-                    <li key={index} className="text-sm text-amber-700 flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 bg-amber-600 rounded-full"></div>
-                      {action}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-blue-600">Compliance Score</p>
-                <p className="text-2xl font-bold text-blue-700">{compliance?.overall_score.toFixed(0) || 0}%</p>
-              </div>
-              <div className="p-3 bg-blue-200 rounded-full">
-                <Target className="h-6 w-6 text-blue-600" />
-              </div>
-            </div>
-            <Progress value={compliance?.overall_score || 0} className="mt-3 h-2" />
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-green-600">Points Earned</p>
-                <p className="text-2xl font-bold text-green-700">{profile?.points || 0}</p>
-              </div>
-              <div className="p-3 bg-green-200 rounded-full">
-                <Star className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
+      {/* Quick Stats Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -353,6 +264,20 @@ const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
               </div>
               <div className="p-3 bg-purple-200 rounded-full">
                 <FileText className="h-6 w-6 text-purple-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-600">Documents</p>
+                <p className="text-2xl font-bold text-green-700">{stats.uploadedDocuments}</p>
+              </div>
+              <div className="p-3 bg-green-200 rounded-full">
+                <Upload className="h-6 w-6 text-green-600" />
               </div>
             </div>
           </CardContent>

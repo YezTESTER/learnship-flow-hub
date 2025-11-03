@@ -309,6 +309,63 @@ export type Database = {
         }
         Relationships: []
       }
+      monthly_compliance_history: {
+        Row: {
+          created_at: string | null
+          document_points: number | null
+          document_score: number | null
+          engagement_points: number | null
+          engagement_score: number | null
+          feedback_points: number | null
+          feedback_score: number | null
+          id: string
+          learner_id: string
+          month: number
+          overall_compliance_percent: number | null
+          timesheet_points: number | null
+          timesheet_score: number | null
+          total_monthly_points: number | null
+          updated_at: string | null
+          year: number
+        }
+        Insert: {
+          created_at?: string | null
+          document_points?: number | null
+          document_score?: number | null
+          engagement_points?: number | null
+          engagement_score?: number | null
+          feedback_points?: number | null
+          feedback_score?: number | null
+          id?: string
+          learner_id: string
+          month: number
+          overall_compliance_percent?: number | null
+          timesheet_points?: number | null
+          timesheet_score?: number | null
+          total_monthly_points?: number | null
+          updated_at?: string | null
+          year: number
+        }
+        Update: {
+          created_at?: string | null
+          document_points?: number | null
+          document_score?: number | null
+          engagement_points?: number | null
+          engagement_score?: number | null
+          feedback_points?: number | null
+          feedback_score?: number | null
+          id?: string
+          learner_id?: string
+          month?: number
+          overall_compliance_percent?: number | null
+          timesheet_points?: number | null
+          timesheet_score?: number | null
+          total_monthly_points?: number | null
+          updated_at?: string | null
+          year?: number
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string | null
@@ -517,6 +574,7 @@ export type Database = {
           learner_id: string
           month: number
           period: number
+          updated_at: string | null
           uploaded_at: string | null
           work_timesheet_uploaded: boolean | null
           year: number
@@ -529,6 +587,7 @@ export type Database = {
           learner_id: string
           month: number
           period: number
+          updated_at?: string | null
           uploaded_at?: string | null
           work_timesheet_uploaded?: boolean | null
           year: number
@@ -541,33 +600,104 @@ export type Database = {
           learner_id?: string
           month?: number
           period?: number
+          updated_at?: string | null
           uploaded_at?: string | null
           work_timesheet_uploaded?: boolean | null
           year?: number
         }
         Relationships: []
       }
+      timesheet_submissions: {
+        Row: {
+          absent_days: number | null
+          created_at: string | null
+          download_count: number | null
+          expiration_date: string | null
+          file_name: string
+          file_path: string
+          file_size: number
+          id: string
+          is_expired: boolean | null
+          learner_id: string
+          schedule_id: string
+          uploaded_at: string | null
+        }
+        Insert: {
+          absent_days?: number | null
+          created_at?: string | null
+          download_count?: number | null
+          expiration_date?: string | null
+          file_name: string
+          file_path: string
+          file_size: number
+          id?: string
+          is_expired?: boolean | null
+          learner_id: string
+          schedule_id: string
+          uploaded_at?: string | null
+        }
+        Update: {
+          absent_days?: number | null
+          created_at?: string | null
+          download_count?: number | null
+          expiration_date?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number
+          id?: string
+          is_expired?: boolean | null
+          learner_id?: string
+          schedule_id?: string
+          uploaded_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timesheet_submissions_learner_id_fkey"
+            columns: ["learner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timesheet_submissions_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: true
+            referencedRelation: "timesheet_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      award_perfect_attendance_bonus: {
+        Args: { learner_id: string; schedule_id: string }
+        Returns: undefined
+      }
       award_performance_points: {
         Args: { action_type: string; base_points: number; user_id: string }
         Returns: number
+      }
+      bulk_assign_learners_to_mentor: {
+        Args: { learner_uuids: string[]; mentor_uuid: string }
+        Returns: undefined
       }
       calculate_comprehensive_compliance: {
         Args: { target_month: number; target_year: number; user_id: string }
         Returns: number
       }
-      check_missing_documents: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
+      calculate_monthly_compliance_with_points: {
+        Args: { target_month: number; target_year: number; user_id: string }
+        Returns: {
+          compliance_percent: number
+          total_points: number
+        }[]
       }
-      check_overdue_submissions: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      check_and_mark_expired_timesheets: { Args: never; Returns: undefined }
+      check_missing_documents: { Args: never; Returns: undefined }
+      check_overdue_submissions: { Args: never; Returns: undefined }
       create_notification: {
         Args: {
           notification_message: string
@@ -577,22 +707,59 @@ export type Database = {
         }
         Returns: string
       }
-      get_current_user_role: {
-        Args: Record<PropertyKey, never>
-        Returns: string
+      debug_user_compliance: {
+        Args: { target_month: number; target_year: number; user_id: string }
+        Returns: {
+          document_details: string
+          document_score: number
+          engagement_score: number
+          feedback_details: string
+          feedback_score: number
+          overall_score: number
+          profile_details: string
+          timesheet_details: string
+          timesheet_score: number
+        }[]
+      }
+      delete_expired_timesheet_files: {
+        Args: never
+        Returns: {
+          deleted_count: number
+        }[]
+      }
+      get_current_user_profile: {
+        Args: never
+        Returns: {
+          email: string
+          full_name: string
+          id: string
+          role: string
+        }[]
+      }
+      get_current_user_role: { Args: never; Returns: string }
+      increment_timesheet_download: {
+        Args: { schedule_id: string }
+        Returns: undefined
       }
       initialize_biweekly_timesheets: {
         Args: { target_month: number; target_year: number; user_id: string }
         Returns: undefined
       }
       send_message_to_admins: {
-        Args: { sender_id: string; message_title: string; message_content: string }
-        Returns: string[]
+        Args: {
+          message_content: string
+          message_title: string
+          sender_id: string
+        }
+        Returns: {
+          notification_id: string
+        }[]
       }
-      update_compliance_score: {
-        Args: { user_id: string }
+      sync_all_timesheet_schedules_for_learner: {
+        Args: { learner_id: string }
         Returns: undefined
       }
+      update_compliance_score: { Args: { user_id: string }; Returns: undefined }
     }
     Enums: {
       compliance_status:
@@ -619,6 +786,9 @@ export type Database = {
         | "learner_consent_policy"
         | "employment_contract"
         | "learnership_contract"
+        | "id_document"
+        | "cv"
+        | "bank_letter"
       user_role: "learner" | "mentor" | "admin"
     }
     CompositeTypes: {
@@ -772,6 +942,9 @@ export const Constants = {
         "learner_consent_policy",
         "employment_contract",
         "learnership_contract",
+        "id_document",
+        "cv",
+        "bank_letter",
       ],
       user_role: ["learner", "mentor", "admin"],
     },

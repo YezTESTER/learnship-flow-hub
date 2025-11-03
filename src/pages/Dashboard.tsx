@@ -9,7 +9,7 @@ import MentorDashboard from '@/components/dashboard/MentorDashboard';
 import AdminDashboard from '@/components/dashboard/AdminDashboard';
 import MonthlyFeedbackForm from '@/components/feedback/MonthlyFeedbackForm';
 import DocumentUpload from '@/components/documents/DocumentUpload';
-import AchievementsDisplay from '@/components/gamification/AchievementsDisplay';
+import PremiumAchievementsDashboard from '@/components/gamification/PremiumAchievementsDashboard';
 import NotificationCenter from '@/components/notifications/NotificationCenter';
 import ProfileManager from '@/components/profile/ProfileManager';
 import AccountSettings from '@/components/profile/AccountSettings';
@@ -98,7 +98,7 @@ const Dashboard = () => {
       case 'cv-builder':
         return <CVBuilder />;
       case 'achievements':
-        return <AchievementsDisplay />;
+        return <PremiumAchievementsDashboard />;
       case 'notifications':
         return <ErrorBoundary>
             <NotificationCenter />
@@ -161,7 +161,7 @@ const Dashboard = () => {
       case 'cv-builder':
         return 'My CV Builder';
       case 'achievements':
-        return 'Achievements';
+        return 'Performance & Achievements';
       case 'notifications':
         return 'Notifications';
       case 'profile':
