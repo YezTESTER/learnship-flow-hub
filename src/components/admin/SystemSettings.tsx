@@ -137,7 +137,7 @@ const SystemSettings = () => {
       console.log('Assigning learners:', selectedLearners, 'to mentor:', selectedMentorForAssignment);
       
       // Use the new bulk assignment function to avoid RLS policy issues
-      const { error: assignError } = await supabase.rpc('bulk_assign_learners_to_mentor', {
+      const { error: assignError } = await (supabase as any).rpc('bulk_assign_learners_to_mentor', {
         learner_uuids: selectedLearners,
         mentor_uuid: selectedMentorForAssignment
       });
