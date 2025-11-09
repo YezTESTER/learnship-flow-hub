@@ -65,8 +65,14 @@ serve(async (req) => {
       );
     }
 
-    // Verify user is authenticated
-    const authHeader = req.headers.get('Authorization');
+    // Create Supabase client with service role for admin check
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    );
+
+    // Get user from JWT (automatically verified by verify_jwt = true)
+    const authHeader = req.headers.get('Authorization')?.replace('Bearer ', '');
     if (!authHeader) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
@@ -74,24 +80,14 @@ serve(async (req) => {
       );
     }
 
-    // Create Supabase client
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: authHeader },
-        },
-      }
-    );
+    // Decode the JWT to get user info (JWT already verified by Supabase)
+    const jwtPayload = JSON.parse(atob(authHeader.split('.')[1]));
+    const userId = jwtPayload.sub;
+    const userEmail = jwtPayload.email;
 
-    // Get user from token
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    
-    if (userError || !user) {
-      console.error('User verification failed:', userError);
+    if (!userId) {
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify({ error: 'Invalid token' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -100,7 +96,7 @@ serve(async (req) => {
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
       .select('role')
-      .eq('id', user.id)
+      .eq('id', userId)
       .single();
 
     if (profileError || profile?.role !== 'admin') {
@@ -115,13 +111,13 @@ serve(async (req) => {
     const payload: TokenPayload = {
       app: 'wps-main-app',
       timestamp: Date.now(),
-      userId: user.id,
-      userEmail: user.email,
+      userId: userId,
+      userEmail: userEmail,
     };
 
     const token = await generateJWT(payload, jwtSecret);
     
-    console.log('Token generated successfully for user:', user.email);
+    console.log('Token generated successfully for user:', userEmail);
 
     return new Response(
       JSON.stringify({ token }),

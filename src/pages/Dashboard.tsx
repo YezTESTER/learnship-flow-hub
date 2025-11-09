@@ -208,21 +208,8 @@ const Dashboard = () => {
                         // Import supabase client
                         const { supabase } = await import('@/integrations/supabase/client');
                         
-                        // Get current session to ensure we have valid auth
-                        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-                        
-                        if (sessionError || !session) {
-                          console.error('Session error:', sessionError);
-                          alert('Please log in again to access Timesheet Management.');
-                          return;
-                        }
-                        
-                        // Call edge function to generate token with explicit auth header
-                        const { data, error } = await supabase.functions.invoke('generate-timesheet-token', {
-                          headers: {
-                            Authorization: `Bearer ${session.access_token}`
-                          }
-                        });
+                        // Call edge function to generate token (auth handled automatically)
+                        const { data, error } = await supabase.functions.invoke('generate-timesheet-token');
                         
                         if (error) {
                           console.error('Failed to generate token:', error);
