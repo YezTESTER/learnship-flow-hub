@@ -56,9 +56,9 @@ serve(async (req) => {
 
   try {
     // Get JWT secret from environment
-    const jwtSecret = Deno.env.get('JWT_SECRET_KEY');
+    const jwtSecret = Deno.env.get('NEXT_PUBLIC_JWT_SECRET_KEY');
     if (!jwtSecret) {
-      console.error('JWT_SECRET_KEY not configured');
+      console.error('NEXT_PUBLIC_JWT_SECRET_KEY not configured');
       return new Response(
         JSON.stringify({ error: 'Server configuration error' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
