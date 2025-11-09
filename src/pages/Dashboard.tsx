@@ -203,7 +203,34 @@ const Dashboard = () => {
                 {activeSection === 'timesheets' && profile?.role === 'admin' && (
                   <Button 
                     variant="default" 
-                    onClick={() => window.location.href = 'https://timesheet-generator-wps.vercel.app/'}
+                    onClick={async () => {
+                      try {
+                        // Import supabase client
+                        const { supabase } = await import('@/integrations/supabase/client');
+                        
+                        // Call edge function to generate token
+                        const { data, error } = await supabase.functions.invoke('generate-timesheet-token');
+                        
+                        if (error) {
+                          console.error('Failed to generate token:', error);
+                          alert('Unable to open Timesheet Management. Please try again.');
+                          return;
+                        }
+                        
+                        if (!data?.token) {
+                          console.error('No token received');
+                          alert('Unable to open Timesheet Management. Please try again.');
+                          return;
+                        }
+                        
+                        // Open timesheet app with token
+                        const timesheetUrl = `https://timesheet-generator-wps.vercel.app/?auth=${data.token}`;
+                        window.open(timesheetUrl, '_blank');
+                      } catch (err) {
+                        console.error('Error:', err);
+                        alert('Unable to open Timesheet Management. Please try again.');
+                      }
+                    }}
                     className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
                   >
                     <ArrowRight className="h-4 w-4" />
