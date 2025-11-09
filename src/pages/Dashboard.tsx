@@ -223,9 +223,9 @@ const Dashboard = () => {
                           return;
                         }
                         
-                        // Open timesheet app with token
+                        // Open timesheet app with token in same window
                         const timesheetUrl = `https://timesheet-generator-wps.vercel.app/?auth=${data.token}`;
-                        window.open(timesheetUrl, '_blank');
+                        window.location.href = timesheetUrl;
                       } catch (err) {
                         console.error('Error:', err);
                         alert('Unable to open Timesheet Management. Please try again.');
