@@ -1,4 +1,4 @@
 project_id = "doltpxwckdlcwsorgumr"
 
 [functions.generate-timesheet-token]
-verify_jwt = true
+verify_jwt = false
