@@ -87,7 +87,7 @@ const Index = () => {
     <div className="min-h-screen w-full flex overflow-hidden bg-white">
       {/* Left Side - Hero Image & Branding */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-black">
-        <div className="absolute inset-0 bg-black/40 z-10" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20 z-10" />
         <img
           src="/WPS-portal-login-page.png"
           alt="WPS Portal Background"
