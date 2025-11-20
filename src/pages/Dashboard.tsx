@@ -22,6 +22,7 @@ import ManageFeedback from '@/components/admin/ManageFeedback';
 import Comms from '@/components/admin/Comms';
 import AdminTimesheets from '@/components/admin/AdminTimesheets';
 import SystemSettings from '@/components/admin/SystemSettings';
+import WaitingHall from '@/components/auth/WaitingHall';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
@@ -35,6 +36,7 @@ const Dashboard = () => {
   const location = useLocation();
   const [activeSection, setActiveSection] = useState('dashboard');
   const [showOnboarding, setShowOnboarding] = useState(false);
+
   useEffect(() => {
     // Check if user needs onboarding (new user or incomplete profile)
     if (profile && profile.role === 'learner') {
@@ -53,6 +55,7 @@ const Dashboard = () => {
       setActiveSection(hash);
     }
   }, [location.hash, activeSection]);
+
   const checkProfileCompletion = () => {
     if (!profile) return 0;
     const requiredFields = ['full_name', 'id_number', 'learnership_program', 'employer_name', 'phone_number', 'address', 'date_of_birth', 'emergency_contact', 'emergency_phone', 'start_date', 'end_date'];
@@ -62,16 +65,29 @@ const Dashboard = () => {
     }).length;
     return Math.round(completedFields / requiredFields.length * 100);
   };
+
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#122ec0] via-blue-400 to-white">
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#122ec0] via-blue-400 to-white">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-white mx-auto"></div>
           <p className="text-white mt-4 text-lg">Loading your dashboard...</p>
         </div>
-      </div>;
+      </div>
+    );
   }
+
   if (!user) {
     return <Navigate to="/" replace />;
+  }
+
+  // Check for pending status
+  if (profile?.status === 'pending' && profile?.role !== 'admin') {
+    return <WaitingHall />;
+  }
+
+  if (profile?.status === 'rejected' && profile?.role !== 'admin') {
+    return <WaitingHall />;
   }
 
   // Redirect non-admin users away from admin sections
@@ -79,6 +95,7 @@ const Dashboard = () => {
   if (profile?.role !== 'admin' && adminOnlySections.includes(activeSection)) {
     setActiveSection('dashboard');
   }
+
   const renderContent = () => {
     if (activeSection === 'dashboard') {
       switch (profile?.role) {
@@ -90,6 +107,7 @@ const Dashboard = () => {
           return <LearnerDashboard setActiveSection={setActiveSection} />;
       }
     }
+
     switch (activeSection) {
       case 'feedback':
         return <MonthlyFeedbackForm />;
@@ -101,8 +119,8 @@ const Dashboard = () => {
         return <PremiumAchievementsDashboard />;
       case 'notifications':
         return <ErrorBoundary>
-            <NotificationCenter />
-          </ErrorBoundary>;
+          <NotificationCenter />
+        </ErrorBoundary>;
       case 'profile':
         return <ProfileManager />;
       case 'account-settings':
@@ -140,16 +158,19 @@ const Dashboard = () => {
         }
         return <Navigate to="/dashboard" replace />;
       default:
-        return <div className="flex items-center justify-center h-64">
+        return (
+          <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <h2 className="text-2xl font-bold text-gray-700 mb-2">
                 {activeSection.charAt(0).toUpperCase() + activeSection.slice(1)}
               </h2>
               <p className="text-gray-500">This section is coming soon!</p>
             </div>
-          </div>;
+          </div>
+        );
     }
   };
+
   const getSectionTitle = () => {
     switch (activeSection) {
       case 'dashboard':
@@ -184,10 +205,12 @@ const Dashboard = () => {
         return activeSection.charAt(0).toUpperCase() + activeSection.slice(1);
     }
   };
-  return <UnsavedChangesProvider>
+
+  return (
+    <UnsavedChangesProvider>
       <div className="relative min-h-screen md:flex">
         <Sidebar activeSection={activeSection} setActiveSection={setActiveSection} />
-        
+
         <main className="flex-1 md:ml-64 pt-16">
           <div className="pb-4 md:pb-8 px-[17px] pt-0">
             <div className="mb-8">
@@ -201,28 +224,28 @@ const Dashboard = () => {
                   </p>
                 </div>
                 {activeSection === 'timesheets' && profile?.role === 'admin' && (
-                  <Button 
-                    variant="default" 
+                  <Button
+                    variant="default"
                     onClick={async () => {
                       try {
                         // Import supabase client
                         const { supabase } = await import('@/integrations/supabase/client');
-                        
+
                         // Call edge function to generate token (auth handled automatically)
                         const { data, error } = await supabase.functions.invoke('generate-timesheet-token');
-                        
+
                         if (error) {
                           console.error('Failed to generate token:', error);
                           alert('Unable to open Timesheet Management. Please try again.');
                           return;
                         }
-                        
+
                         if (!data?.token) {
                           console.error('No token received');
                           alert('Unable to open Timesheet Management. Please try again.');
                           return;
                         }
-                        
+
                         // Open timesheet app with token in same window
                         const timesheetUrl = `https://timesheet-generator-wps.vercel.app/?auth=${data.token}`;
                         window.location.href = timesheetUrl;
@@ -239,7 +262,7 @@ const Dashboard = () => {
                 )}
               </div>
             </div>
-            
+
             {renderContent()}
           </div>
         </main>
@@ -250,6 +273,8 @@ const Dashboard = () => {
         {/* Navigation Warning Dialog */}
         <NavigationWarningDialog />
       </div>
-    </UnsavedChangesProvider>;
+    </UnsavedChangesProvider>
+  );
 };
+
 export default Dashboard;

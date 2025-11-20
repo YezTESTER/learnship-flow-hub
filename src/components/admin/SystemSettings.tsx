@@ -7,22 +7,24 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Save, UserPlus, Users } from 'lucide-react';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
 } from '@/components/ui/dialog';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import HallWayInvites from './HallWayInvites';
 
 const SystemSettings = () => {
   const [mentors, setMentors] = useState<any[]>([]);
@@ -48,7 +50,7 @@ const SystemSettings = () => {
         .from('profiles')
         .select('*')
         .eq('role', 'mentor');
-      
+
       if (mentorsError) throw mentorsError;
       setMentors(mentorsData || []);
 
@@ -57,7 +59,7 @@ const SystemSettings = () => {
         .from('profiles')
         .select('*')
         .eq('role', 'learner');
-      
+
       if (learnersError) throw learnersError;
       setLearners(learnersData || []);
 
@@ -131,17 +133,17 @@ const SystemSettings = () => {
 
   const assignLearnersToMentor = async () => {
     if (!selectedMentorForAssignment) return;
-    
+
     setAssigning(true);
     try {
       console.log('Assigning learners:', selectedLearners, 'to mentor:', selectedMentorForAssignment);
-      
+
       // Use the new bulk assignment function to avoid RLS policy issues
       const { error: assignError } = await (supabase as any).rpc('bulk_assign_learners_to_mentor', {
         learner_uuids: selectedLearners,
         mentor_uuid: selectedMentorForAssignment
       });
-      
+
       if (assignError) {
         throw assignError;
       }
@@ -149,12 +151,12 @@ const SystemSettings = () => {
       // Refresh data to show updated assignments
       console.log('Refreshing data...');
       await fetchSettings();
-      
+
       toast({
         title: 'Assignment Updated',
         description: 'Learner assignments have been updated successfully.'
       });
-      
+
       closeAssignmentDialog();
     } catch (error) {
       console.error('Error assigning learners:', error);
@@ -175,7 +177,7 @@ const SystemSettings = () => {
   );
 
   const toggleLearnerSelection = (learnerId: string) => {
-    setSelectedLearners(prev => 
+    setSelectedLearners(prev =>
       prev.includes(learnerId)
         ? prev.filter(id => id !== learnerId)
         : [...prev, learnerId]
@@ -200,177 +202,190 @@ const SystemSettings = () => {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Mentor Management</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Alert className="mb-6">
-            <AlertDescription>
-              Assign learners to mentors and configure visibility settings for each mentor.
-            </AlertDescription>
-          </Alert>
+      <Tabs defaultValue="hallway" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="hallway">Hall Way Invites</TabsTrigger>
+          <TabsTrigger value="assignment">Mentor Assignment</TabsTrigger>
+        </TabsList>
 
-          <div className="space-y-6">
-            {mentors.map(mentor => {
-              const assignedLearnerCount = learners.filter(l => l.mentor_id === mentor.id).length;
-              return (
-                <div key={mentor.id} className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="font-medium">{mentor.full_name}</h3>
-                      <p className="text-sm text-gray-600">{mentor.email}</p>
-                    </div>
-                    <div className="flex space-x-2">
-                      <Dialog open={isDialogOpen && selectedMentorForAssignment === mentor.id} onOpenChange={setIsDialogOpen}>
-                        <DialogTrigger asChild>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => openAssignmentDialog(mentor.id)}
-                          >
-                            <UserPlus className="h-4 w-4 mr-2" />
-                            Assign Learners
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                          <DialogHeader>
-                            <DialogTitle>Assign Learners to {mentor.full_name}</DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                              <p className="text-sm text-gray-600">
-                                {assignedLearnerCount} learners currently assigned
-                              </p>
-                              <Button 
-                                variant="outline" 
+        <TabsContent value="hallway">
+          <HallWayInvites />
+        </TabsContent>
+
+        <TabsContent value="assignment">
+          <Card>
+            <CardHeader>
+              <CardTitle>Mentor Management</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Alert className="mb-6">
+                <AlertDescription>
+                  Assign learners to mentors and configure visibility settings for each mentor.
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-6">
+                {mentors.map(mentor => {
+                  const assignedLearnerCount = learners.filter(l => l.mentor_id === mentor.id).length;
+                  return (
+                    <div key={mentor.id} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h3 className="font-medium">{mentor.full_name}</h3>
+                          <p className="text-sm text-gray-600">{mentor.email}</p>
+                        </div>
+                        <div className="flex space-x-2">
+                          <Dialog open={isDialogOpen && selectedMentorForAssignment === mentor.id} onOpenChange={setIsDialogOpen}>
+                            <DialogTrigger asChild>
+                              <Button
+                                variant="outline"
                                 size="sm"
-                                onClick={toggleSelectAll}
+                                onClick={() => openAssignmentDialog(mentor.id)}
                               >
-                                {selectedLearners.length === filteredLearners.length 
-                                  ? 'Deselect All' 
-                                  : 'Select All'}
+                                <UserPlus className="h-4 w-4 mr-2" />
+                                Assign Learners
                               </Button>
-                            </div>
-                            
-                            <div className="relative">
-                              <Input
-                                placeholder="Search learners..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-10"
-                              />
-                              <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                                <Users className="h-4 w-4" />
-                              </div>
-                            </div>
-                            
-                            <div className="max-h-96 overflow-y-auto border rounded-md">
-                              {filteredLearners.length > 0 ? (
-                                <div className="divide-y">
-                                  {filteredLearners.map(learner => (
-                                    <div 
-                                      key={learner.id} 
-                                      className="flex items-center p-3 hover:bg-gray-50"
-                                    >
-                                      <Checkbox
-                                        id={`learner-${learner.id}`}
-                                        checked={selectedLearners.includes(learner.id)}
-                                        onCheckedChange={() => toggleLearnerSelection(learner.id)}
-                                      />
-                                      <label 
-                                        htmlFor={`learner-${learner.id}`}
-                                        className="ml-3 flex-1 cursor-pointer"
-                                      >
-                                        <div className="font-medium">{learner.full_name}</div>
-                                        <div className="text-sm text-gray-600">{learner.email}</div>
-                                        {learner.employer_name && (
-                                          <div className="text-xs text-gray-500">{learner.employer_name}</div>
-                                        )}
-                                      </label>
-                                      {learner.mentor_id === selectedMentorForAssignment && (
-                                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                                          Currently Assigned
-                                        </span>
-                                      )}
-                                    </div>
-                                  ))}
+                            </DialogTrigger>
+                            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                              <DialogHeader>
+                                <DialogTitle>Assign Learners to {mentor.full_name}</DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-sm text-gray-600">
+                                    {assignedLearnerCount} learners currently assigned
+                                  </p>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={toggleSelectAll}
+                                  >
+                                    {selectedLearners.length === filteredLearners.length
+                                      ? 'Deselect All'
+                                      : 'Select All'}
+                                  </Button>
                                 </div>
-                              ) : (
-                                <div className="p-4 text-center text-gray-500">
-                                  No learners found
-                                </div>
-                              )}
-                            </div>
-                            
-                            <div className="flex justify-end space-x-2">
-                              <Button 
-                                variant="outline" 
-                                onClick={closeAssignmentDialog}
-                              >
-                                Cancel
-                              </Button>
-                              <Button 
-                                onClick={assignLearnersToMentor}
-                                disabled={assigning}
-                              >
-                                {assigning ? (
-                                  <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Updating...
-                                  </>
-                                ) : (
-                                  'Update Assignments'
-                                )}
-                              </Button>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                      
-                      <Switch
-                        checked={mentorSettings[mentor.id]?.visibility === 'all'}
-                        onCheckedChange={(checked) => 
-                          updateMentorVisibility(mentor.id, checked ? 'all' : 'assigned_only')
-                        }
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <Label htmlFor={`visibility-${mentor.id}`}>
-                        {mentorSettings[mentor.id]?.visibility === 'all' 
-                          ? 'Can see all learners' 
-                          : 'Can see assigned learners only'}
-                      </Label>
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {assignedLearnerCount} assigned learners
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
 
-          <div className="mt-6 flex justify-end">
-            <Button onClick={handleSaveSettings} disabled={saving}>
-              {saving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Settings
-                </>
-              )}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+                                <div className="relative">
+                                  <Input
+                                    placeholder="Search learners..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="pl-10"
+                                  />
+                                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                                    <Users className="h-4 w-4" />
+                                  </div>
+                                </div>
+
+                                <div className="max-h-96 overflow-y-auto border rounded-md">
+                                  {filteredLearners.length > 0 ? (
+                                    <div className="divide-y">
+                                      {filteredLearners.map(learner => (
+                                        <div
+                                          key={learner.id}
+                                          className="flex items-center p-3 hover:bg-gray-50"
+                                        >
+                                          <Checkbox
+                                            id={`learner-${learner.id}`}
+                                            checked={selectedLearners.includes(learner.id)}
+                                            onCheckedChange={() => toggleLearnerSelection(learner.id)}
+                                          />
+                                          <label
+                                            htmlFor={`learner-${learner.id}`}
+                                            className="ml-3 flex-1 cursor-pointer"
+                                          >
+                                            <div className="font-medium">{learner.full_name}</div>
+                                            <div className="text-sm text-gray-600">{learner.email}</div>
+                                            {learner.employer_name && (
+                                              <div className="text-xs text-gray-500">{learner.employer_name}</div>
+                                            )}
+                                          </label>
+                                          {learner.mentor_id === selectedMentorForAssignment && (
+                                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                              Currently Assigned
+                                            </span>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="p-4 text-center text-gray-500">
+                                      No learners found
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="flex justify-end space-x-2">
+                                  <Button
+                                    variant="outline"
+                                    onClick={closeAssignmentDialog}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button
+                                    onClick={assignLearnersToMentor}
+                                    disabled={assigning}
+                                  >
+                                    {assigning ? (
+                                      <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Updating...
+                                      </>
+                                    ) : (
+                                      'Update Assignments'
+                                    )}
+                                  </Button>
+                                </div>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+
+                          <Switch
+                            checked={mentorSettings[mentor.id]?.visibility === 'all'}
+                            onCheckedChange={(checked) =>
+                              updateMentorVisibility(mentor.id, checked ? 'all' : 'assigned_only')
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Label htmlFor={`visibility-${mentor.id}`}>
+                            {mentorSettings[mentor.id]?.visibility === 'all'
+                              ? 'Can see all learners'
+                              : 'Can see assigned learners only'}
+                          </Label>
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {assignedLearnerCount} assigned learners
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <Button onClick={handleSaveSettings} disabled={saving}>
+                  {saving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Save Settings
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
